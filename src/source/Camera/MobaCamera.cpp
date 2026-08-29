@@ -184,12 +184,11 @@ void MobaCamera::EdgePanFocus(double frameSeconds, const vec3_t /*heroPos*/)
     else if (MouseX >= REFERENCE_WIDTH - EDGE_MARGIN_REF_PX)
         horizontal = 1.0f;
 
-    const int bottomBand = REFERENCE_HEIGHT - HUD_BAR_REF_PX - EDGE_MARGIN_REF_PX;
     float forward = 0.0f;
     if (MouseY <= EDGE_MARGIN_REF_PX)
         forward = 1.0f;          // cursor at the top edge -> pan away from viewer
-    else if (MouseY >= bottomBand)
-        forward = -1.0f;         // cursor near the bottom -> pan toward viewer
+    else if (MouseY >= REFERENCE_HEIGHT - BOTTOM_EDGE_REF_PX)
+        forward = -1.0f;         // cursor jammed against the very bottom -> pan toward viewer
 
     if (horizontal == 0.0f && forward == 0.0f)
         return;

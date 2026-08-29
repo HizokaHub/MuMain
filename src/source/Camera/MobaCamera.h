@@ -75,9 +75,10 @@ private:
 
     // Screen-edge band (in the 640x480 reference space MouseX/MouseY live in).
     static constexpr int EDGE_MARGIN_REF_PX = 12;
-    // Bottom HUD bar height in reference pixels; the bottom pan band sits above
-    // it so resting the cursor on the skill bar doesn't scroll the view.
-    static constexpr int HUD_BAR_REF_PX = 48;
+    // The bottom of the screen is covered full-width by the HUD bar, so the
+    // downward-pan band is a thin strip at the very bottom edge only -- below
+    // the bar's clickable area, so clicking HUD buttons never pans the view.
+    static constexpr int BOTTOM_EDGE_REF_PX = 3;
 
     // Pan speed in world units per second at the reference zoom distance,
     // scaled linearly by (current distance / PAN_REFERENCE_DISTANCE).

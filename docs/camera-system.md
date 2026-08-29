@@ -27,8 +27,9 @@ Keeps the Default camera's top-down angle, zoom rungs and mount lift, but
 lets the view leave the character:
 
 - **Push the mouse cursor against a screen edge** to scroll the view that
-  way (left / right / top / bottom). The bottom band stops above the HUD
-  bar so resting the cursor on the skill bar does not scroll.
+  way. Left / right / top use a normal edge band; the bottom is only the
+  very last few pixels of the window (below the HUD bar) so clicking HUD
+  buttons never scrolls the view.
 - Scroll speed scales with the current zoom distance, so it feels the same
   zoomed in or out.
 - **Tap `Y`** to snap the view straight back onto your character; **hold `Y`**
