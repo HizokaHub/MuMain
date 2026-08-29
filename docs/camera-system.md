@@ -14,11 +14,46 @@ For the in-editor tuning UI, see [`dev-editor.md`](dev-editor.md).
 |--------|-------|-------|
 | **Default** | Everywhere | Original third-person follow. |
 | **Orbital** | Gameplay maps only | Middle-mouse drag to look around, wheel to zoom. |
+| **Moba** | Gameplay maps only | Detached edge-pan view, MOBA style. See below. |
 | **FreeFly** | Editor only | Free-look spectator. Not in Release builds. |
 
 Switching cameras outside gameplay (login, character select) is not
 supported - only the Default camera runs there. Leaving a gameplay map
 automatically returns you to Default.
+
+### Moba camera
+
+Keeps the Default camera's top-down angle, zoom rungs and mount lift, but
+lets the view leave the character:
+
+- **Push the mouse cursor against a screen edge** to scroll the view that
+  way (left / right / top / bottom). The bottom band stops above the HUD
+  bar so resting the cursor on the skill bar does not scroll.
+- Scroll speed scales with the current zoom distance, so it feels the same
+  zoomed in or out.
+- **Tap `Y`** to snap the view straight back onto your character; **hold `Y`**
+  to keep it pinned there (follow). Release to free-pan again.
+- **F11** snaps straight back to the character and resets the zoom rung.
+- The view is capped at a large fixed distance from the character for now
+  (about two thirds of a full map); a per-arena boundary will replace that
+  cap later. Terrain and objects are still only drawn within the normal
+  render range of wherever the camera is looking, so panning far shows the
+  focus area, not a continuous strip back to the character.
+- **Mouse wheel** zooms in and out around the focus point, up to a
+  comfortable MOBA overview. The wheel is always live in Moba mode (the F10
+  zoom lock is a Default/Orbital convenience). F11 resets the zoom.
+- **Click-to-move reaches far clicks.** Normally one click walks at most 15
+  tiles (the path buffer / move-packet limit), so a click far from the
+  character only walks part way. In Moba mode the clicked tile is remembered
+  and the character re-paths toward it each time a segment finishes, until it
+  arrives. A new click, following an ally, or an attack cancels it. Other
+  camera modes keep the one-segment-per-click behaviour.
+- **Right-click chases far enemies.** A right-click on an enemy beyond path
+  range would otherwise do nothing; in Moba mode the character walks toward
+  the (moving) target and attacks once in range. It also works mid-travel:
+  right-clicking an enemy while walking to a clicked point drops that order
+  and goes after the enemy. Cancelled by a new move/attack order, following
+  an ally, death or stun.
 
 ---
 
@@ -26,7 +61,7 @@ automatically returns you to Default.
 
 | Key | Action |
 |-----|--------|
-| **F9** | Cycle to the next camera (Default ↔ Orbital). |
+| **F9** | Cycle to the next camera (Default → Orbital → Moba → Default). |
 | **F10** | Toggle zoom lock. Default is **on** so the wheel never zooms by accident. |
 | **F11** | Reset the active camera. Default returns to its starting zoom rung; Orbital also resets rotation. |
 | **Mouse wheel** | Zoom in / out (when zoom is unlocked). |

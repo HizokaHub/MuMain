@@ -59,6 +59,8 @@
 
 
 #include "Camera/CameraProjection.h"
+#include "Camera/CameraManager.h"
+#include "Camera/CameraMode.h"
 #include "Scenes/SceneCommon.h"
 
 extern CUITextInputBox* g_pSingleTextInputBox;
@@ -2581,6 +2583,15 @@ bool SkillKeyPush(int Skill)
     return false;
 }
 
+// Set by Attack() when, in Moba camera mode, a right-click is made on an enemy
+// too far to reach in one path segment. MoveHero's tail turns it into a Moba
+// chase that walks the hero up and attacks. -1 = none pending.
+namespace
+{
+    int           g_MobaChaseRequestTarget = -1;
+    constexpr int MOBA_CHASE_REQUEST_MIN_TILES = 10;
+}
+
 void Attack(CHARACTER* c)
 {
     if ((MouseOnWindow || !SEASON3B::CheckMouseIn(0, 0, GetScreenWidth(), 429)) && MouseLButtonPush)
@@ -2696,6 +2707,23 @@ void Attack(CHARACTER* c)
     {
         if (giPetManager::SendPetCommand(c, Hero->CurrentSkill) == true)
         {
+            return;
+        }
+    }
+
+    // Moba camera: a right-click on an enemy far past the path-segment limit
+    // would otherwise just do nothing. Defer to a chase (started in MoveHero's
+    // tail) that walks the hero into range and then casts.
+    if (CameraManager::Instance().GetCurrentMode() == CameraMode::Moba
+        && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT
+        && CharactersClient[SelectedCharacter].Object.Live)
+    {
+        const OBJECT& tgt = CharactersClient[SelectedCharacter].Object;
+        const int adx = abs(c->PositionX - (int)(tgt.Position[0] / TERRAIN_SCALE));
+        const int ady = abs(c->PositionY - (int)(tgt.Position[1] / TERRAIN_SCALE));
+        if ((adx > ady ? adx : ady) > MOBA_CHASE_REQUEST_MIN_TILES)
+        {
+            g_MobaChaseRequestTarget = SelectedCharacter;
             return;
         }
     }
@@ -2861,6 +2889,244 @@ namespace
         }
         return true;
     }
+
+    // MOBA-camera "click far, walk the whole way". MU's click-to-move only paths
+    // one bounded segment per click (MAX_PATH_FIND = 15 tiles, fixed by the path
+    // buffer and the move packet). With the detached Moba camera the player
+    // routinely clicks well past that, so the destination tile is remembered and
+    // the hero re-paths toward it once the previous segment has finished AND a
+    // short pause has elapsed. The pause matters: chaining segments back to back
+    // lets the client outrun the server's movement / anti-cheat model, which
+    // then resyncs the client backwards and the hero appears frozen.
+    // Only active while the Moba camera is the current mode; every other camera
+    // keeps the vanilla one-segment-per-click behaviour.
+    bool   s_MobaAutoWalkActive = false;
+    int    s_MobaAutoWalkDestX = 0;
+    int    s_MobaAutoWalkDestY = 0;
+    int    s_MobaAutoWalkLastX = -1;
+    int    s_MobaAutoWalkLastY = -1;
+    int    s_MobaAutoWalkSegments = 0;
+    double s_MobaAutoWalkNextSegmentTime = 0.0;
+
+    constexpr int    MOBA_AUTOWALK_ARRIVE_TILES = 2;
+    constexpr int    MOBA_AUTOWALK_MAX_SEGMENTS = 48;   // ~720 tiles, well past any map
+    constexpr double MOBA_AUTOWALK_SEGMENT_PAUSE_MS = 450.0;
+
+    bool IsMobaCameraActive()
+    {
+        return CameraManager::Instance().GetCurrentMode() == CameraMode::Moba;
+    }
+
+    void CancelMobaAutoWalk()
+    {
+        s_MobaAutoWalkActive = false;
+        s_MobaAutoWalkSegments = 0;
+        s_MobaAutoWalkLastX = -1;
+        s_MobaAutoWalkLastY = -1;
+    }
+
+    void StartMobaAutoWalk(int destTileX, int destTileY)
+    {
+        if (!IsMobaCameraActive())
+        {
+            CancelMobaAutoWalk();
+            return;
+        }
+
+        s_MobaAutoWalkActive = true;
+        s_MobaAutoWalkDestX = destTileX;
+        s_MobaAutoWalkDestY = destTileY;
+        s_MobaAutoWalkLastX = -1;
+        s_MobaAutoWalkLastY = -1;
+        s_MobaAutoWalkSegments = 0;
+        s_MobaAutoWalkNextSegmentTime = WorldTime + MOBA_AUTOWALK_SEGMENT_PAUSE_MS;
+    }
+
+    bool MobaAutoWalkArrived(const CHARACTER* c)
+    {
+        return abs(c->PositionX - s_MobaAutoWalkDestX) <= MOBA_AUTOWALK_ARRIVE_TILES
+            && abs(c->PositionY - s_MobaAutoWalkDestY) <= MOBA_AUTOWALK_ARRIVE_TILES;
+    }
+
+    // Called from MoveHero every frame. Once the hero is standing still and the
+    // inter-segment pause has elapsed, issue the next segment toward the stored
+    // destination. Bails out (and clears itself) on arrival, a blocked path, no
+    // forward progress, the segment cap, or a non-move action taking over.
+    void TickMobaAutoWalk(CHARACTER* c, OBJECT* o)
+    {
+        if (!s_MobaAutoWalkActive || !IsMobaCameraActive())
+        {
+            CancelMobaAutoWalk();
+            return;
+        }
+
+        if (c->Movement)
+            return;  // a segment is still playing out
+
+        if (c->MovementType != MOVEMENT_MOVE || s_MobaAutoWalkSegments >= MOBA_AUTOWALK_MAX_SEGMENTS)
+        {
+            CancelMobaAutoWalk();
+            return;
+        }
+
+        if (MobaAutoWalkArrived(c))
+        {
+            CancelMobaAutoWalk();
+            return;
+        }
+
+        // No forward progress since the last segment -> stuck against geometry.
+        if (c->PositionX == s_MobaAutoWalkLastX && c->PositionY == s_MobaAutoWalkLastY)
+        {
+            CancelMobaAutoWalk();
+            return;
+        }
+
+        if (WorldTime < s_MobaAutoWalkNextSegmentTime)
+            return;
+
+        if (!PathFinding2(c->PositionX, c->PositionY, s_MobaAutoWalkDestX, s_MobaAutoWalkDestY, &c->Path))
+        {
+            CancelMobaAutoWalk();
+            return;
+        }
+
+        s_MobaAutoWalkLastX = c->PositionX;
+        s_MobaAutoWalkLastY = c->PositionY;
+        s_MobaAutoWalkSegments++;
+        s_MobaAutoWalkNextSegmentTime = WorldTime + MOBA_AUTOWALK_SEGMENT_PAUSE_MS;
+
+        c->MovementType = MOVEMENT_MOVE;
+        SendMove(c, o);
+    }
+
+    // MOBA-camera "right-click a far target and chase it into skill range".
+    // The skill-cast path also can't path more than MAX_PATH_FIND tiles, so a
+    // right-click on an enemy well off the character just does nothing. In Moba
+    // mode we instead walk segments toward the target's *live* position and,
+    // once close, hand back to ExecuteSkill which does the final approach + cast.
+    bool   s_MobaChaseActive = false;
+    int    s_MobaChaseTargetIdx = -1;
+    int    s_MobaChaseSegments = 0;
+    int    s_MobaChaseLastX = -1;
+    int    s_MobaChaseLastY = -1;
+    double s_MobaChaseNextTime = 0.0;
+
+    // Hand back to the vanilla attack logic once the target is within a single
+    // path segment; that logic does the final approach and the attack itself.
+    constexpr int MOBA_CHASE_HANDOFF_TILES = 14;
+
+    void CancelMobaChase()
+    {
+        s_MobaChaseActive = false;
+        s_MobaChaseTargetIdx = -1;
+        s_MobaChaseSegments = 0;
+        s_MobaChaseLastX = -1;
+        s_MobaChaseLastY = -1;
+    }
+
+    // Set up the vanilla "walk to a character and attack it" state, like a
+    // left-click on a monster. Action()/Action-on-arrival then does the final
+    // approach to weapon range and the attack. Used for the Moba chase hand-off
+    // and the mid-travel interrupt. Only call this with the hero standing still,
+    // so the walk it issues starts from a clean path state.
+    void BeginMobaTargetAttack(CHARACTER* c, OBJECT* o, int targetIdx)
+    {
+        if (targetIdx < 0 || targetIdx >= MAX_CHARACTERS_CLIENT)
+            return;
+
+        Attacking = 1;
+        c->MovementType = MOVEMENT_ATTACK;
+        ActionTarget = targetIdx;
+        SelectedCharacter = targetIdx;
+
+        const OBJECT& t = CharactersClient[targetIdx].Object;
+        TargetX = (int)(t.Position[0] / TERRAIN_SCALE);
+        TargetY = (int)(t.Position[1] / TERRAIN_SCALE);
+
+        if (PathFinding2(c->PositionX, c->PositionY, TargetX, TargetY, &c->Path))
+            SendMove(c, o);
+        else
+            Action(c, o, true);
+    }
+
+    void StartMobaChase(int targetIdx)
+    {
+        if (!IsMobaCameraActive() || targetIdx < 0 || targetIdx >= MAX_CHARACTERS_CLIENT)
+        {
+            CancelMobaChase();
+            return;
+        }
+
+        CancelMobaAutoWalk();  // a chase supersedes any pending ground auto-walk
+
+        s_MobaChaseActive = true;
+        s_MobaChaseTargetIdx = targetIdx;
+        s_MobaChaseSegments = 0;
+        s_MobaChaseLastX = -1;
+        s_MobaChaseLastY = -1;
+        s_MobaChaseNextTime = WorldTime;
+    }
+
+    void TickMobaChase(CHARACTER* c, OBJECT* o)
+    {
+        if (!s_MobaChaseActive || !IsMobaCameraActive())
+        {
+            CancelMobaChase();
+            return;
+        }
+
+        if (s_MobaChaseTargetIdx < 0 || s_MobaChaseTargetIdx >= MAX_CHARACTERS_CLIENT
+            || CharactersClient[s_MobaChaseTargetIdx].Object.Live == 0)
+        {
+            CancelMobaChase();
+            return;
+        }
+
+        const OBJECT& target = CharactersClient[s_MobaChaseTargetIdx].Object;
+        const int tx = (int)(target.Position[0] / TERRAIN_SCALE);
+        const int ty = (int)(target.Position[1] / TERRAIN_SCALE);
+        const int adx = abs(c->PositionX - tx);
+        const int ady = abs(c->PositionY - ty);
+        const int dist = (adx > ady) ? adx : ady;
+
+        // Within a path segment of the target: hand back to the vanilla
+        // walk-up-and-attack logic and stop chasing.
+        if (dist <= MOBA_CHASE_HANDOFF_TILES)
+        {
+            const int targetIdx = s_MobaChaseTargetIdx;
+            CancelMobaChase();
+            BeginMobaTargetAttack(c, o, targetIdx);
+            return;
+        }
+
+        if (c->Movement)
+            return;
+
+        if (s_MobaChaseSegments >= MOBA_AUTOWALK_MAX_SEGMENTS
+            || (c->PositionX == s_MobaChaseLastX && c->PositionY == s_MobaChaseLastY))
+        {
+            CancelMobaChase();
+            return;
+        }
+
+        if (WorldTime < s_MobaChaseNextTime)
+            return;
+
+        if (!PathFinding2(c->PositionX, c->PositionY, tx, ty, &c->Path))
+        {
+            CancelMobaChase();
+            return;
+        }
+
+        s_MobaChaseLastX = c->PositionX;
+        s_MobaChaseLastY = c->PositionY;
+        s_MobaChaseSegments++;
+        s_MobaChaseNextTime = WorldTime + MOBA_AUTOWALK_SEGMENT_PAUSE_MS;
+
+        c->MovementType = MOVEMENT_MOVE;
+        SendMove(c, o);
+    }
 }
 
 void MoveHero()
@@ -2894,11 +3160,17 @@ void MoveHero()
         || g_isCharacterBuff(o, eDeBuff_Stun)
         || g_isCharacterBuff(o, eDeBuff_Sleep))
     {
+        CancelMobaAutoWalk();
+        CancelMobaChase();
         return;
     }
 
     if (c->Object.Live == 0)
+    {
+        CancelMobaAutoWalk();
+        CancelMobaChase();
         return;
+    }
 
     if (HandleHeroPositionSlide(c))
     {
@@ -3114,7 +3386,10 @@ void MoveHero()
             }
             else
             {
-                //
+                // Following an ally overrides any pending Moba auto-walk / chase.
+                CancelMobaAutoWalk();
+                CancelMobaChase();
+
                 c->MovementType = MOVEMENT_MOVE;
                 ActionTarget = g_iFollowCharacter;
                 TargetX = (int)(followCharacter->Object.Position[0] / TERRAIN_SCALE);
@@ -3180,6 +3455,7 @@ void MoveHero()
 
                 if (SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT)
                 {
+                    CancelMobaChase();
                     Attacking = 1;
 
                     c->MovementType = MOVEMENT_ATTACK;
@@ -3333,6 +3609,8 @@ void MoveHero()
                         {
                             c->MovementType = MOVEMENT_MOVE;
                             SendMove(c, o);
+                            CancelMobaChase();
+                            StartMobaAutoWalk(TargetX, TargetY);
                             OBJECT* pHeroObj = &Hero->Object;
                             vec3_t vLight, vPos;
                             Vector(1.f, 1.f, 0.f, vLight);
@@ -3358,6 +3636,38 @@ void MoveHero()
     }
 
     Attack(Hero);
+
+    // Mid-travel attack: a right-click on an enemy while a Moba auto-walk or
+    // chase is running interrupts it and goes after that enemy instead. Attack()
+    // itself drops the right-click while the hero is moving, so handle it here.
+    if (IsMobaCameraActive()
+        && (s_MobaAutoWalkActive || s_MobaChaseActive)
+        && (MouseRButtonPush || MouseRButton)
+        && !(MouseLButtonPush || MouseLButton)
+        && !MouseOnWindow
+        && CheckAttack())
+    {
+        // Redirect: cut the auto-walk short and go after this enemy instead.
+        const int targetIdx = SelectedCharacter;
+        CancelMobaAutoWalk();
+        SetPlayerStop(c);
+        c->Movement = false;
+        StartMobaChase(targetIdx);  // TickMobaChase below handles near vs far
+    }
+
+    // Runs after the click handler so a fresh click this frame wins: if the hero
+    // is now moving, this is a no-op; only when genuinely idle does it issue the
+    // next auto-walk segment toward the remembered Moba destination.
+    TickMobaAutoWalk(c, o);
+
+    // Pick up a chase request left by Attack() (right-click on a far enemy in
+    // Moba mode) and advance any active chase toward its target.
+    if (g_MobaChaseRequestTarget >= 0)
+    {
+        StartMobaChase(g_MobaChaseRequestTarget);
+        g_MobaChaseRequestTarget = -1;
+    }
+    TickMobaChase(c, o);
 
     int Index = ((int)Hero->Object.Position[1] / (int)TERRAIN_SCALE) * 256 + ((int)Hero->Object.Position[0] / (int)TERRAIN_SCALE);
     if (Index < 0) Index = 0;

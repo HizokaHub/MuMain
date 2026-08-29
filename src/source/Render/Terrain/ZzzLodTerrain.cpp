@@ -2678,8 +2678,11 @@ void CreateFrustrum2D(vec3_t Position)
     // hardcoded trapezoid table (which was tuned for 4:3 and left the upper
     // screen corners uncovered on widescreen). The DevEditor near/far
     // trapezoid multipliers still apply, just on view-space halfW/nearHalfW.
+    // Moba joins it too: its hull must follow the panned camera position, not
+    // the legacy Hero-anchored trapezoid (which leaves the panned view black).
     if (currentMode == CameraMode::Default
         || currentMode == CameraMode::Orbital
+        || currentMode == CameraMode::Moba
 #ifdef _EDITOR
         || currentMode == CameraMode::FreeFly
 #endif

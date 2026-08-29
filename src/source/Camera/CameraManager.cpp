@@ -4,6 +4,7 @@
 #include "CameraManager.h"
 #include "DefaultCamera.h"
 #include "OrbitalCamera.h"
+#include "MobaCamera.h"
 #ifdef _EDITOR
 #include "FreeFlyCamera.h"
 #endif
@@ -33,6 +34,7 @@ void CameraManager::Initialize()
     // Create camera instances
     m_pDefaultCamera = std::make_unique<DefaultCamera>(g_Camera);
     m_pOrbitalCamera = std::make_unique<OrbitalCamera>(g_Camera);
+    m_pMobaCamera = std::make_unique<MobaCamera>(g_Camera);
 #ifdef _EDITOR
     m_pFreeFlyCamera = std::make_unique<FreeFlyCamera>(g_Camera);
 #endif
@@ -53,6 +55,7 @@ void CameraManager::Shutdown()
 
     m_pDefaultCamera.reset();
     m_pOrbitalCamera.reset();
+    m_pMobaCamera.reset();
 #ifdef _EDITOR
     m_pFreeFlyCamera.reset();
     m_pSpectatedCamera = nullptr;
@@ -146,13 +149,11 @@ bool CameraManager::SetCameraMode(CameraMode mode)
     if (mode == m_CurrentMode)
         return false;
 
-    // FIX: Only allow OrbitalCamera in MainScene
+    // OrbitalCamera and MobaCamera are MainScene-only (they need the Hero and
+    // live terrain). Silently ignore the request elsewhere.
     extern EGameScene SceneFlag;
-    if (mode == CameraMode::Orbital && SceneFlag != MAIN_SCENE)
-    {
-        // Silently ignore orbital camera request in non-MainScene
+    if ((mode == CameraMode::Orbital || mode == CameraMode::Moba) && SceneFlag != MAIN_SCENE)
         return false;
-    }
 
     ICamera* pNewCamera = nullptr;
 
@@ -163,6 +164,9 @@ bool CameraManager::SetCameraMode(CameraMode mode)
             break;
         case CameraMode::Orbital:
             pNewCamera = m_pOrbitalCamera.get();
+            break;
+        case CameraMode::Moba:
+            pNewCamera = m_pMobaCamera.get();
             break;
 #ifdef _EDITOR
         case CameraMode::FreeFly:
