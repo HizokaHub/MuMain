@@ -1308,6 +1308,17 @@ void CMapManager::LoadWorld(int Map)
         return;
     }
 
+    if (this->WorldActive == WD_200_MOBA_ARENA)
+    {
+        // MOBA Arena is a flat canvas: it borrows Crywolf's terrain attributes but
+        // drops every blocking flag (walls / no-ground / water / height), keeping
+        // only the safezone bit. Arena bounds are enforced server-side by plugin.
+        for (int i = 0; i < TERRAIN_SIZE * TERRAIN_SIZE; ++i)
+        {
+            TerrainWall[i] &= TW_SAFEZONE;
+        }
+    }
+
     mu_swprintf(FileName, L"Data\\%ls\\EncTerrain%d.obj", WorldName, iMapWorld);
 
     iResult = OpenObjectsEnc(FileName);
