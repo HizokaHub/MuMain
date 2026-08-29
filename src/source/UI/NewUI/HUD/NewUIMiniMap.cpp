@@ -138,8 +138,15 @@ bool SEASON3B::CNewUIMiniMap::Render()
     EnableAlphaTest();
     glColor4f(1.f, 1.f, 1.f, 1.f);
 
-    auto Ty = (float)(((float)Hero->PositionX / 256.f) * m_Lenth[m_MiniPos].y);
-    auto Tx = (float)(((float)Hero->PositionY / 256.f) * m_Lenth[m_MiniPos].x);
+    // Draw the whole map, centred on screen, instead of a slice around the
+    // hero. The map texture is drawn rotated 45 degrees, so a square of side
+    // FULL_MAP_SIZE occupies FULL_MAP_SIZE * sqrt(2) on screen; keep it inside
+    // the 430px-tall map area. The hero and markers are then plotted at their
+    // real map positions rather than the map being scrolled under a fixed hero.
+    const float FULL_MAP_SIZE = 285.f;
+    const float MapCenterX = FULL_MAP_SIZE / 2.f;
+    const float MapCenterY = FULL_MAP_SIZE / 2.f;
+
     float Ty1;
     float Tx1;
     float uvxy = (41.7f / 64.f);
@@ -149,7 +156,7 @@ bool SEASON3B::CNewUIMiniMap::Render()
     float Rot_Loc = 45.f;
     int i = 0;
 
-    RenderBitRotate(IMAGE_MINIMAP_INTERFACE, m_Lenth[m_MiniPos].x - Tx, m_Lenth[m_MiniPos].y - Ty, m_Lenth[m_MiniPos].x, m_Lenth[m_MiniPos].y, Rot);
+    RenderBitRotate(IMAGE_MINIMAP_INTERFACE, MapCenterX, MapCenterY, FULL_MAP_SIZE, FULL_MAP_SIZE, Rot);
 
     int NpcWidth = 15;
     int NpcWidthP = 30;
@@ -157,25 +164,28 @@ bool SEASON3B::CNewUIMiniMap::Render()
     {
         if (m_Mini_Map_Data[i].Kind > 0)
         {
-            Ty1 = (float)(((float)m_Mini_Map_Data[i].Location[0] / 256.f) * m_Lenth[m_MiniPos].y);
-            Tx1 = (float)(((float)m_Mini_Map_Data[i].Location[1] / 256.f) * m_Lenth[m_MiniPos].x);
+            Ty1 = (float)(((float)m_Mini_Map_Data[i].Location[0] / 256.f) * FULL_MAP_SIZE);
+            Tx1 = (float)(((float)m_Mini_Map_Data[i].Location[1] / 256.f) * FULL_MAP_SIZE);
             Rot_Loc = (float)m_Mini_Map_Data[i].Rotation;
 
             if (m_Mini_Map_Data[i].Kind == 1) //npc
             {
                 if (!(gMapManager.WorldActive == WD_34CRYWOLF_1ST && m_OccupationState > 0) || (m_Mini_Map_Data[i].Location[0] == 228 && m_Mini_Map_Data[i].Location[1] == 48 && gMapManager.WorldActive == WD_34CRYWOLF_1ST))
-                    RenderPointRotate(IMAGE_MINIMAP_INTERFACE + 5, Tx1, Ty1, NpcWidth, NpcWidth, m_Lenth[m_MiniPos].x - Tx, m_Lenth[m_MiniPos].y - Ty, m_Lenth[m_MiniPos].x, m_Lenth[m_MiniPos].y, Rot, Rot_Loc, 17.5f / 32.f, 17.5f / 32.f, i);
+                    RenderPointRotate(IMAGE_MINIMAP_INTERFACE + 5, Tx1, Ty1, NpcWidth, NpcWidth, MapCenterX, MapCenterY, FULL_MAP_SIZE, FULL_MAP_SIZE, Rot, Rot_Loc, 17.5f / 32.f, 17.5f / 32.f, i);
             }
             else
                 if (m_Mini_Map_Data[i].Kind == 2)
-                    RenderPointRotate(IMAGE_MINIMAP_INTERFACE + 4, Tx1, Ty1, NpcWidthP, NpcWidthP, m_Lenth[m_MiniPos].x - Tx, m_Lenth[m_MiniPos].y - Ty, m_Lenth[m_MiniPos].x, m_Lenth[m_MiniPos].y, Rot, Rot_Loc, 17.5f / 32.f, 17.5f / 32.f, 100 + i);
+                    RenderPointRotate(IMAGE_MINIMAP_INTERFACE + 4, Tx1, Ty1, NpcWidthP, NpcWidthP, MapCenterX, MapCenterY, FULL_MAP_SIZE, FULL_MAP_SIZE, Rot, Rot_Loc, 17.5f / 32.f, 17.5f / 32.f, 100 + i);
         }
         else
             break;
     }
 
     float Ch_wid = 12;
-    RenderImage(IMAGE_MINIMAP_INTERFACE + 3, 325, 230, Ch_wid, Ch_wid, 0.f, 0.f, 17.5f / 32.f, 17.5f / 32.f);
+    float HeroTx = ((float)Hero->PositionY / 256.f) * FULL_MAP_SIZE;
+    float HeroTy = ((float)Hero->PositionX / 256.f) * FULL_MAP_SIZE;
+    float HeroRot = Hero->Object.Angle[2];
+    RenderPointRotate(IMAGE_MINIMAP_INTERFACE + 3, HeroTx, HeroTy, Ch_wid, Ch_wid, MapCenterX, MapCenterY, FULL_MAP_SIZE, FULL_MAP_SIZE, Rot, HeroRot, 17.5f / 32.f, 17.5f / 32.f, -1);
 
     for (i = 0; i < 25; i++)
     {
