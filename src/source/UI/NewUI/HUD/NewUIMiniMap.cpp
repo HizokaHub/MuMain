@@ -222,9 +222,10 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     // map centre in reference (640x480) px, top-left origin.
     const float SIZE = 120.f;
     const float MARGIN = 6.f;
+    const float HUD_BAR = 72.f;   // HUD bar height + a little clearance, reference px
     const float CENTRE_X = REFERENCE_WIDTH - SIZE / 2.f - MARGIN;
-    // Sit low so the map bottom overlaps the top of the HUD bar (LoL style).
-    const float CENTRE_Y = REFERENCE_HEIGHT - SIZE / 2.f - 24.f;
+    // Bottom edge clears the top of the HUD bar (no overlap).
+    const float CENTRE_Y = REFERENCE_HEIGHT - HUD_BAR - SIZE / 2.f;
 
     // Whole-texture rotation. 90 = one quarter turn; flip the sign to spin the
     // other way.
