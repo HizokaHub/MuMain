@@ -1308,17 +1308,6 @@ void CMapManager::LoadWorld(int Map)
         return;
     }
 
-    if (this->WorldActive == WD_200_MOBA_ARENA)
-    {
-        // MOBA Arena is a flat canvas: it borrows Crywolf's terrain attributes but
-        // drops every blocking flag (walls / no-ground / water / height), keeping
-        // only the safezone bit. Arena bounds are enforced server-side by plugin.
-        for (int i = 0; i < TERRAIN_SIZE * TERRAIN_SIZE; ++i)
-        {
-            TerrainWall[i] &= TW_SAFEZONE;
-        }
-    }
-
     mu_swprintf(FileName, L"Data\\%ls\\EncTerrain%d.obj", WorldName, iMapWorld);
 
     iResult = OpenObjectsEnc(FileName);
@@ -1341,6 +1330,60 @@ void CMapManager::LoadWorld(int Map)
     else
     {
         CreateTerrain(FileName);
+    }
+
+    if (this->WorldActive == WD_200_MOBA_ARENA)
+    {
+        // MOBA Arena is a flat canvas built on Crywolf's terrain: drop every
+        // baked wall / rock / fortress collision, but block a tile when it is
+        //   - on a real terrain elevation (raised ridge separating the lanes),
+        //     detected via the heightmap gradient, or
+        //   - Crywolf's "no ground" void (the natural map border), or
+        //   - inside the hard outer ring (failsafe so nobody reaches the edge).
+        // Keep the safezone bit. Runs after CreateTerrain so BackTerrainHeight is
+        // populated. Keep the threshold / ring in sync with the server-side
+        // Terrain201.att bake.
+        const float MOBA_ELEVATION_STEP = 100.0f;
+        const int MOBA_BORDER_RING = 3;
+        for (int ty = 0; ty < TERRAIN_SIZE; ++ty)
+        {
+            for (int tx = 0; tx < TERRAIN_SIZE; ++tx)
+            {
+                const int idx = ty * TERRAIN_SIZE + tx;
+                const WORD original = TerrainWall[idx];
+                const float centre = BackTerrainHeight[idx];
+                float maxDelta = 0.0f;
+                for (int oy = -1; oy <= 1; ++oy)
+                {
+                    for (int ox = -1; ox <= 1; ++ox)
+                    {
+                        const int nx = tx + ox;
+                        const int ny = ty + oy;
+                        if (nx < 0 || ny < 0 || nx >= TERRAIN_SIZE || ny >= TERRAIN_SIZE)
+                        {
+                            continue;
+                        }
+
+                        float d = BackTerrainHeight[ny * TERRAIN_SIZE + nx] - centre;
+                        if (d < 0.0f)
+                        {
+                            d = -d;
+                        }
+
+                        if (d > maxDelta)
+                        {
+                            maxDelta = d;
+                        }
+                    }
+                }
+
+                const bool ring = tx < MOBA_BORDER_RING || ty < MOBA_BORDER_RING
+                    || tx >= TERRAIN_SIZE - MOBA_BORDER_RING || ty >= TERRAIN_SIZE - MOBA_BORDER_RING;
+                const bool block = ring || (original & TW_NOGROUND) != 0 || maxDelta > MOBA_ELEVATION_STEP;
+                const WORD safe = original & TW_SAFEZONE;
+                TerrainWall[idx] = block ? (safe | TW_NOMOVE) : safe;
+            }
+        }
     }
 
     if (gMapManager.InBattleCastle())
