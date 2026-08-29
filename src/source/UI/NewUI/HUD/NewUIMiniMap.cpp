@@ -211,6 +211,67 @@ bool SEASON3B::CNewUIMiniMap::Render()
     return true;
 }
 
+void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
+{
+    if (m_bSuccess == false || Hero == NULL)
+        return;
+
+    // Small map pinned above the HUD bar, bottom-right. Drawn with
+    // RenderBitmapRotate (same family as the full-map RenderBitRotate) so the
+    // texture's transparent corners are honoured. CENTRE_X/CENTRE_Y are the
+    // map centre in reference (640x480) px, top-left origin.
+    const float SIZE = 120.f;
+    const float MARGIN = 6.f;
+    const float CENTRE_X = REFERENCE_WIDTH - SIZE / 2.f - MARGIN;
+    // Sit low so the map bottom overlaps the top of the HUD bar (LoL style).
+    const float CENTRE_Y = REFERENCE_HEIGHT - SIZE / 2.f - 24.f;
+
+    // Whole-texture rotation. 90 = one quarter turn; flip the sign to spin the
+    // other way.
+    const float ROT = 90.f;
+    const float UV = 17.5f / 32.f;
+
+    const float rad = ROT * 3.14159265f / 180.f;
+    const float ca = cosf(rad);
+    const float sa = sinf(rad);
+
+    EnableAlphaTest();
+    DisableAlphaBlend();
+    EnableAlphaTest();
+    glColor4f(1.f, 1.f, 1.f, 1.f);
+
+    RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE, ROT, 0.f, 0.f, 1.f, 1.f);
+
+    // Plot a marker: rotate its map-local offset by ROT around the map centre,
+    // matching how RenderBitmapRotate rotated the texture, then blit the icon.
+    auto plot = [&](int tex, float pu, float pv, float w, float rotLoc)
+    {
+        const float lx = (pu - 0.5f) * SIZE;
+        const float ly = (0.5f - pv) * SIZE;
+        const float mx = CENTRE_X + (lx * ca - ly * sa);
+        const float my = CENTRE_Y - (lx * sa + ly * ca);
+        RenderBitmapRotate(tex, mx, my, w, w, rotLoc, 0.f, 0.f, UV, UV);
+    };
+
+    for (int i = 0; i < MAX_MINI_MAP_DATA; i++)
+    {
+        if (m_Mini_Map_Data[i].Kind <= 0)
+            break;
+
+        const float pu = (float)m_Mini_Map_Data[i].Location[1] / 256.f;
+        const float pv = (float)m_Mini_Map_Data[i].Location[0] / 256.f;
+
+        if (m_Mini_Map_Data[i].Kind == 1)
+            plot(IMAGE_MINIMAP_INTERFACE + 5, pu, pv, 7.f, 0.f);
+        else if (m_Mini_Map_Data[i].Kind == 2)
+            plot(IMAGE_MINIMAP_INTERFACE + 4, pu, pv, 12.f, 0.f);
+    }
+
+    plot(IMAGE_MINIMAP_INTERFACE + 3, (float)Hero->PositionY / 256.f, (float)Hero->PositionX / 256.f, 8.f, 0.f);
+
+    DisableAlphaBlend();
+}
+
 bool SEASON3B::CNewUIMiniMap::Update()
 {
     return true;

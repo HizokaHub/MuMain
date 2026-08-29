@@ -67,6 +67,10 @@ namespace SEASON3B
         bool Update();
         bool Render();
 
+        // Always-on small minimap pinned to the bottom-right corner (LoL style).
+        // The caller decides when to show it (currently only on the Crywolf map).
+        void RenderCornerMinimap();
+
         float GetLayerDepth();	//. 8.1f
 
         void OpenningProcess();
