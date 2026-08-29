@@ -67,6 +67,7 @@ enum ENUM_WORLD
     WD_79UNITEDMARKETPLACE = 79,
     WD_80KARUTAN1 = 80,
     WD_81KARUTAN2 = 81,
+    WD_200_MOBA_ARENA = 200, // custom MOBA game mode arena; reuses Crywolf (34) client assets
     NUM_WD
 };
 

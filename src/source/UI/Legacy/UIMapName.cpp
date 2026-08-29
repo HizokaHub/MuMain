@@ -80,6 +80,7 @@ void CUIMapName::InitImgPathMap()
 
     m_mapImgPath[33] = strFolderName + L"aida.tga";
     m_mapImgPath[34] = strFolderName + L"crywolffortress.tga";
+    m_mapImgPath[200] = strFolderName + L"crywolffortress.tga"; // MOBA Arena (Crywolf terrain copy)
 
     m_mapImgPath[36] = strFolderName + L"lostkalima.tga";
     m_mapImgPath[37] = strFolderName + L"kantru.tga";

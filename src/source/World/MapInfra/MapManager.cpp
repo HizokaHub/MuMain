@@ -174,6 +174,7 @@ void CMapManager::Load() // OK
         LoadWaveFile(SOUND_BLOODCASTLE, L"Data\\Sound\\iBloodCastle.wav", 1);
     }
     break;
+    case WD_200_MOBA_ARENA: // MOBA Arena reuses Crywolf assets
     case WD_34CRYWOLF_1ST:
     {
         gLoadData.AccessModel(MODEL_SCOLPION, L"Data\\Object35\\", L"scorpion");
@@ -1219,6 +1220,11 @@ void CMapManager::LoadWorld(int Map)
     else if (gMapManager.IsCursedTemple())
     {
         iMapWorld = WD_45CURSEDTEMPLE_LV1 + 2;
+    }
+    else if (this->WorldActive == WD_200_MOBA_ARENA)
+    {
+        // MOBA Arena: load Crywolf (World35) terrain / objects / minimap assets.
+        iMapWorld = WD_34CRYWOLF_1ST + 1;
     }
 
     battleCastle::Init();

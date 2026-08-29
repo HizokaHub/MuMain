@@ -185,9 +185,9 @@ bool SEASON3B::CNewUIMainFrameWindow::Render()
     RenderExperience();
     DisableAlphaBlend();
 
-    // Always-on corner minimap, only on the Crywolf map (the MOBA arena) and
-    // only while the full Tab map isn't already open.
-    if (gMapManager.WorldActive == WD_34CRYWOLF_1ST
+    // Always-on corner minimap, only on the MOBA arena (map 200) or the Crywolf
+    // map it is cloned from, and only while the full Tab map isn't already open.
+    if ((gMapManager.WorldActive == WD_200_MOBA_ARENA || gMapManager.WorldActive == WD_34CRYWOLF_1ST)
         && g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_MINI_MAP) == false)
     {
         g_pNewUIMiniMap->RenderCornerMinimap();
