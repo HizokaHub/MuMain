@@ -1334,23 +1334,66 @@ void CMapManager::LoadWorld(int Map)
 
     if (this->WorldActive == WD_200_MOBA_ARENA)
     {
-        // MOBA Arena is a flat canvas built on Crywolf's terrain: drop every
-        // baked wall / rock / fortress collision, but block a tile when it is
+        // MOBA Arena is a flat canvas built on Crywolf's terrain. A tile is blocked
+        // only when it is:
         //   - on a real terrain elevation (raised ridge separating the lanes),
-        //     detected via the heightmap gradient, or
-        //   - Crywolf's "no ground" void (the natural map border), or
-        //   - inside the hard outer ring (failsafe so nobody reaches the edge).
-        // Keep the safezone bit. Runs after CreateTerrain so BackTerrainHeight is
-        // populated. Keep the threshold / ring in sync with the server-side
-        // Terrain201.att bake.
+        //     detected by the heightmap gradient exceeding MOBA_ELEVATION_STEP;
+        //   - part of the exterior void (near-zero terrain height, flood-filled
+        //     inward from the map edges) -> this is the organic map border;
+        //   - inside the hard outer ring (failsafe so nobody reaches the array edge).
+        // Every baked wall / rock / fortress attribute is otherwise dropped; the
+        // safezone bit is kept. Runs after CreateTerrain so BackTerrainHeight is
+        // populated. Keep the constants in sync with the server-side Terrain201.att
+        // bake (openmu-aram).
         const float MOBA_ELEVATION_STEP = 100.0f;
-        const int MOBA_BORDER_RING = 3;
+        const float MOBA_VOID_HEIGHT = 20.0f;
+        const int MOBA_BORDER_RING = 5;
+
+        static unsigned char s_isVoid[TERRAIN_SIZE * TERRAIN_SIZE];
+        static int s_stack[TERRAIN_SIZE * TERRAIN_SIZE];
+        memset(s_isVoid, 0, sizeof(s_isVoid));
+        int sp = 0;
+        for (int tx = 0; tx < TERRAIN_SIZE; ++tx)
+        {
+            const int topIdx = tx;
+            const int botIdx = (TERRAIN_SIZE - 1) * TERRAIN_SIZE + tx;
+            if (BackTerrainHeight[topIdx] < MOBA_VOID_HEIGHT && !s_isVoid[topIdx]) { s_isVoid[topIdx] = 1; s_stack[sp++] = topIdx; }
+            if (BackTerrainHeight[botIdx] < MOBA_VOID_HEIGHT && !s_isVoid[botIdx]) { s_isVoid[botIdx] = 1; s_stack[sp++] = botIdx; }
+        }
+        for (int ty = 0; ty < TERRAIN_SIZE; ++ty)
+        {
+            const int leftIdx = ty * TERRAIN_SIZE;
+            const int rightIdx = ty * TERRAIN_SIZE + (TERRAIN_SIZE - 1);
+            if (BackTerrainHeight[leftIdx] < MOBA_VOID_HEIGHT && !s_isVoid[leftIdx]) { s_isVoid[leftIdx] = 1; s_stack[sp++] = leftIdx; }
+            if (BackTerrainHeight[rightIdx] < MOBA_VOID_HEIGHT && !s_isVoid[rightIdx]) { s_isVoid[rightIdx] = 1; s_stack[sp++] = rightIdx; }
+        }
+        while (sp > 0)
+        {
+            const int idx = s_stack[--sp];
+            const int cx = idx & (TERRAIN_SIZE - 1);
+            const int cy = idx >> 8;
+            const int nb[4] = {
+                cx > 0 ? idx - 1 : -1,
+                cx < TERRAIN_SIZE - 1 ? idx + 1 : -1,
+                cy > 0 ? idx - TERRAIN_SIZE : -1,
+                cy < TERRAIN_SIZE - 1 ? idx + TERRAIN_SIZE : -1,
+            };
+            for (int k = 0; k < 4; ++k)
+            {
+                const int n = nb[k];
+                if (n >= 0 && !s_isVoid[n] && BackTerrainHeight[n] < MOBA_VOID_HEIGHT)
+                {
+                    s_isVoid[n] = 1;
+                    s_stack[sp++] = n;
+                }
+            }
+        }
+
         for (int ty = 0; ty < TERRAIN_SIZE; ++ty)
         {
             for (int tx = 0; tx < TERRAIN_SIZE; ++tx)
             {
                 const int idx = ty * TERRAIN_SIZE + tx;
-                const WORD original = TerrainWall[idx];
                 const float centre = BackTerrainHeight[idx];
                 float maxDelta = 0.0f;
                 for (int oy = -1; oy <= 1; ++oy)
@@ -1379,8 +1422,8 @@ void CMapManager::LoadWorld(int Map)
 
                 const bool ring = tx < MOBA_BORDER_RING || ty < MOBA_BORDER_RING
                     || tx >= TERRAIN_SIZE - MOBA_BORDER_RING || ty >= TERRAIN_SIZE - MOBA_BORDER_RING;
-                const bool block = ring || (original & TW_NOGROUND) != 0 || maxDelta > MOBA_ELEVATION_STEP;
-                const WORD safe = original & TW_SAFEZONE;
+                const bool block = ring || s_isVoid[idx] != 0 || maxDelta > MOBA_ELEVATION_STEP;
+                const WORD safe = TerrainWall[idx] & TW_SAFEZONE;
                 TerrainWall[idx] = block ? (safe | TW_NOMOVE) : safe;
             }
         }
