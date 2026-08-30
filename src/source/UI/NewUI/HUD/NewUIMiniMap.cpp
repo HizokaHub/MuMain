@@ -211,6 +211,15 @@ bool SEASON3B::CNewUIMiniMap::Render()
     return true;
 }
 
+void SEASON3B::CNewUIMiniMap::RenderCornerOverlayIfActive()
+{
+    if ((gMapManager.WorldActive == WD_200_MOBA_ARENA || gMapManager.WorldActive == WD_34CRYWOLF_1ST)
+        && g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_MINI_MAP) == false)
+    {
+        RenderCornerMinimap();
+    }
+}
+
 void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
 {
     if (m_bSuccess == false || Hero == NULL)

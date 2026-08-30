@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "UI/NewUI/NewUIManager.h"
+#include "UI/NewUI/NewUISystem.h"        // g_pNewUIMiniMap (corner-minimap interleave)
+#include "UI/NewUI/HUD/NewUIMiniMap.h"
 #include "UI/Legacy/UIControls.h"  // CUITextInputBox::GetFocusedPortable (issue #447)
 
 
@@ -203,13 +205,30 @@ bool SEASON3B::CNewUIManager::Render()
     std::sort(m_vecUI.begin(), m_vecUI.end(), CompareLayerDepth);
     auto vecUI = m_vecUI;
 
+    // The MOBA arena's always-on corner minimap is drawn here, interleaved by
+    // layer depth, so it behaves as if it had a depth of ~2.0: below every
+    // window the player opens (inventory 4.2, character/stats 5.1, skill list
+    // 5.2, shops, ...) and above the base HUD. RenderCornerOverlayIfActive is a
+    // no-op off the arena or while the full Tab map is open.
+    bool bCornerMinimapDrawn = false;
     auto vi = vecUI.begin();
     for (; vi != vecUI.end(); vi++)
     {
+        if (!bCornerMinimapDrawn && (*vi)->GetLayerDepth() > 2.0f)
+        {
+            g_pNewUIMiniMap->RenderCornerOverlayIfActive();
+            bCornerMinimapDrawn = true;
+        }
+
         if ((*vi)->IsVisible())
         {
             (*vi)->Render();
         }
+    }
+
+    if (!bCornerMinimapDrawn)
+    {
+        g_pNewUIMiniMap->RenderCornerOverlayIfActive();
     }
 
     return true;

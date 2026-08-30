@@ -71,6 +71,12 @@ namespace SEASON3B
         // The caller decides when to show it (currently only on the Crywolf map).
         void RenderCornerMinimap();
 
+        // Wraps RenderCornerMinimap with the "on the MOBA arena and the full Tab
+        // map isn't open" gate. Called from the UI manager's render pass at a low
+        // z so any window the player opens (stats, inventory, skill list, ...)
+        // draws over it instead of the other way round.
+        void RenderCornerOverlayIfActive();
+
         float GetLayerDepth();	//. 8.1f
 
         void OpenningProcess();
