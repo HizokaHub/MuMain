@@ -165,8 +165,10 @@ namespace SEASON3B
         // window while there are unspent champion skill points. Populated in Render(),
         // consumed in UpdateMouseEvent().
         struct MobaPlusBox { int skillNumber; float x, y, w, h; };
-        MobaPlusBox m_MobaPlusBox[32];
+        MobaPlusBox m_MobaPlusBox[32];      // in the skill window
         int m_MobaPlusBoxCount = 0;
+        MobaPlusBox m_MobaBarPlusBox[10];   // on the bottom action bar
+        int m_MobaBarPlusBoxCount = 0;
     };
 
     class CNewUIMainFrameWindow : public CNewUIObj, public INewUI3DRenderObj

@@ -1417,18 +1417,32 @@ bool SEASON3B::CNewUISkillList::UpdateMouseEvent()
         return true;
     }
 
-    // Custom MOBA game mode: click a "+" box (drawn in Render over each skill) to spend
-    // a champion skill point on that skill.
-    if (m_bSkillList && MouseLButtonPush)
+    // Custom MOBA game mode: click a "+" box (drawn over each skill) to spend a champion
+    // skill point on that skill - on the bottom bar (always) or the skill window.
+    if (MouseLButtonPush)
     {
-        for (int b = 0; b < m_MobaPlusBoxCount; ++b)
+        for (int b = 0; b < m_MobaBarPlusBoxCount; ++b)
         {
-            const MobaPlusBox& box = m_MobaPlusBox[b];
+            const MobaPlusBox& box = m_MobaBarPlusBox[b];
             if (SEASON3B::CheckMouseIn(box.x, box.y, box.w, box.h))
             {
                 SendMobaSkillUp(box.skillNumber);
                 PlayBuffer(SOUND_CLICK01);
                 return false;
+            }
+        }
+
+        if (m_bSkillList)
+        {
+            for (int b = 0; b < m_MobaPlusBoxCount; ++b)
+            {
+                const MobaPlusBox& box = m_MobaPlusBox[b];
+                if (SEASON3B::CheckMouseIn(box.x, box.y, box.w, box.h))
+                {
+                    SendMobaSkillUp(box.skillNumber);
+                    PlayBuffer(SOUND_CLICK01);
+                    return false;
+                }
             }
         }
     }
@@ -1956,6 +1970,8 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
 
     BYTE bySkillNumber = CharacterAttribute->SkillNumber;
 
+    m_MobaBarPlusBoxCount = 0;
+
     if (bySkillNumber > 0)
     {
         int iStartSkillIndex = 1;
@@ -1993,6 +2009,30 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
                 SEASON3B::RenderImage(IMAGE_SKILLBOX_USE, x, y, width, height);
             }
             RenderSkillIcon(m_iHotKeySkillType[iIndex], x + 6, y + 6, 20, 28);
+
+            // Custom MOBA game mode: skill level badge + "+" on the bar slot.
+            const int mobaNum = m_iHotKeySkillType[iIndex];
+            if (g_MobaLevel > 0 && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER && g_MobaHasSkill[mobaNum])
+            {
+                glColor3f(1.f, 0.85f, 0.2f);
+                SEASON3B::RenderNumber(x + 3.f, y + height - 13.f, (int)g_MobaSkillLevel[mobaNum]);
+                glColor3f(1.f, 1.f, 1.f);
+
+                if (g_MobaSkillPoints > 0 && g_MobaSkillLevel[mobaNum] < 5 && m_MobaBarPlusBoxCount < 10)
+                {
+                    const float bx = x + width - 13.f;
+                    const float by = y - 1.f;
+                    glColor4f(0.f, 0.f, 0.f, 0.75f);
+                    RenderColor(bx - 1.f, by - 1.f, 14.f, 14.f);
+                    glColor3f(0.16f, 0.62f, 0.16f);
+                    RenderColor(bx, by, 12.f, 12.f);
+                    glColor3f(1.f, 1.f, 1.f);
+                    RenderColor(bx + 2.f, by + 5.f, 8.f, 2.f);
+                    RenderColor(bx + 5.f, by + 2.f, 2.f, 8.f);
+                    EndRenderColor();
+                    m_MobaBarPlusBox[m_MobaBarPlusBoxCount++] = { mobaNum, bx, by, 12.f, 12.f };
+                }
+            }
         }
 
         x = 392; y = 437; width = 20; height = 28;
