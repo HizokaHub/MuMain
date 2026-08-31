@@ -160,6 +160,13 @@ namespace SEASON3B
 
         EVENT_STATE m_EventState;
         WORD m_wHeroPriorSkill;
+
+        // Custom MOBA game mode: clickable "+" boxes drawn over each skill in the skill
+        // window while there are unspent champion skill points. Populated in Render(),
+        // consumed in UpdateMouseEvent().
+        struct MobaPlusBox { int skillNumber; float x, y, w, h; };
+        MobaPlusBox m_MobaPlusBox[32];
+        int m_MobaPlusBoxCount = 0;
     };
 
     class CNewUIMainFrameWindow : public CNewUIObj, public INewUI3DRenderObj

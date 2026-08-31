@@ -92,6 +92,15 @@ extern uint32_t g_MobaExp;
 extern uint32_t g_MobaNextExp;
 extern int      g_MobaSkillPoints;
 
+// Per-skill MOBA state (indexed by server skill number). g_MobaHasSkill marks the
+// champion's learned skills; g_MobaSkillLevel is their level (cap 5).
+constexpr int MOBA_MAX_SKILL_NUMBER = 700;
+extern bool g_MobaHasSkill[MOBA_MAX_SKILL_NUMBER];
+extern BYTE g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER];
+
+// Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
+void SendMobaSkillUp(int skillNumber);
+
 inline uint64_t ntoh64(uint64_t value)
 {
     return ((value & 0x00000000000000FFULL) << 56) |

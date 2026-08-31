@@ -13161,9 +13161,12 @@ int      g_MobaLevel = 0;
 uint32_t g_MobaExp = 0;
 uint32_t g_MobaNextExp = 0;
 int      g_MobaSkillPoints = 0;
+bool     g_MobaHasSkill[MOBA_MAX_SKILL_NUMBER] = {};
+BYTE     g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER] = {};
 
-// Handles packet C1 D5 02: this champion's MOBA level + experience.
+// Handles packet C1 D5 02: this champion's MOBA level + experience + skill levels.
 // Layout: [4]=level [5..8]=exp u32 LE [9..12]=nextExp u32 LE [13]=skillPoints
+//         [14]=count, then count * (skillNum u16 LE, level u8)
 static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
 {
     g_MobaLevel = ReceiveBuffer[4];
@@ -13172,6 +13175,35 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
     g_MobaNextExp = (uint32_t)ReceiveBuffer[9] | ((uint32_t)ReceiveBuffer[10] << 8)
                   | ((uint32_t)ReceiveBuffer[11] << 16) | ((uint32_t)ReceiveBuffer[12] << 24);
     g_MobaSkillPoints = ReceiveBuffer[13];
+
+    memset(g_MobaHasSkill, 0, sizeof(g_MobaHasSkill));
+    memset(g_MobaSkillLevel, 0, sizeof(g_MobaSkillLevel));
+    const int count = ReceiveBuffer[14];
+    const BYTE* p = ReceiveBuffer + 15;
+    for (int i = 0; i < count; ++i, p += 3)
+    {
+        const int num = (int)p[0] | ((int)p[1] << 8);
+        if (num > 0 && num < MOBA_MAX_SKILL_NUMBER)
+        {
+            g_MobaHasSkill[num] = true;
+            g_MobaSkillLevel[num] = p[2];
+        }
+    }
+}
+
+void SendMobaSkillUp(int skillNumber)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[6];
+    buf[0] = 0xC1;
+    buf[1] = 6;
+    buf[2] = 0xD5;
+    buf[3] = 0x03;
+    buf[4] = (BYTE)(skillNumber & 0xFF);
+    buf[5] = (BYTE)((skillNumber >> 8) & 0xFF);
+    SocketClient->Send(buf, 6);
 }
 
 // Handles packet C1 D5 01: a list of nearby MOBA participants with their team and

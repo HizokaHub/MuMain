@@ -1417,6 +1417,22 @@ bool SEASON3B::CNewUISkillList::UpdateMouseEvent()
         return true;
     }
 
+    // Custom MOBA game mode: click a "+" box (drawn in Render over each skill) to spend
+    // a champion skill point on that skill.
+    if (m_bSkillList && MouseLButtonPush)
+    {
+        for (int b = 0; b < m_MobaPlusBoxCount; ++b)
+        {
+            const MobaPlusBox& box = m_MobaPlusBox[b];
+            if (SEASON3B::CheckMouseIn(box.x, box.y, box.w, box.h))
+            {
+                SendMobaSkillUp(box.skillNumber);
+                PlayBuffer(SOUND_CLICK01);
+                return false;
+            }
+        }
+    }
+
     x = 385.f; y = 431.f; width = 32.f; height = 38.f;
     if (m_EventState == EVENT_NONE && MouseLButtonPush == false
         && SEASON3B::CheckMouseIn(x, y, width, height) == true)
@@ -1983,6 +1999,8 @@ bool SEASON3B::CNewUISkillList::Render()
 
     BYTE bySkillNumber = CharacterAttribute->SkillNumber;
 
+    m_MobaPlusBoxCount = 0;
+
     if (bySkillNumber > 0)
     {
         if (m_bSkillList == true)
@@ -2045,6 +2063,25 @@ bool SEASON3B::CNewUISkillList::Render()
                     }
 
                     RenderSkillIcon(i, x + 6, y + 6, 20, 28);
+
+                    // Custom MOBA game mode: "+" box to spend a champion skill point.
+                    if (g_MobaLevel > 0 && g_MobaSkillPoints > 0
+                        && iSkillType > 0 && iSkillType < MOBA_MAX_SKILL_NUMBER
+                        && g_MobaHasSkill[iSkillType] && g_MobaSkillLevel[iSkillType] < 5
+                        && m_MobaPlusBoxCount < 32)
+                    {
+                        const float bx = x + width - 13.f;
+                        const float by = y - 1.f;
+                        glColor4f(0.f, 0.f, 0.f, 0.75f);
+                        RenderColor(bx - 1.f, by - 1.f, 14.f, 14.f);
+                        glColor3f(0.16f, 0.62f, 0.16f);
+                        RenderColor(bx, by, 12.f, 12.f);
+                        glColor3f(1.f, 1.f, 1.f);
+                        RenderColor(bx + 2.f, by + 5.f, 8.f, 2.f);
+                        RenderColor(bx + 5.f, by + 2.f, 2.f, 8.f);
+                        EndRenderColor();
+                        m_MobaPlusBox[m_MobaPlusBoxCount++] = { iSkillType, bx, by, 12.f, 12.f };
+                    }
                 }
             }
             RenderPetSkill();
