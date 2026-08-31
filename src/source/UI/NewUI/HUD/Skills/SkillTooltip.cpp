@@ -7,6 +7,7 @@
 #include "Engine/Object/ZzzInventory.h"   // TextList / TextListColor / TextBold externs, STRP_*
 #include "GameLogic/Pets/GIPetManager.h"
 #include "UI/Legacy/UIControls.h"         // g_pRenderText macro
+#include "Network/Server/WSclient.h"      // g_MobaLevel / g_MobaSkillLevel (MOBA skill level line)
 
 namespace UI::Skills::Tooltip
 {
@@ -44,6 +45,17 @@ void Render(int sx, int sy, int Type, int /*SkillNum*/, int iRenderPoint /*= STR
 
     Model model;
     BuildModel(options, model);
+
+    // Custom MOBA game mode: show the current champion skill level (1..5). The full
+    // per-level damage / cooldown breakdown comes with the balance pass.
+    if (g_MobaLevel > 0 && skillType > 0 && skillType < MOBA_MAX_SKILL_NUMBER
+        && g_MobaHasSkill[skillType] && model.count < MAX_TOOLTIP_LINES)
+    {
+        Line& ln = model.lines[model.count++];
+        swprintf(ln.text, MAX_TOOLTIP_LINE_TEXT, L"Nivel de habilidad: %d/5", (int)g_MobaSkillLevel[skillType]);
+        ln.color = LineColor::Blue;
+        ln.isBold = false;
+    }
 
     // Copy the model into the legacy TextList / Color / Bold buffers that
     // RenderTipTextList consumes. Pre-allocated globals, no heap. The legacy

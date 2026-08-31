@@ -1755,6 +1755,14 @@ bool SEASON3B::CNewUISkillList::UpdateMouseEvent()
 
 bool SEASON3B::CNewUISkillList::UpdateKeyEvent()
 {
+    // Custom MOBA game mode: S toggles the skill window (to spend champion skill points).
+    // Only active in a match so it can't shadow anything outside the mode.
+    if (g_MobaLevel > 0 && SEASON3B::IsPress('S'))
+    {
+        m_bSkillList = !m_bSkillList;
+        PlayBuffer(SOUND_CLICK01);
+    }
+
     for (int i = 0; i < 9; ++i)
     {
         if (SEASON3B::IsPress('1' + i))
@@ -2063,6 +2071,15 @@ bool SEASON3B::CNewUISkillList::Render()
                     }
 
                     RenderSkillIcon(i, x + 6, y + 6, 20, 28);
+
+                    // Custom MOBA game mode: current skill level badge (bottom-left).
+                    if (g_MobaLevel > 0 && iSkillType > 0 && iSkillType < MOBA_MAX_SKILL_NUMBER
+                        && g_MobaHasSkill[iSkillType])
+                    {
+                        glColor3f(1.f, 0.85f, 0.2f);
+                        SEASON3B::RenderNumber(x + 3.f, y + height - 13.f, (int)g_MobaSkillLevel[iSkillType]);
+                        glColor3f(1.f, 1.f, 1.f);
+                    }
 
                     // Custom MOBA game mode: "+" box to spend a champion skill point.
                     if (g_MobaLevel > 0 && g_MobaSkillPoints > 0
