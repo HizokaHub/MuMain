@@ -51,13 +51,13 @@ void DrawHealthBar(int centerX, int topY, float health, int steps, float scale,
     glColor4f(0.f, 0.f, 0.f, 0.5f);
     RenderColor((float)(x + 1), (float)(y + 1), totalWidth, 5.f);
 
-    // Dark backing.
+    // Dark backing + inner track, derived from the fill colour so the empty part of a
+    // (e.g. blue) team bar doesn't show through as the vanilla dark red.
     EnableAlphaBlend();
-    glColor3f(0.2f, 0.0f, 0.0f);
+    glColor3f(fillR * 0.22f, fillG * 0.22f, fillB * 0.22f);
     RenderColor((float)x, (float)y, totalWidth, 5.f);
 
-    // Inner track.
-    glColor3f(50.f / 255.f, 10.f / 255.f, 0.f);
+    glColor3f(fillR * 0.35f, fillG * 0.35f, fillB * 0.35f);
     RenderColor((float)(x + borderWidth), (float)(y + borderHeight), stepsWidth, 1.f);
 
     // HealthStatus < 0 is the "HP unknown" sentinel (server sends 0xFF -> -1, and
@@ -331,9 +331,9 @@ void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
 
         const bool blue = (c->MobaTeam == 1);
         DrawHealthBar(ScreenX, ScreenY, c->MobaHealth, 8, 3.f / 7.f,
-                      blue ? 0.25f : 0.95f,
-                      blue ? 0.55f : 0.20f,
-                      blue ? 1.00f : 0.20f);
+                      blue ? 0.15f : 1.00f,
+                      blue ? 0.35f : 0.15f,
+                      blue ? 1.00f : 0.15f);
     }
 }
 
