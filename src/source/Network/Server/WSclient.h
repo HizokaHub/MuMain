@@ -85,6 +85,13 @@ extern int CurrentProtocolState;
 // the server's team-status broadcast (packet C1 D5 01).
 extern int g_MyMobaTeam;
 
+// Custom MOBA game mode: local champion level / experience for the HUD bar (packet
+// C1 D5 02). g_MobaLevel 0 = not in a MOBA match.
+extern int      g_MobaLevel;
+extern uint32_t g_MobaExp;
+extern uint32_t g_MobaNextExp;
+extern int      g_MobaSkillPoints;
+
 inline uint64_t ntoh64(uint64_t value)
 {
     return ((value & 0x00000000000000FFULL) << 56) |

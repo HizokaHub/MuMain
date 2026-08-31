@@ -13156,6 +13156,24 @@ void ReceiveDarkside(const BYTE* ReceiveBuffer)
 // from the team-status broadcast below. Used to refuse targeting allied creeps.
 int g_MyMobaTeam = 0;
 
+// Custom MOBA game mode: local champion level / experience for the HUD bar.
+int      g_MobaLevel = 0;
+uint32_t g_MobaExp = 0;
+uint32_t g_MobaNextExp = 0;
+int      g_MobaSkillPoints = 0;
+
+// Handles packet C1 D5 02: this champion's MOBA level + experience.
+// Layout: [4]=level [5..8]=exp u32 LE [9..12]=nextExp u32 LE [13]=skillPoints
+static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
+{
+    g_MobaLevel = ReceiveBuffer[4];
+    g_MobaExp = (uint32_t)ReceiveBuffer[5] | ((uint32_t)ReceiveBuffer[6] << 8)
+              | ((uint32_t)ReceiveBuffer[7] << 16) | ((uint32_t)ReceiveBuffer[8] << 24);
+    g_MobaNextExp = (uint32_t)ReceiveBuffer[9] | ((uint32_t)ReceiveBuffer[10] << 8)
+                  | ((uint32_t)ReceiveBuffer[11] << 16) | ((uint32_t)ReceiveBuffer[12] << 24);
+    g_MobaSkillPoints = ReceiveBuffer[13];
+}
+
 // Handles packet C1 D5 01: a list of nearby MOBA participants with their team and
 // health percent, so the client can draw team-coloured always-on HP bars over creeps.
 // Layout: [0]=C1 [1]=len [2]=D5 [3]=01 [4]=count, then count * (idHi idLo team hp0-100).
@@ -13761,6 +13779,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
         {
         case 0x01:
             ReceiveMobaTeamStatus(ReceiveBuffer);
+            break;
+        case 0x02:
+            ReceiveMobaChampionState(ReceiveBuffer);
             break;
         }
     }

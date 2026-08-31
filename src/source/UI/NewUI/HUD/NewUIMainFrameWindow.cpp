@@ -24,6 +24,7 @@
 #include "Character/CharacterManager.h"
 #include "GameLogic/Skills/SkillManager.h"
 #include "UI/NewUI/HUD/Skills/SkillTooltip.h"
+#include "Network/Server/WSclient.h" // g_MobaLevel / g_MobaExp (MOBA HUD exp bar)
 #include "Core/Time/CTimCheck.h"
 #include "GameLogic/Social/MonkSystem.h"
 
@@ -432,7 +433,18 @@ void SEASON3B::CNewUIMainFrameWindow::RenderExperience()
         fraction = std::clamp(fraction, 0.0, 1.0);
     };
 
-    if (gCharacterManager.IsMasterExperienceActive(CharacterAttribute->Class, CharacterAttribute->Level) == true)
+    // Custom MOBA game mode: the bar tracks the champion level (1..30), not MU exp.
+    const bool bMoba = (g_MobaLevel > 0);
+    const bool bUseMaster = !bMoba
+        && gCharacterManager.IsMasterExperienceActive(CharacterAttribute->Class, CharacterAttribute->Level) == true;
+
+    if (bMoba)
+    {
+        wLevel = (__int64)g_MobaLevel;
+        dwExperience = (__int64)g_MobaExp;
+        dwNexExperience = (__int64)((g_MobaNextExp > 0) ? g_MobaNextExp : (g_MobaExp > 0 ? g_MobaExp : 1));
+    }
+    else if (bUseMaster)
     {
         wLevel = (__int64)Master_Level_Data.nMLevel;
         dwNexExperience = (__int64)Master_Level_Data.lNext_MasterLevel_Experince;
@@ -445,7 +457,7 @@ void SEASON3B::CNewUIMainFrameWindow::RenderExperience()
         dwExperience = CharacterAttribute->Experience;
     }
 
-    if (gCharacterManager.IsMasterExperienceActive(CharacterAttribute->Class, CharacterAttribute->Level) == true)
+    if (bUseMaster)
     {
         x = 0; y = 470; width = 6; height = 4;
 
@@ -556,7 +568,9 @@ void SEASON3B::CNewUIMainFrameWindow::RenderExperience()
         __int64 iPriorLevel = wLevel - 1;
         __int64 iPriorExperience = 0;
 
-        if (iPriorLevel > 0)
+        // MOBA: g_MobaExp is already relative to the current champion level, so the
+        // level starts at 0 experience (no MU per-level formula).
+        if (!bMoba && iPriorLevel > 0)
         {
             iPriorExperience = (9 + iPriorLevel) * iPriorLevel * iPriorLevel * 10;
 
