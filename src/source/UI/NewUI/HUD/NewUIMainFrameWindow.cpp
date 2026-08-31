@@ -304,7 +304,7 @@ void SEASON3B::CNewUIMainFrameWindow::RenderLifeMana()
 
     // mana
     width = 45.f;
-    x = (g_MobaLevel > 0) ? 560.f : (256.f + 128.f + 53.f); // MOBA: past skill slot 9
+    x = (g_MobaLevel > 0) ? 588.f : (256.f + 128.f + 53.f); // MOBA: past skill slot 9
     height = 39.f;
     y = (float)REFERENCE_HEIGHT - 48.f;
 
@@ -349,7 +349,7 @@ void SEASON3B::CNewUIMainFrameWindow::RenderGuageAG()
     }
 
     width = 16.f, height = 39.f;
-    x = (g_MobaLevel > 0) ? 538.f : (256 + 128 + 36); y = (float)REFERENCE_HEIGHT - 49.f; // MOBA: past skill slot 9
+    x = (g_MobaLevel > 0) ? 558.f : (256 + 128 + 36); y = (float)REFERENCE_HEIGHT - 49.f; // MOBA: past skill slot 9
     fY = y + (fSkillMana * height);
     fH = height - (fSkillMana * height);
     fV = fSkillMana;
@@ -2045,9 +2045,10 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
 
         if (moba)
         {
-            // Wipe the strip that held the potion count + right-side command buttons.
+            // Wipe the strip that held the potion count + right-side command buttons,
+            // from just after slot 5 to just before the relocated AG gauge.
             glColor4f(0.f, 0.f, 0.f, 1.f);
-            RenderColor(baseX + 32.f * 5.f - 2.f, y - 2.f, 32.f * 4.f + 90.f, height + 4.f);
+            RenderColor(baseX + 32.f * 5.f - 2.f, y - 3.f, 250.f, height + 6.f);
             glColor3f(1.f, 1.f, 1.f);
             EndRenderColor();
         }
