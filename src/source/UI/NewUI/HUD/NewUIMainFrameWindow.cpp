@@ -17,6 +17,8 @@
 #include "Engine/Object/ZzzCharacter.h"
 #include "Engine/Object/ZzzInterface.h"
 #include "Engine/Object/ZzzInventory.h"
+#include "UI/NewUI/Inventory/NewUIInventoryCtrl.h"   // g_pPickedItem (drag onto Q/W/E/R)
+#include "UI/NewUI/Inventory/NewUIMyInventory.h"      // CNewUIMyInventory::CanRegisterItemHotKey
 
 #include "GameLogic/Items/CSItemOption.h"
 #include "GameLogic/Events/CSChaosCastle.h"
@@ -304,7 +306,7 @@ void SEASON3B::CNewUIMainFrameWindow::RenderLifeMana()
 
     // mana
     width = 45.f;
-    x = (g_MobaLevel > 0) ? 588.f : (256.f + 128.f + 53.f); // MOBA: past skill slot 9
+    x = (g_MobaLevel > 0) ? 561.f : (256.f + 128.f + 53.f); // MOBA: past the slot-10 filler box
     height = 39.f;
     y = (float)REFERENCE_HEIGHT - 48.f;
 
@@ -349,7 +351,7 @@ void SEASON3B::CNewUIMainFrameWindow::RenderGuageAG()
     }
 
     width = 16.f, height = 39.f;
-    x = (g_MobaLevel > 0) ? 558.f : (256 + 128 + 36); y = (float)REFERENCE_HEIGHT - 49.f; // MOBA: past skill slot 9
+    x = (g_MobaLevel > 0) ? 544.f : (256 + 128 + 36); y = (float)REFERENCE_HEIGHT - 49.f; // MOBA: past the slot-10 filler box
     fY = y + (fSkillMana * height);
     fH = height - (fSkillMana * height);
     fV = fSkillMana;
@@ -763,6 +765,11 @@ bool SEASON3B::CNewUIMainFrameWindow::UpdateMouseEvent()
         return true;
     }
 
+    if (m_ItemHotKey.UpdateMouseEvent() == false)
+    {
+        return false;
+    }
+
     if (BtnProcess() == true)
     {
         return false;
@@ -1021,10 +1028,63 @@ bool SEASON3B::CNewUIItemHotKey::UpdateKeyEvent()
     return true;
 }
 
+bool SEASON3B::CNewUIItemHotKey::UpdateMouseEvent()
+{
+    // Only meaningful while an item is being dragged on the cursor.
+    SEASON3B::CNewUIPickedItem* pPicked = g_pPickedItem;
+    if (pPicked == NULL)
+    {
+        return true;
+    }
+
+    ITEM* pItem = pPicked->GetItem();
+    if (pItem == NULL)
+    {
+        return true;
+    }
+
+    if (!MouseLButtonPush)
+    {
+        return true;
+    }
+
+    for (int i = 0; i < HOTKEY_COUNT; ++i)
+    {
+        const int x = 10 + (i * 38);
+        const int y = 443;
+        if (SEASON3B::CheckMouseIn(x, y, 20, 20) == false)
+        {
+            continue;
+        }
+
+        MouseLButtonPush = false;
+
+        if (CNewUIMyInventory::CanRegisterItemHotKey(pItem->Type) == true)
+        {
+            SetHotKey(i, pItem->Type, pItem->Level);
+            PlayBuffer(SOUND_CLICK01);
+        }
+
+        // The item was only read, never moved: return it to its source slot.
+        SEASON3B::CNewUIInventoryCtrl::BackupPickedItem();
+        return false;
+    }
+
+    return true;
+}
+
 int SEASON3B::CNewUIItemHotKey::GetHotKeyItemIndex(int iType, bool bItemCount)
 {
     int iStartItemType = 0, iEndItemType = 0;
     int i, j;
+
+    // Custom MOBA game mode: the Q/W/E/R slots are dedicated consumable slots that
+    // start empty. Skip the vanilla "show the first healing/mana/shield item in the
+    // bag" fallback so an unassigned slot stays blank until the player binds one.
+    if (g_MobaLevel > 0 && iType >= 0 && iType < HOTKEY_COUNT && m_iHotKeyItemType[iType] == -1)
+    {
+        return bItemCount ? 0 : -1;
+    }
 
     switch (iType)
     {
@@ -1451,6 +1511,89 @@ bool SEASON3B::CNewUISkillList::UpdateMouseEvent()
                     return false;
                 }
             }
+        }
+    }
+
+    // Custom MOBA game mode: the bottom bar has 9 full-size slots (keys 1-9) laid
+    // out at x = 222 + 32*i. Handle click-to-select, drag slot->slot to rearrange,
+    // and a drop from the skill window here, then swallow the event so the vanilla
+    // 5-slot bar handler below never sees a MOBA slot.
+    if (g_MobaLevel > 0)
+    {
+        int iHovBar = -1;
+        for (int i = 0; i < 9; ++i)
+        {
+            if (SEASON3B::CheckMouseIn(222.f + 32.f * i, 431.f, 32.f, 38.f) == true)
+            {
+                iHovBar = i;
+                break;
+            }
+        }
+
+        // Release of a skill-window -> bar drag (vanilla left the window skill index
+        // in m_iRenderSkillInfoType and the state in EVENT_BTN_DOWN_SKILLLIST).
+        if (m_EventState == EVENT_BTN_DOWN_SKILLLIST && MouseLButtonPush == false
+            && iHovBar >= 0 && m_iRenderSkillInfoType >= 0 && m_iRenderSkillInfoType < MAX_MAGIC)
+        {
+            const WORD wDrop = CharacterAttribute->Skill[m_iRenderSkillInfoType];
+            if (wDrop != 0 && (wDrop < AT_SKILL_STUN || wDrop > AT_SKILL_REMOVAL_BUFF))
+            {
+                SetHotKey(iHovBar + 1, m_iRenderSkillInfoType);
+                m_EventState = EVENT_NONE;
+                m_iMobaBarDragFrom = -1;
+                PlayBuffer(SOUND_CLICK01);
+                return false;
+            }
+        }
+
+        // Release of a bar -> bar drag.
+        if (m_iMobaBarDragFrom >= 0 && MouseLButtonPush == false)
+        {
+            const int iFrom = m_iMobaBarDragFrom;
+            m_iMobaBarDragFrom = -1;
+
+            if (iHovBar >= 0 && iHovBar != iFrom)
+            {
+                const int iTmp = m_iHotKeySkillType[iFrom + 1];
+                m_iHotKeySkillType[iFrom + 1] = m_iHotKeySkillType[iHovBar + 1];
+                m_iHotKeySkillType[iHovBar + 1] = iTmp;
+                PlayBuffer(SOUND_CLICK01);
+                return false;
+            }
+
+            // Released on the same slot: treat as a plain click -> select as current.
+            if (iHovBar == iFrom && m_iHotKeySkillType[iFrom + 1] != -1)
+            {
+                m_wHeroPriorSkill = CharacterAttribute->Skill[Hero->CurrentSkill];
+                Hero->CurrentSkill = m_iHotKeySkillType[iFrom + 1];
+                PlayBuffer(SOUND_CLICK01);
+                return false;
+            }
+            return true;
+        }
+
+        if (iHovBar >= 0)
+        {
+            // Press on a populated slot begins a drag.
+            if (MouseLButtonPush == true && m_iMobaBarDragFrom < 0
+                && m_EventState == EVENT_NONE && m_iHotKeySkillType[iHovBar + 1] != -1)
+            {
+                m_iMobaBarDragFrom = iHovBar;
+                return false;
+            }
+
+            // Hover a populated slot -> tooltip.
+            if (m_iHotKeySkillType[iHovBar + 1] != -1 && m_EventState == EVENT_NONE)
+            {
+                m_bRenderSkillInfo = true;
+                m_iRenderSkillInfoType = m_iHotKeySkillType[iHovBar + 1];
+                m_iRenderSkillInfoPosX = (int)(222.f + 32.f * iHovBar) - 5;
+                m_iRenderSkillInfoPosY = 431;
+            }
+
+            // Any mouse activity over the 9-slot strip is ours: don't let the vanilla
+            // 5-slot handler (same x range for slots 1-5) also act on it.
+            return false;
         }
     }
 
@@ -2046,9 +2189,9 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
         if (moba)
         {
             // Wipe the strip that held the potion count + right-side command buttons,
-            // from just after slot 5 to just before the relocated AG gauge.
+            // from just after slot 5 up to the relocated AG gauge (~x 516).
             glColor4f(0.f, 0.f, 0.f, 1.f);
-            RenderColor(baseX + 32.f * 5.f - 2.f, y - 3.f, 250.f, height + 6.f);
+            RenderColor(baseX + 32.f * 5.f - 2.f, y - 3.f, 300.f, height + 6.f);
             glColor3f(1.f, 1.f, 1.f);
             EndRenderColor();
         }
@@ -2113,6 +2256,13 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
                     m_MobaBarPlusBox[m_MobaBarPlusBoxCount++] = { mobaNum, bx, by, 12.f, 12.f };
                 }
             }
+        }
+
+        if (moba)
+        {
+            // Decorative filler frame in the slot-10 position, so the strip between
+            // the last skill slot and the relocated AG / Mana gauges is not raw black.
+            SEASON3B::RenderImage(IMAGE_SKILLBOX, baseX + 32.f * 9.f, y, width, height);
         }
 
         if (!moba)

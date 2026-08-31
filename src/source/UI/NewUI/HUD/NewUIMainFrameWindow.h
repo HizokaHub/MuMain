@@ -49,6 +49,9 @@ namespace SEASON3B
         virtual ~CNewUIItemHotKey();
 
         bool UpdateKeyEvent();
+        // Custom MOBA game mode: drag an item from the inventory onto a Q/W/E/R slot
+        // to bind it (the item is not consumed / moved, only its type is recorded).
+        bool UpdateMouseEvent();
 
         void SetHotKey(int iHotKey, int iItemType, int iItemLevel);
         int GetHotKey(int iHotKey);
@@ -173,6 +176,11 @@ namespace SEASON3B
         int m_MobaPlusBoxCount = 0;
         MobaPlusBox m_MobaBarPlusBox[10];   // on the bottom action bar
         int m_MobaBarPlusBoxCount = 0;
+
+        // Custom MOBA game mode: index of the bar slot (0..8) a drag started from,
+        // -1 when no drag is in progress. Drag slot->slot swaps; drag from the skill
+        // window drops onto a slot.
+        int m_iMobaBarDragFrom = -1;
     };
 
     class CNewUIMainFrameWindow : public CNewUIObj, public INewUI3DRenderObj

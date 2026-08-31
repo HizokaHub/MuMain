@@ -9940,14 +9940,30 @@ void ReceiveOption(const BYTE* ReceiveBuffer)
     byELevel = (Data->QWERLevel & 0x0000FF00) >> 8;
     byRLevel = Data->QWERLevel & 0x000000FF;
 
-    g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_Q, Data->KeyQWE[0] + ITEM_POTION, byQLevel);
-    g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_W, Data->KeyQWE[1] + ITEM_POTION, byWLevel);
-    g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_E, Data->KeyQWE[2] + ITEM_POTION, byELevel);
+    // A character with no saved Q/W/E/R config sends all four raw values as 0.
+    // Vanilla turns "0 + ITEM_POTION" into ITEM_APPLE and binds an apple to every
+    // slot, which then latches (picking up one apple shows it in Q, W, E and R).
+    // Treat an all-zero config as "unconfigured" and leave the slots empty.
+    const bool bQwerUnset = (Data->KeyQWE[0] == 0 && Data->KeyQWE[1] == 0
+        && Data->KeyQWE[2] == 0 && Data->KeyR == 0);
+
+    if (bQwerUnset)
+    {
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_Q, -1, 0);
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_W, -1, 0);
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_E, -1, 0);
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_R, -1, 0);
+    }
+    else
+    {
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_Q, Data->KeyQWE[0] + ITEM_POTION, byQLevel);
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_W, Data->KeyQWE[1] + ITEM_POTION, byWLevel);
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_E, Data->KeyQWE[2] + ITEM_POTION, byELevel);
+        g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_R, Data->KeyR + ITEM_POTION, byRLevel);
+    }
 
     BYTE wChatListBoxSize = (Data->ChatLogBox >> 4) * 3;
     BYTE wChatListBoxBackAlpha = Data->ChatLogBox & 0x0F;
-
-    g_pMainFrame->SetItemHotKey(SEASON3B::HOTKEY_R, Data->KeyR + ITEM_POTION, byRLevel);
 }
 
 void ReceiveEventChipInfomation(const BYTE* ReceiveBuffer)
