@@ -26,6 +26,7 @@
 #include "Audio/DSPlaySound.h"
 #include "I18N/All.h"
 #include "GameLogic/Events/MatchEvent.h"
+#include "Network/Server/WSclient.h" // g_MyMobaTeam
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "GameLogic/Quests/CSQuest.h"
 #include "GameLogic/Items/CSItemOption.h"
@@ -149,6 +150,13 @@ int SelectCharacter(BYTE Kind)
             }
 
             if (c->m_bIsSelected == false)
+            {
+                continue;
+            }
+
+            // Custom MOBA game mode: an allied creep is not a valid target (the server
+            // rejects the damage anyway). MobaTeam 0 == not a match participant.
+            if (g_MyMobaTeam != 0 && o->Kind == KIND_MONSTER && c->MobaTeam == g_MyMobaTeam)
             {
                 continue;
             }

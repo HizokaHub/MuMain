@@ -40,6 +40,10 @@ namespace SEASON3B
         bool m_bShowMonsterHealthBar;
 
         void RenderMonsterHealthBars();
+
+        // Always-on, team-coloured HP bars over custom-MOBA creeps (independent of the
+        // F8 toggle). Fed by the server's team-status broadcast.
+        void RenderMobaHealthBars();
     };
 }
 

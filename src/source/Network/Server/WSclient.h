@@ -81,6 +81,10 @@
 
 extern int CurrentProtocolState;
 
+// Custom MOBA game mode: the local hero's team (0 none / 1 blue / 2 red), set from
+// the server's team-status broadcast (packet C1 D5 01).
+extern int g_MyMobaTeam;
+
 inline uint64_t ntoh64(uint64_t value)
 {
     return ((value & 0x00000000000000FFULL) << 56) |

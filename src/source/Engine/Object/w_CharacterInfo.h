@@ -211,6 +211,14 @@ public:
     float       HealthStatus;
     float       ShieldStatus;
 
+    // Custom MOBA game mode: team + health of a match participant, pushed by the
+    // server (packet C1 D5 01). MobaTeam 0 = not a participant, 1 = blue, 2 = red.
+    // MobaHealth is 0..1 (-1 = unknown). MobaStatusTime is the WorldTime of the last
+    // update, so a bar vanishes shortly after the creep leaves scope.
+    int         MobaTeam;
+    float       MobaHealth;
+    double      MobaStatusTime;
+
     vec3_t		TargetPosition;
     vec3_t      Light;
 

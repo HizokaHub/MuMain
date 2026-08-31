@@ -32,7 +32,8 @@ constexpr int GROUND_ITEM_LABEL_BUILD_BUDGET_PER_FRAME = 32;
 // Draws a segmented monster HP bar, horizontally centered on centerX with its
 // top edge at topY. `steps` is the segment count (HP granularity); `scale`
 // horizontally compresses the bar (1.0 == original width).
-void DrawHealthBar(int centerX, int topY, float health, int steps, float scale)
+void DrawHealthBar(int centerX, int topY, float health, int steps, float scale,
+                   float fillR = 250.f / 255.f, float fillG = 10.f / 255.f, float fillB = 0.f)
 {
     const float borderHeight = 2.f;                  // vertical inset (unscaled)
     const float borderWidth = 2.f * scale;           // horizontal inset
@@ -65,7 +66,7 @@ void DrawHealthBar(int centerX, int topY, float health, int steps, float scale)
     const int stepHP = (int)(clampedHealth * steps);
 
     // Filled health segments.
-    glColor3f(250.f / 255.f, 10.f / 255.f, 0.f);
+    glColor3f(fillR, fillG, fillB);
     for (int k = 0; k < stepHP; ++k)
     {
         RenderColor(
@@ -160,6 +161,7 @@ bool SEASON3B::CNewUINameWindow::Render()
     matchEvent::RenderMatchTimes();
     UI::Chat::RenderBooleans();
     RenderMonsterHealthBars();
+    RenderMobaHealthBars();
     DrawPersonalShopTitleImp();
     DisableAlphaBlend();
     return true;
@@ -296,6 +298,42 @@ void SEASON3B::CNewUINameWindow::RenderMonsterHealthBars()
         // Bar fixed at ~3/7 of the original width, with 8 segments so each one
         // stays close to the original thickness (see DrawHealthBar for geometry).
         DrawHealthBar(ScreenX, ScreenY, c->HealthStatus, 8, 3.f / 7.f);
+    }
+}
+
+void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
+{
+    for (int i = 0; i < MAX_CHARACTERS_CLIENT; i++)
+    {
+        CHARACTER* c = &CharactersClient[i];
+        OBJECT* o = &c->Object;
+
+        // Only creeps with a fresh team-status update; the F8 toggle is ignored here.
+        if (c->MobaTeam == 0 || (WorldTime - c->MobaStatusTime) > 2000.0)
+            continue;
+        if (!o->Live || !o->Visible || o->Alpha <= 0.f || c->Dead > 0 || o->Kind != KIND_MONSTER)
+            continue;
+
+        vec3_t Position;
+        Vector(o->Position[0], o->Position[1], o->Position[2] + o->BoundingBoxMax[2] + 60.f, Position);
+
+        vec3_t transformPos;
+        VectorTransform(Position, g_Camera.Matrix, transformPos);
+        if (transformPos[2] >= 0)
+            continue;
+
+        int ScreenX, ScreenY;
+        CameraProjection::WorldToScreen(g_Camera, Position, &ScreenX, &ScreenY);
+        if (ScreenX < -100 || ScreenY < -100
+            || ScreenX > (REFERENCE_WIDTH + 100)
+            || ScreenY > (REFERENCE_HEIGHT + 100))
+            continue;
+
+        const bool blue = (c->MobaTeam == 1);
+        DrawHealthBar(ScreenX, ScreenY, c->MobaHealth, 8, 3.f / 7.f,
+                      blue ? 0.25f : 0.95f,
+                      blue ? 0.55f : 0.20f,
+                      blue ? 1.00f : 0.20f);
     }
 }
 

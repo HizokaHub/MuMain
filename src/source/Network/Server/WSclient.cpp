@@ -13152,6 +13152,38 @@ void ReceiveDarkside(const BYTE* ReceiveBuffer)
     }
 }
 
+// Custom MOBA game mode: the local hero's team (0 none / 1 blue / 2 red), learned
+// from the team-status broadcast below. Used to refuse targeting allied creeps.
+int g_MyMobaTeam = 0;
+
+// Handles packet C1 D5 01: a list of nearby MOBA participants with their team and
+// health percent, so the client can draw team-coloured always-on HP bars over creeps.
+// Layout: [0]=C1 [1]=len [2]=D5 [3]=01 [4]=count, then count * (idHi idLo team hp0-100).
+void ReceiveMobaTeamStatus(const BYTE* ReceiveBuffer)
+{
+    const BYTE count = ReceiveBuffer[4];
+    const BYTE* p = ReceiveBuffer + 5;
+    for (int i = 0; i < count; ++i, p += 4)
+    {
+        const int id = ((int)p[0] << 8) | p[1];
+        const int team = p[2];
+        float hp = p[3] / 100.f;
+        if (hp > 1.f) hp = 1.f;
+
+        const int idx = FindCharacterIndex(id);
+        if (idx < 0 || idx >= MAX_CHARACTERS_CLIENT)
+            continue;
+
+        CHARACTER* c = &CharactersClient[idx];
+        c->MobaTeam = team;
+        c->MobaHealth = hp;
+        c->MobaStatusTime = WorldTime;
+
+        if (id == HeroKey)
+            g_MyMobaTeam = team;
+    }
+}
+
 static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
 {
     auto received_span = std::span<const BYTE>(ReceiveBuffer, Size);
@@ -13718,6 +13750,17 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
         {
         case 0x01:
             ReceiveBanUnionGuildResult(ReceiveBuffer);
+            break;
+        }
+    }
+    break;
+    case 0xD5:
+    {
+        auto Data = (LPPHEADER_DEFAULT_SUBCODE)ReceiveBuffer;
+        switch (Data->SubCode)
+        {
+        case 0x01:
+            ReceiveMobaTeamStatus(ReceiveBuffer);
             break;
         }
     }
