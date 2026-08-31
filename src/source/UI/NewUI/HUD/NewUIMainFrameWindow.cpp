@@ -1769,18 +1769,11 @@ bool SEASON3B::CNewUISkillList::UpdateMouseEvent()
 
 bool SEASON3B::CNewUISkillList::UpdateKeyEvent()
 {
-    // Custom MOBA game mode: S toggles the skill window (to spend champion skill points).
-    // Only active in a match so it can't shadow anything outside the mode.
-    if (g_MobaLevel > 0 && SEASON3B::IsPress('S'))
+    // Custom MOBA game mode: K toggles the skill window (to spend champion skill points).
+    // Only active in a match. (S / P are taken by the personal shop / party.)
+    if (g_MobaLevel > 0 && SEASON3B::IsPress('K'))
     {
         m_bSkillList = !m_bSkillList;
-        PlayBuffer(SOUND_CLICK01);
-    }
-
-    // Custom MOBA game mode: P opens the MOBA shop (not built yet).
-    if (g_MobaLevel > 0 && SEASON3B::IsPress('P'))
-    {
-        g_pSystemLogBox->AddText(L"[MOBA] Tienda: en construcción (tecla P).", SEASON3B::TYPE_SYSTEM_MESSAGE);
         PlayBuffer(SOUND_CLICK01);
     }
 
@@ -2028,35 +2021,21 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
 
     if (bySkillNumber > 0)
     {
-        const bool moba = (g_MobaLevel > 0);
-
         int iStartSkillIndex = 1;
         if (m_bHotKeySkillListUp)
         {
             iStartSkillIndex = 6;
         }
 
-        // MOBA: all 9 skill slots in one row, tighter, each with its own frame (the HUD
-        // background art only draws 5). Non-MOBA: the vanilla 5-slot page.
-        const int   slotCount = moba ? 9 : 5;
-        const float pitch     = moba ? 24.f : 32.f;
-        const float slotW     = moba ? 22.f : 32.f;
-        const float baseX     = moba ? 222.f : 222.f;
-        y = 431; height = 38;
-
-        for (i = 0; i < slotCount; ++i)
+        x = 190; y = 431; width = 32; height = 38;
+        for (i = 0; i < 5; ++i)
         {
-            int iIndex = moba ? (i + 1) : (iStartSkillIndex + i);
-            if (!moba && iIndex == 10)
+            x += width;
+
+            int iIndex = iStartSkillIndex + i;
+            if (iIndex == 10)
             {
                 iIndex = 0;
-            }
-
-            const float sx = baseX + pitch * i;
-
-            if (moba)
-            {
-                SEASON3B::RenderImage(IMAGE_SKILLBOX, sx, y, slotW, height);
             }
 
             if (m_iHotKeySkillType[iIndex] == -1)
@@ -2074,43 +2053,40 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
 
             if (Hero->CurrentSkill == m_iHotKeySkillType[iIndex])
             {
-                SEASON3B::RenderImage(IMAGE_SKILLBOX_USE, sx, y, slotW, height);
+                SEASON3B::RenderImage(IMAGE_SKILLBOX_USE, x, y, width, height);
             }
-            RenderSkillIcon(m_iHotKeySkillType[iIndex], sx + (moba ? 3.f : 6.f), y + 6.f, moba ? 16.f : 20.f, 28.f);
+            RenderSkillIcon(m_iHotKeySkillType[iIndex], x + 6, y + 6, 20, 28);
 
             // Custom MOBA game mode: skill level badge + "+" on the bar slot.
             // m_iHotKeySkillType[iIndex] is an INDEX into CharacterAttribute->Skill[];
             // the real skill number is Skill[thatIndex].
             const int mobaIdx = m_iHotKeySkillType[iIndex];
             const int mobaNum = (mobaIdx >= 0 && mobaIdx < MAX_MAGIC) ? (int)CharacterAttribute->Skill[mobaIdx] : 0;
-            if (moba && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER && g_MobaHasSkill[mobaNum])
+            if (g_MobaLevel > 0 && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER && g_MobaHasSkill[mobaNum])
             {
                 glColor3f(1.f, 0.85f, 0.2f);
-                SEASON3B::RenderNumber(sx + 2.f, y + height - 13.f, (int)g_MobaSkillLevel[mobaNum]);
+                SEASON3B::RenderNumber(x + 3.f, y + height - 13.f, (int)g_MobaSkillLevel[mobaNum]);
                 glColor3f(1.f, 1.f, 1.f);
 
                 if (g_MobaSkillPoints > 0 && g_MobaSkillLevel[mobaNum] < 5 && m_MobaBarPlusBoxCount < 10)
                 {
-                    const float bx = sx + slotW - 11.f;
+                    const float bx = x + width - 13.f;
                     const float by = y - 1.f;
                     glColor4f(0.f, 0.f, 0.f, 0.75f);
-                    RenderColor(bx - 1.f, by - 1.f, 13.f, 13.f);
+                    RenderColor(bx - 1.f, by - 1.f, 14.f, 14.f);
                     glColor3f(0.16f, 0.62f, 0.16f);
-                    RenderColor(bx, by, 11.f, 11.f);
+                    RenderColor(bx, by, 12.f, 12.f);
                     glColor3f(1.f, 1.f, 1.f);
-                    RenderColor(bx + 2.f, by + 4.5f, 7.f, 2.f);
-                    RenderColor(bx + 4.5f, by + 2.f, 2.f, 7.f);
+                    RenderColor(bx + 2.f, by + 5.f, 8.f, 2.f);
+                    RenderColor(bx + 5.f, by + 2.f, 2.f, 8.f);
                     EndRenderColor();
-                    m_MobaBarPlusBox[m_MobaBarPlusBoxCount++] = { mobaNum, bx, by, 11.f, 11.f };
+                    m_MobaBarPlusBox[m_MobaBarPlusBoxCount++] = { mobaNum, bx, by, 12.f, 12.f };
                 }
             }
         }
 
-        if (!moba)
-        {
-            x = 392; y = 437; width = 20; height = 28;
-            RenderSkillIcon(Hero->CurrentSkill, x, y, width, height);
-        }
+        x = 392; y = 437; width = 20; height = 28;
+        RenderSkillIcon(Hero->CurrentSkill, x, y, width, height);
     }
 }
 
