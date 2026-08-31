@@ -127,6 +127,10 @@ namespace SEASON3B
         int GetSkillIndex(int iSkillType);
         void RenderCurrentSkillAndHotSkillList();
 
+        // Custom MOBA game mode: one-shot fill of the empty skill bar with the
+        // champion's learned skills on entering a match.
+        void EnsureMobaDefaultBar();
+
         bool IsSkillListUp();
 
         static void UI2DEffectCallback(LPVOID pClass, DWORD dwParamA, DWORD dwParamB);

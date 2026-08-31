@@ -1940,6 +1940,8 @@ void SEASON3B::CNewUISkillList::UseHotKey(int iHotKey)
 
 bool SEASON3B::CNewUISkillList::Update()
 {
+    EnsureMobaDefaultBar();
+
     if (IsArrayIn(Hero->CurrentSkill) == true)
     {
         if (IsArrayUp(Hero->CurrentSkill) == true)
@@ -1961,6 +1963,51 @@ bool SEASON3B::CNewUISkillList::Update()
     }
 
     return true;
+}
+
+void SEASON3B::CNewUISkillList::EnsureMobaDefaultBar()
+{
+    static bool s_filled = false;
+
+    if (g_MobaLevel <= 0 || CharacterAttribute == nullptr)
+    {
+        s_filled = false;
+        return;
+    }
+
+    if (s_filled)
+    {
+        return;
+    }
+
+    for (int i = 1; i <= 9; ++i)
+    {
+        if (m_iHotKeySkillType[i] != -1)
+        {
+            s_filled = true; // player already has a bar set up
+            return;
+        }
+    }
+
+    int k = 1;
+    for (int j = 0; j < MAX_MAGIC && k <= 9; ++j)
+    {
+        const int t = CharacterAttribute->Skill[j];
+        if (t <= 0 || (t >= AT_SKILL_STUN && t <= AT_SKILL_REMOVAL_BUFF))
+        {
+            continue;
+        }
+
+        const BYTE useType = SkillAttribute[t].SkillUseType;
+        if (useType == SKILL_USE_TYPE_MASTER || useType == SKILL_USE_TYPE_MASTERLEVEL)
+        {
+            continue;
+        }
+
+        m_iHotKeySkillType[k++] = j;
+    }
+
+    s_filled = true;
 }
 
 void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
@@ -2011,7 +2058,10 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
             RenderSkillIcon(m_iHotKeySkillType[iIndex], x + 6, y + 6, 20, 28);
 
             // Custom MOBA game mode: skill level badge + "+" on the bar slot.
-            const int mobaNum = m_iHotKeySkillType[iIndex];
+            // m_iHotKeySkillType[iIndex] is an INDEX into CharacterAttribute->Skill[];
+            // the real skill number is Skill[thatIndex].
+            const int mobaIdx = m_iHotKeySkillType[iIndex];
+            const int mobaNum = (mobaIdx >= 0 && mobaIdx < MAX_MAGIC) ? (int)CharacterAttribute->Skill[mobaIdx] : 0;
             if (g_MobaLevel > 0 && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER && g_MobaHasSkill[mobaNum])
             {
                 glColor3f(1.f, 0.85f, 0.2f);
