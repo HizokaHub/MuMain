@@ -13179,6 +13179,8 @@ uint32_t g_MobaNextExp = 0;
 int      g_MobaSkillPoints = 0;
 bool     g_MobaHasSkill[MOBA_MAX_SKILL_NUMBER] = {};
 BYTE     g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER] = {};
+double   g_MobaSkillCooldownEnd[MOBA_MAX_SKILL_NUMBER] = {};
+double   g_MobaSkillCooldownFull[MOBA_MAX_SKILL_NUMBER] = {};
 
 // Handles packet C1 D5 02: this champion's MOBA level + experience + skill levels.
 // Layout: [4]=level [5..8]=exp u32 LE [9..12]=nextExp u32 LE [13]=skillPoints
@@ -13194,6 +13196,11 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
 
     memset(g_MobaHasSkill, 0, sizeof(g_MobaHasSkill));
     memset(g_MobaSkillLevel, 0, sizeof(g_MobaSkillLevel));
+    if (g_MobaLevel == 0)
+    {
+        memset(g_MobaSkillCooldownEnd, 0, sizeof(g_MobaSkillCooldownEnd));
+        memset(g_MobaSkillCooldownFull, 0, sizeof(g_MobaSkillCooldownFull));
+    }
     const int count = ReceiveBuffer[14];
     const BYTE* p = ReceiveBuffer + 15;
     for (int i = 0; i < count; ++i, p += 3)
@@ -13205,6 +13212,19 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
             g_MobaSkillLevel[num] = p[2];
         }
     }
+}
+
+// Handles packet C1 D5 04: a champion ability just went on its per-match cooldown.
+// Layout: [4..5]=skillNum u16 LE, [6..7]=durationMs u16 LE.
+static void ReceiveMobaSkillCooldown(const BYTE* ReceiveBuffer)
+{
+    const int num = (int)ReceiveBuffer[4] | ((int)ReceiveBuffer[5] << 8);
+    const int durMs = (int)ReceiveBuffer[6] | ((int)ReceiveBuffer[7] << 8);
+    if (num <= 0 || num >= MOBA_MAX_SKILL_NUMBER)
+        return;
+
+    g_MobaSkillCooldownFull[num] = (double)durMs;
+    g_MobaSkillCooldownEnd[num] = WorldTime + (double)durMs;
 }
 
 void SendMobaSkillUp(int skillNumber)
@@ -13830,6 +13850,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x02:
             ReceiveMobaChampionState(ReceiveBuffer);
+            break;
+        case 0x04:
+            ReceiveMobaSkillCooldown(ReceiveBuffer);
             break;
         }
     }

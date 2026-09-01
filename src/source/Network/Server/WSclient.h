@@ -98,6 +98,12 @@ constexpr int MOBA_MAX_SKILL_NUMBER = 700;
 extern bool g_MobaHasSkill[MOBA_MAX_SKILL_NUMBER];
 extern BYTE g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER];
 
+// Per-match skill cooldowns (packet C1 D5 04, sent on a successful cast). Both are in
+// WorldTime milliseconds: ...End is when the skill is ready again, ...Full is the full
+// duration (for the HUD sweep fraction). 0 = not on cooldown.
+extern double g_MobaSkillCooldownEnd[MOBA_MAX_SKILL_NUMBER];
+extern double g_MobaSkillCooldownFull[MOBA_MAX_SKILL_NUMBER];
+
 // Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
 void SendMobaSkillUp(int skillNumber);
 

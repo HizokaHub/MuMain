@@ -13,6 +13,7 @@
 #include "Audio/DSPlaySound.h"
 #include "Engine/Object/ZzzInfomation.h"
 #include "Render/Models/ZzzBMD.h"
+#include "Render/Textures/ZzzOpenglUtil.h"   // WorldTime (MOBA skill cooldown sweep)
 #include "Engine/Object/ZzzObject.h"
 #include "Engine/Object/ZzzCharacter.h"
 #include "Engine/Object/ZzzInterface.h"
@@ -2243,6 +2244,31 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
             // the real skill number is Skill[thatIndex].
             const int mobaIdx = m_iHotKeySkillType[iIndex];
             const int mobaNum = (mobaIdx >= 0 && mobaIdx < MAX_MAGIC) ? (int)CharacterAttribute->Skill[mobaIdx] : 0;
+
+            // Per-match cooldown sweep: darken the slot from the top down in proportion
+            // to the time left, and show the remaining whole seconds.
+            if (moba && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER
+                && g_MobaSkillCooldownEnd[mobaNum] > WorldTime)
+            {
+                const double remainMs = g_MobaSkillCooldownEnd[mobaNum] - WorldTime;
+                const double fullMs = (g_MobaSkillCooldownFull[mobaNum] > 1.0)
+                    ? g_MobaSkillCooldownFull[mobaNum] : remainMs;
+                float frac = (float)(remainMs / fullMs);
+                if (frac < 0.f) frac = 0.f;
+                if (frac > 1.f) frac = 1.f;
+
+                const float innerH = height - 4.f;
+                const float sweepH = innerH * frac;
+                glColor4f(0.f, 0.f, 0.f, 0.62f);
+                RenderColor(sx + 2.f, y + 2.f + (innerH - sweepH), width - 4.f, sweepH);
+                glColor3f(1.f, 1.f, 1.f);
+                EndRenderColor();
+
+                const int secs = (int)((remainMs / 1000.0) + 0.999);
+                glColor3f(1.f, 1.f, 0.9f);
+                SEASON3B::RenderNumber(sx + width * 0.5f - 4.f, y + height * 0.5f - 5.f, secs);
+                glColor3f(1.f, 1.f, 1.f);
+            }
             if (moba && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER && g_MobaHasSkill[mobaNum])
             {
                 glColor3f(1.f, 0.85f, 0.2f);
