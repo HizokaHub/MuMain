@@ -2697,6 +2697,14 @@ void SEASON3B::CNewUISkillList::RenderSkillIcon(int iIndex, float x, float y, fl
         bCantSkill = true;
     }
 
+    // Custom MOBA game mode: a champion can always use its loadout skills. The flat clone
+    // stats and the basic starter weapon fail the client-side stat / weapon checks above,
+    // but the server allows the cast, so don't grey the icon.
+    if (g_MobaLevel > 0)
+    {
+        bCantSkill = false;
+    }
+
     if (static_cast<int>(bySkillType) >= static_cast<int>(AT_PET_COMMAND_DEFAULT) && static_cast<int>(bySkillType) <= static_cast<int>(AT_PET_COMMAND_END))
     {
         fU = ((static_cast<int>(bySkillType) - AT_PET_COMMAND_DEFAULT) % 8) * width / 256.f;
