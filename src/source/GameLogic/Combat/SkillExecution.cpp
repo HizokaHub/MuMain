@@ -194,37 +194,6 @@ bool CheckMana(CHARACTER* c, int Skill)
     return true;
 }
 
-// Custom MOBA game mode: a champion's loadout mixes skills from several classes, but the
-// per-class Attack* dispatch only knows its own class's skills (and its weapon's Special
-// list). Send a generic skill-use packet for any skill instead - the server validates and
-// runs it. Positional + targeted in one, like AttackCommon does for the stun skill.
-static void MobaCastSkillGeneric(CHARACTER* c, int Skill)
-{
-    OBJECT* o = &c->Object;
-
-    CheckTarget(c);
-    g_MovementSkill.m_bMagic = TRUE;
-    g_MovementSkill.m_iSkill = Hero->CurrentSkill;
-    g_MovementSkill.m_iTarget = CheckAttack() ? SelectedCharacter : -1;
-
-    o->Angle[2] = CreateAngle2D(o->Position, c->TargetPosition);
-    const int tX = (int)(c->TargetPosition[0] / TERRAIN_SCALE);
-    const int tY = (int)(c->TargetPosition[1] / TERRAIN_SCALE);
-    const BYTE byValue = GetDestValue((c->PositionX), (c->PositionY), tX, tY);
-    const BYTE pos = CalcTargetPos(o->Position[0], o->Position[1], c->TargetPosition[0], c->TargetPosition[1]);
-
-    WORD TKey = 0xffff;
-    if (g_MovementSkill.m_iTarget != -1)
-    {
-        TKey = getTargetCharacterKey(c, g_MovementSkill.m_iTarget);
-    }
-
-    SendRequestMagicContinue(Skill, (c->PositionX), (c->PositionY), (BYTE)(o->Angle[2] / 360.f * 256.f), byValue, pos, TKey, 0);
-    SetAttackSpeed();
-    c->SkillSuccess = true;
-    c->Movement = 0;
-}
-
 int ExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
 {
     OBJECT* o = &c->Object;
@@ -350,7 +319,7 @@ int ExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
         }
     }
 
-    if (ClassIndex != CLASS_WIZARD && g_MobaLevel <= 0)
+    if (ClassIndex != CLASS_WIZARD)
     {
         CheckTarget(c);
 
@@ -438,13 +407,6 @@ int ExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
             }
         }
     }
-    if (g_MobaLevel > 0)
-    {
-        // MOBA: one generic path for every champion skill, regardless of class.
-        MobaCastSkillGeneric(c, Skill);
-        return (int) ExecuteSkillComplete(c);
-    }
-
     if (ClassIndex == CLASS_ELF)
     {
         GameLogic::Combat::AttackElf(c, Skill, Distance);
