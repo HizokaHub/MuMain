@@ -306,7 +306,7 @@ void SEASON3B::CNewUIMainFrameWindow::RenderLifeMana()
 
     // mana
     width = 45.f;
-    x = (g_MobaLevel > 0) ? 561.f : (256.f + 128.f + 53.f); // MOBA: past the slot-10 filler box
+    x = (g_MobaLevel > 0) ? 594.f : (256.f + 128.f + 53.f); // MOBA: past the slot-11 filler box
     height = 39.f;
     y = (float)REFERENCE_HEIGHT - 48.f;
 
@@ -351,7 +351,7 @@ void SEASON3B::CNewUIMainFrameWindow::RenderGuageAG()
     }
 
     width = 16.f, height = 39.f;
-    x = (g_MobaLevel > 0) ? 544.f : (256 + 128 + 36); y = (float)REFERENCE_HEIGHT - 49.f; // MOBA: past the slot-10 filler box
+    x = (g_MobaLevel > 0) ? 576.f : (256 + 128 + 36); y = (float)REFERENCE_HEIGHT - 49.f; // MOBA: past the slot-11 filler box
     fY = y + (fSkillMana * height);
     fH = height - (fSkillMana * height);
     fV = fSkillMana;
@@ -780,6 +780,14 @@ bool SEASON3B::CNewUIMainFrameWindow::UpdateMouseEvent()
 
 bool SEASON3B::CNewUIMainFrameWindow::BtnProcess()
 {
+    // Custom MOBA game mode: the right-side command boxes (Inventory / Character /
+    // Shop / Friend / Menu) are not rendered and their hit rectangles overlap the
+    // relocated skill slots 9-11, so ignore them entirely here.
+    if (g_MobaLevel > 0)
+    {
+        return false;
+    }
+
     if (g_pNewUIHotKey->CanUpdateKeyEventRelatedMyInventory() == true)
     {
         if (m_BtnMyInven.UpdateMouseEvent() == true)
@@ -2260,9 +2268,11 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
 
         if (moba)
         {
-            // Decorative filler frame in the slot-10 position, so the strip between
-            // the last skill slot and the relocated AG / Mana gauges is not raw black.
+            // Decorative filler frames in the slot-10 / slot-11 positions, so the
+            // strip between the last skill slot and the relocated AG / Mana gauges
+            // is not raw black.
             SEASON3B::RenderImage(IMAGE_SKILLBOX, baseX + 32.f * 9.f, y, width, height);
+            SEASON3B::RenderImage(IMAGE_SKILLBOX, baseX + 32.f * 10.f, y, width, height);
         }
 
         if (!moba)
