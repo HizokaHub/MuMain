@@ -194,6 +194,32 @@ bool CheckMana(CHARACTER* c, int Skill)
     return true;
 }
 
+// Custom MOBA game mode: the per-class Attack* dispatch (and the weapon Special list)
+// only knows each class's own skills, so a champion loadout that mixes skills silently
+// fails to cast some of them. The server's TargetedSkill handler (packet 0x19) runs ANY
+// skill through TargetedSkillDefaultPlugin - damage, effects AND the animation broadcast -
+// and the client's ReceiveMagic plays the full visual from that broadcast. So in MOBA we
+// just send 0x19 for every skill and let the server + the echo do the rest.
+static void MobaCastSkill(CHARACTER* c, int Skill)
+{
+    CheckTarget(c);
+    const bool hasTarget = CheckAttack() && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT;
+    const int targetKey = hasTarget ? getTargetCharacterKey(c, SelectedCharacter) : HeroKey;
+
+    g_MovementSkill.m_bMagic = TRUE;
+    g_MovementSkill.m_iSkill = Hero->CurrentSkill;
+    g_MovementSkill.m_iTarget = hasTarget ? SelectedCharacter : -1;
+
+    if (hasTarget)
+    {
+        c->Object.Angle[2] = CreateAngle2D(c->Object.Position, CharactersClient[SelectedCharacter].Object.Position);
+    }
+
+    SendRequestMagic(Skill, targetKey);
+    SetAttackSpeed();
+    c->SkillSuccess = true;
+}
+
 int ExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
 {
     OBJECT* o = &c->Object;
@@ -319,7 +345,7 @@ int ExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
         }
     }
 
-    if (ClassIndex != CLASS_WIZARD)
+    if (ClassIndex != CLASS_WIZARD && g_MobaLevel <= 0)
     {
         CheckTarget(c);
 
@@ -407,6 +433,12 @@ int ExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
             }
         }
     }
+    if (g_MobaLevel > 0)
+    {
+        MobaCastSkill(c, Skill);
+        return (int) ExecuteSkillComplete(c);
+    }
+
     if (ClassIndex == CLASS_ELF)
     {
         GameLogic::Combat::AttackElf(c, Skill, Distance);
