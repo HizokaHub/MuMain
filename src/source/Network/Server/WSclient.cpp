@@ -4086,6 +4086,21 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         sc->SkillSuccess = (Success != 0);
         sc->Skill = MagicNumber;
     }
+
+    // MOBA: the generic 0x19 cast path (MobaCastSkill) skips the local per-class pose
+    // code. Rage Fighter poses live in CMonkSystem and are otherwise only triggered from
+    // that local code, so drive them from the echo here for the hero.
+    if (g_MobaLevel > 0 && sc == Hero && so->Type == MODEL_PLAYER
+        && gCharacterManager.GetBaseClass(sc->Class) == CLASS_RAGEFIGHTER)
+    {
+        if (!g_CMonkSystem.SetRageSkillAni(MagicNumber, so))
+        {
+            SetPlayerAttack(sc);
+        }
+
+        so->AnimationFrame = 0;
+    }
+
     switch (MagicNumber)
     {
     case AT_SKILL_MONSTER_SUMMON:
@@ -5464,6 +5479,11 @@ BOOL ReceiveMagicContinue(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
                 }
             }
             break;
+            case AT_SKILL_ALICE_CHAINLIGHTNING:
+            case AT_SKILL_ALICE_CHAINLIGHTNING_STR:
+                SetPlayerMagic(sc);
+                PlayBuffer(SOUND_SKILL_CHAIN_LIGHTNING);
+                break;
             case AT_SKILL_ALICE_WEAKNESS:
             case AT_SKILL_ALICE_ENERVATION:
                 switch (sc->Helper.Type)
