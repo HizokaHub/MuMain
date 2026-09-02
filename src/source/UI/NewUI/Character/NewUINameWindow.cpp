@@ -308,10 +308,15 @@ void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
         CHARACTER* c = &CharactersClient[i];
         OBJECT* o = &c->Object;
 
-        // Only creeps with a fresh team-status update; the F8 toggle is ignored here.
+        // Any MOBA participant with a fresh team-status update - creeps AND champion
+        // players; the F8 toggle is ignored here. (Own hero excluded: it has the HUD gauge.)
         if (c->MobaTeam == 0 || (WorldTime - c->MobaStatusTime) > 2000.0)
             continue;
-        if (!o->Live || !o->Visible || o->Alpha <= 0.f || c->Dead > 0 || o->Kind != KIND_MONSTER)
+        if (!o->Live || !o->Visible || o->Alpha <= 0.f || c->Dead > 0)
+            continue;
+        if (o->Kind != KIND_MONSTER && o->Kind != KIND_PLAYER)
+            continue;
+        if (o->Kind == KIND_PLAYER && c == Hero)
             continue;
 
         vec3_t Position;
@@ -330,7 +335,9 @@ void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
             continue;
 
         const bool blue = (c->MobaTeam == 1);
-        DrawHealthBar(ScreenX, ScreenY, c->MobaHealth, 8, 3.f / 7.f,
+        // Champions get a wider bar than creeps so they read as the important targets.
+        const int barHalfWidth = (o->Kind == KIND_PLAYER) ? 16 : 8;
+        DrawHealthBar(ScreenX, ScreenY, c->MobaHealth, barHalfWidth, 3.f / 7.f,
                       blue ? 0.15f : 1.00f,
                       blue ? 0.35f : 0.15f,
                       blue ? 1.00f : 0.15f);
