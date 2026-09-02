@@ -106,6 +106,23 @@ extern double g_MobaSkillCooldownFull[MOBA_MAX_SKILL_NUMBER];
 // WorldTime ms until which the skill stays castable after a cast; its cooldown starts only after this.
 extern double g_MobaSkillCooldownGraceEnd[MOBA_MAX_SKILL_NUMBER];
 
+// MOBA scoreboard (TAB panel): one row per champion in the match, pushed by packet C1 D5 05.
+constexpr int MOBA_MAX_SCORE_ROWS = 12;
+struct MobaScoreRow
+{
+    char name[11];
+    BYTE team;         // 1 = blue, 2 = red
+    BYTE classNumber;  // MU character-class number
+    BYTE level;        // champion level
+    BYTE kills;
+    BYTE deaths;
+    BYTE assists;
+};
+extern MobaScoreRow g_MobaScoreboard[MOBA_MAX_SCORE_ROWS];
+extern int          g_MobaScoreboardCount;
+extern double       g_MobaScoreboardTime; // WorldTime of the last update
+void ReceiveMobaScoreboard(const BYTE* ReceiveBuffer);
+
 // Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
 void SendMobaSkillUp(int skillNumber);
 

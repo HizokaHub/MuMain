@@ -28,6 +28,8 @@
 #include "GameLogic/Skills/SkillManager.h"
 #include "UI/NewUI/HUD/Skills/SkillTooltip.h"
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MobaExp (MOBA HUD exp bar)
+#include "UI/Legacy/UIControls.h"    // g_pRenderText (MOBA TAB scoreboard)
+#include "App/Platform/Windows/Winmain.h" // g_hFontBold
 #include "Core/Time/CTimCheck.h"
 #include "GameLogic/Social/MonkSystem.h"
 
@@ -170,6 +172,80 @@ void SEASON3B::CNewUIMainFrameWindow::Release()
     }
 }
 
+// MOBA TAB scoreboard: a League-style panel with every champion's level and K/D/A,
+// shown while TAB is held during a match. Data comes from packet C1 D5 05.
+static const wchar_t* MobaClassTag(BYTE classNumber)
+{
+    switch (classNumber)
+    {
+    case 0: return L"DW";  case 2: return L"SM";  case 3: return L"GM";
+    case 4: return L"DK";  case 6: return L"BK";  case 7: return L"BM";
+    case 8: return L"FE";  case 10: return L"ME"; case 11: return L"HE";
+    case 12: return L"MG"; case 13: return L"DM";
+    case 16: return L"DL"; case 17: return L"LE";
+    case 20: return L"SUM"; case 22: return L"BS"; case 23: return L"DIM";
+    case 24: return L"RF"; case 25: return L"FM";
+    default: return L"?";
+    }
+}
+
+static void RenderMobaScoreboard()
+{
+    if (g_MobaLevel <= 0 || g_MobaScoreboardCount <= 0)
+        return;
+    if ((GetAsyncKeyState(VK_TAB) & 0x8000) == 0)
+        return;
+    if ((WorldTime - g_MobaScoreboardTime) > 5000.0)
+        return;
+
+    const float rowH = 18.f;
+    const float w = 420.f;
+    const float h = 44.f + (g_MobaScoreboardCount + 1) * rowH;
+    const float x = (REFERENCE_WIDTH - w) * 0.5f;
+    const float y = 70.f;
+
+    glColor4f(0.f, 0.f, 0.f, 0.78f);
+    RenderColor(x, y, w, h);
+    glColor3f(1.f, 1.f, 1.f);
+    EndRenderColor();
+
+    g_pRenderText->SetFont(g_hFontBold);
+    g_pRenderText->SetBgColor(0, 0, 0, 0);
+    g_pRenderText->SetTextColor(255, 225, 150, 255);
+    g_pRenderText->RenderText((int)(x + w * 0.5f), (int)(y + 8.f), L"MARCADOR  (TAB)", 0, 0, RT3_SORT_CENTER);
+
+    g_pRenderText->SetTextColor(180, 200, 220, 255);
+    g_pRenderText->RenderText((int)(x + 14.f), (int)(y + 28.f), L"Campeon", 0, 0, RT3_SORT_LEFT);
+    g_pRenderText->RenderText((int)(x + 210.f), (int)(y + 28.f), L"Nv", 0, 0, RT3_SORT_LEFT);
+    g_pRenderText->RenderText((int)(x + 270.f), (int)(y + 28.f), L"K / D / A", 0, 0, RT3_SORT_LEFT);
+
+    float ry = y + 44.f;
+    for (int i = 0; i < g_MobaScoreboardCount && i < MOBA_MAX_SCORE_ROWS; ++i)
+    {
+        const MobaScoreRow& r = g_MobaScoreboard[i];
+        const bool blue = (r.team == 1);
+        if (blue) g_pRenderText->SetTextColor(120, 170, 255, 255);
+        else      g_pRenderText->SetTextColor(255, 130, 120, 255);
+
+        wchar_t wname[24];
+        MultiByteToWideChar(CP_UTF8, 0, r.name, -1, wname, 24);
+
+        wchar_t line[64];
+        swprintf(line, 64, L"%-12s  %s", wname, MobaClassTag(r.classNumber));
+        g_pRenderText->RenderText((int)(x + 14.f), (int)ry, line, 0, 0, RT3_SORT_LEFT);
+
+        swprintf(line, 16, L"%d", r.level);
+        g_pRenderText->RenderText((int)(x + 210.f), (int)ry, line, 0, 0, RT3_SORT_LEFT);
+
+        swprintf(line, 32, L"%d / %d / %d", r.kills, r.deaths, r.assists);
+        g_pRenderText->RenderText((int)(x + 270.f), (int)ry, line, 0, 0, RT3_SORT_LEFT);
+
+        ry += rowH;
+    }
+
+    g_pRenderText->SetTextColor(255, 255, 255, 255);
+}
+
 bool SEASON3B::CNewUIMainFrameWindow::Render()
 {
     EnableAlphaTest();
@@ -187,6 +263,7 @@ bool SEASON3B::CNewUIMainFrameWindow::Render()
     RenderGuageAG();
     RenderButtons();
     RenderExperience();
+    RenderMobaScoreboard();
     DisableAlphaBlend();
 
     // The always-on corner minimap for the MOBA arena used to be drawn here, but

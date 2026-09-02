@@ -16,6 +16,7 @@
 #include "UI/Legacy/UIMng.h"
 #include "World/MapInfra/MapManager.h"
 #include "Character/CharacterManager.h"
+#include "Network/Server/WSclient.h" // g_MobaLevel (MOBA TAB = scoreboard, not minimap)
 #ifdef KJH_ADD_INGAMESHOP_UI_SYSTEM
 #include "GameShop/InGameShopSystem.h"
 #endif // KJH_ADD_INGAMESHOP_UI_SYSTEM
@@ -289,8 +290,10 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         PlayBuffer(SOUND_CLICK01);
         return false;
     }
-    else if (SEASON3B::IsPress(VK_TAB) == true)
+    else if (SEASON3B::IsPress(VK_TAB) == true && g_MobaLevel <= 0)
     {
+        // In a MOBA match TAB is the hold-to-show scoreboard (see RenderMobaScoreboard),
+        // not the minimap toggle.
         if (g_pNewUIMiniMap->m_bSuccess == false)
         {
             g_pNewUISystem->Hide(SEASON3B::INTERFACE_MINI_MAP);

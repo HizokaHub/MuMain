@@ -13349,6 +13349,34 @@ void ReceiveMobaTeamStatus(const BYTE* ReceiveBuffer)
     }
 }
 
+// Handles packet C1 D5 05: the full MOBA scoreboard for the TAB panel.
+// Layout: [4]=count, then count * ( name[10] team(1) classNum(1) level(1) kills(1) deaths(1) assists(1) ).
+MobaScoreRow g_MobaScoreboard[MOBA_MAX_SCORE_ROWS] = {};
+int          g_MobaScoreboardCount = 0;
+double       g_MobaScoreboardTime = 0.0;
+
+void ReceiveMobaScoreboard(const BYTE* ReceiveBuffer)
+{
+    int count = ReceiveBuffer[4];
+    if (count > MOBA_MAX_SCORE_ROWS) count = MOBA_MAX_SCORE_ROWS;
+    const BYTE* p = ReceiveBuffer + 5;
+    for (int i = 0; i < count; ++i, p += 16)
+    {
+        MobaScoreRow& r = g_MobaScoreboard[i];
+        memcpy(r.name, p, 10);
+        r.name[10] = 0;
+        for (int k = 9; k >= 0 && (r.name[k] == 0 || r.name[k] == ' '); --k) r.name[k] = 0;
+        r.team = p[10];
+        r.classNumber = p[11];
+        r.level = p[12];
+        r.kills = p[13];
+        r.deaths = p[14];
+        r.assists = p[15];
+    }
+    g_MobaScoreboardCount = count;
+    g_MobaScoreboardTime = WorldTime;
+}
+
 static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
 {
     auto received_span = std::span<const BYTE>(ReceiveBuffer, Size);
@@ -13932,6 +13960,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x04:
             ReceiveMobaSkillCooldown(ReceiveBuffer);
+            break;
+        case 0x05:
+            ReceiveMobaScoreboard(ReceiveBuffer);
             break;
         }
     }
