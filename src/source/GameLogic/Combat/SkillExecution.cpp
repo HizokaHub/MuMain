@@ -254,6 +254,8 @@ static bool MobaIsAreaSkill(int Skill)
     case 78:  // Fire Scream
     case 214: // Drain Life
     case 215: // Chain Lightning
+    case 221: // Weakness (debuff on enemy)
+    case 222: // Innovation / Enervation (debuff on enemy)
     case 223: // Explosion
     case 224: // Requiem
     case 225: // Pollution

@@ -4174,6 +4174,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     case AT_SKILL_DEFENSE:
     case AT_SKILL_DEFENSE_STR:
     case AT_SKILL_DEFENSE_MASTERY:
+    case AT_SKILL_BLOCKING: // BK "Defense" stance buff (skill 18) - MOBA loadout
     case AT_SKILL_SUMMON:
     case AT_SKILL_SUMMON + 1:
     case AT_SKILL_SUMMON + 2:
@@ -5009,7 +5010,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         so->m_sTargetIndex = TargetIndex;
         sc->AttackTime = 1;
 
-        if (sc != Hero)
+        if (sc != Hero || g_MobaLevel > 0) // MOBA: generic cast path never runs RageCreateEffect for the hero
         {
             g_CMonkSystem.RageCreateEffect(so, MagicNumber);
         }
@@ -5034,7 +5035,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
             }
         }
         OBJECT* _pObj = to;
-        if (sc != Hero)
+        if (sc != Hero || g_MobaLevel > 0) // MOBA: animate/effect the local caster too
         {
             _pObj = so;
             g_CMonkSystem.RageCreateEffect(_pObj, MagicNumber);
@@ -5091,7 +5092,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     case AT_SKILL_DRAGON_KICK:
     {
         sc->AttackTime = 1;
-        if (sc != Hero)
+        if (sc != Hero || g_MobaLevel > 0) // MOBA: generic cast path skips the local effect
             g_CMonkSystem.RageCreateEffect(so, MagicNumber);
     }
     break;
@@ -5122,6 +5123,8 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     {
         if (sc != Hero)
             g_CMonkSystem.SetDarksideCnt();
+        if (g_MobaLevel > 0) // MOBA: generic cast path skips the local Dark Side visual
+            g_CMonkSystem.RageCreateEffect(so, MagicNumber);
     }
     break;
     }
@@ -5524,7 +5527,7 @@ BOOL ReceiveMagicContinue(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
             case AT_SKILL_DRAGON_ROAR:
             case AT_SKILL_DRAGON_ROAR_STR:
             {
-                if (sc != Hero)
+                if (sc != Hero || g_MobaLevel > 0) // MOBA: generic cast path skips the local effect
                     g_CMonkSystem.RageCreateEffect(so, MagicNumber);
 
                 g_CMonkSystem.SetRageSkillAni(MagicNumber, so);
