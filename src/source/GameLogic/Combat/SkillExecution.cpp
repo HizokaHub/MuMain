@@ -195,13 +195,21 @@ bool CheckMana(CHARACTER* c, int Skill)
 }
 
 // Custom MOBA game mode: the per-class Attack* dispatch (and the weapon Special list)
-// only knows each class's own skills, so a champion loadout that mixes skills silently
-// fails to cast some of them. The server's TargetedSkill handler (packet 0x19) runs ANY
-// skill through TargetedSkillDefaultPlugin - damage, effects AND the animation broadcast -
-// and the client's ReceiveMagic plays the full visual from that broadcast. So in MOBA we
-// just send 0x19 for every skill and let the server + the echo do the rest.
+// only knows each class's own skills, so a mixed champion loadout silently fails to cast
+// some of them. The server's TargetedSkill handler (packet 0x19) runs ANY skill through
+// TargetedSkillDefaultPlugin - damage, effects AND the animation broadcast - and the
+// client's ReceiveMagic plays the projectile / hit visual from that broadcast. So in MOBA
+// we send 0x19 for every skill and let the server + the echo do the rest.
+//
+// The one gap: ReceiveMagic's per-skill CASTER animation blocks are mostly gated
+// "if (sc != Hero)" - they assume the local per-class code already posed the hero. Our
+// generic path skips that, so the hero would stand still while casting. Fix: play a
+// weapon-based attack pose locally here (SetPlayerAttack picks bow / staff / sword / fist
+// from the equipped weapon), so every cast has a visible motion.
 static void MobaCastSkill(CHARACTER* c, int Skill)
 {
+    OBJECT* o = &c->Object;
+
     CheckTarget(c);
     const bool hasTarget = CheckAttack() && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT;
     const int targetKey = hasTarget ? getTargetCharacterKey(c, SelectedCharacter) : HeroKey;
@@ -212,11 +220,12 @@ static void MobaCastSkill(CHARACTER* c, int Skill)
 
     if (hasTarget)
     {
-        c->Object.Angle[2] = CreateAngle2D(c->Object.Position, CharactersClient[SelectedCharacter].Object.Position);
+        o->Angle[2] = CreateAngle2D(o->Position, CharactersClient[SelectedCharacter].Object.Position);
     }
 
     SendRequestMagic(Skill, targetKey);
-    SetAttackSpeed();
+
+    SetPlayerAttack(c);
     c->SkillSuccess = true;
 }
 

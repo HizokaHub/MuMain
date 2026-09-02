@@ -4356,6 +4356,45 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
             so->AnimationFrame = 0;
         }
         sc->AttackTime = 1;
+        // MOBA: Multi-Shot is cast through the generic 0x19 path (see MobaCastSkill), so
+        // the fan-of-arrows particle burst that normally lives in the 0x1E handler
+        // (ReceiveMagicContinue, case AT_SKILL_MULTI_SHOT) never fires. Recreate it here
+        // for every champion (hero + bots) so the skill is visible.
+        if (g_MobaLevel > 0)
+        {
+            OBJECT* mo = so;
+            vec3_t mLight, mPosition, mP, mdp;
+            float mMatrix[3][4];
+
+            Vector(0.f, 20.f, 0.f, mP);
+            AngleMatrix(mo->Angle, mMatrix);
+            VectorRotate(mP, mMatrix, mdp);
+            VectorAdd(mdp, mo->Position, mPosition);
+            Vector(0.8f, 0.9f, 1.6f, mLight);
+            CreateEffect(MODEL_MULTI_SHOT3, mPosition, mo->Angle, mLight, 0);
+            CreateEffect(MODEL_MULTI_SHOT3, mPosition, mo->Angle, mLight, 0);
+
+            Vector(0.f, 0.f, 0.f, mP);
+            AngleMatrix(mo->Angle, mMatrix);
+            VectorRotate(mP, mMatrix, mdp);
+            VectorAdd(mdp, mo->Position, mPosition);
+            CreateEffect(MODEL_MULTI_SHOT1, mPosition, mo->Angle, mLight, 0);
+            CreateEffect(MODEL_MULTI_SHOT1, mPosition, mo->Angle, mLight, 0);
+            CreateEffect(MODEL_MULTI_SHOT1, mPosition, mo->Angle, mLight, 0);
+
+            Vector(0.f, 20.f, 0.f, mP);
+            AngleMatrix(mo->Angle, mMatrix);
+            VectorRotate(mP, mMatrix, mdp);
+            VectorAdd(mdp, mo->Position, mPosition);
+            CreateEffect(MODEL_MULTI_SHOT2, mPosition, mo->Angle, mLight, 0);
+            CreateEffect(MODEL_MULTI_SHOT2, mPosition, mo->Angle, mLight, 0);
+
+            Vector(0.f, -120.f, 145.f, mP);
+            AngleMatrix(mo->Angle, mMatrix);
+            VectorRotate(mP, mMatrix, mdp);
+            VectorAdd(mdp, mo->Position, mPosition);
+            CreateEffect(MODEL_BLADE_SKILL, mPosition, mo->Angle, mLight, 1, mo, (short)Index);
+        }
         break;
     case AT_SKILL_BLAST_CROSSBOW4:
         SetPlayerBow(sc);
