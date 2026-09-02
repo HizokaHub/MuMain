@@ -207,24 +207,55 @@ bool CheckMana(CHARACTER* c, int Skill)
 
 // Custom MOBA game mode: the per-class Attack* dispatch (and the weapon Special list)
 // only knows each class's own skills, so a mixed champion loadout silently fails to cast
-// some of them. The server's TargetedSkill handler (packet 0x19) runs ANY skill through
-// TargetedSkillDefaultPlugin - damage, effects AND the animation broadcast - and the
-// client's ReceiveMagic plays the projectile / hit visual from that broadcast. So in MOBA
-// we send 0x19 for every skill and let the server + the echo do the rest.
+// some of them. In MOBA we bypass all of that and talk to the server generically:
 //
-// The one gap: ReceiveMagic's per-skill CASTER animation blocks. The melee sword skills
-// (Falling Slash, Cyclone, Slash, Death Stab, Force, ...) call SetAction unconditionally,
-// so the hero already animates from the broadcast. The magic / buff casters instead gate
-// their pose behind "if (sc != Hero)" - patched to also fire for the local hero when
-// g_MobaLevel > 0 (see ReceiveMagic). So nothing extra is needed here; do NOT play a
-// local attack pose or every melee skill double-swings.
+//  - DIRECT / targeted skills -> packet 0x19 (SendRequestMagic). The server's
+//    TargetedSkillDefaultPlugin runs damage + effects + the animation broadcast, and the
+//    client's ReceiveMagic plays the visual.
+//  - AREA skills (server SkillType 3/4/5: Twisting Slash, Rageful Blow, Evil Spirit, Ice
+//    Storm, Fire Slash, Electric Spike, Strike of Destruction, Multi-Shot, Chain
+//    Lightning, Drain Life, Phoenix Shot, ...) -> packet 0x1E (SendRequestMagicContinue).
+//    Only AreaSkillAttackAction applies their damage (the targeted handler skips any
+//    skill that is neither DirectHit nor has a MagicEffectDef), and only ReceiveMagicContinue
+//    has their cast pose + particle bursts.
+//
+// ReceiveMagic / ReceiveMagicContinue gate most per-skill CASTER poses behind
+// "if (sc != Hero)" (they assume local class code already posed the hero). Those guards
+// are patched to also fire when g_MobaLevel > 0, so the hero sees his own cast. Melee
+// sword skills call SetAction unconditionally, so do NOT add a local pose here or they
+// double-swing.
+static bool MobaIsAreaSkill(int Skill)
+{
+    switch (Skill)
+    {
+    case AT_SKILL_EVIL_SPIRIT:            // 9
+    case AT_SKILL_ICE_STORM:              // 39
+    case AT_SKILL_TWISTING_SLASH:         // 41
+    case AT_SKILL_RAGEFUL_BLOW:           // 42
+    case AT_SKILL_PENETRATION:            // 52
+    case AT_SKILL_FIRE_SLASH:             // 55
+    case AT_SKILL_POWER_SLASH:            // 56
+    case AT_SKILL_THUNDER_STRIKE:         // 65  (server "Electric Spike")
+    case AT_SKILL_ALICE_DRAINLIFE:        // 214
+    case AT_SKILL_ALICE_CHAINLIGHTNING:   // 215
+    case AT_SKILL_ALICE_BLIND:            // 220
+    case AT_SKILL_STRIKE_OF_DESTRUCTION:  // 232
+    case AT_SKILL_MULTI_SHOT:             // 235
+    case AT_SKILL_DRAGON_ROAR:            // 264
+    case AT_SKILL_PHOENIX_SHOT:           // 270
+        return true;
+    default:
+        return false;
+    }
+}
+
 static void MobaCastSkill(CHARACTER* c, int Skill)
 {
     OBJECT* o = &c->Object;
 
     CheckTarget(c);
     const bool hasTarget = CheckAttack() && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT;
-    const int targetKey = hasTarget ? getTargetCharacterKey(c, SelectedCharacter) : HeroKey;
+    const WORD targetKey = hasTarget ? (WORD)getTargetCharacterKey(c, SelectedCharacter) : (WORD)HeroKey;
 
     g_MovementSkill.m_bMagic = TRUE;
     g_MovementSkill.m_iSkill = Hero->CurrentSkill;
@@ -235,7 +266,22 @@ static void MobaCastSkill(CHARACTER* c, int Skill)
         o->Angle[2] = CreateAngle2D(o->Position, CharactersClient[SelectedCharacter].Object.Position);
     }
 
-    SendRequestMagic(Skill, targetKey);
+    if (MobaIsAreaSkill(Skill))
+    {
+        const int aimX = (int)(c->TargetPosition[0] / TERRAIN_SCALE);
+        const int aimY = (int)(c->TargetPosition[1] / TERRAIN_SCALE);
+        const int tileX = (aimX > 0) ? aimX : (int)c->PositionX;
+        const int tileY = (aimY > 0) ? aimY : (int)c->PositionY;
+        const BYTE byValue = GetDestValue((c->PositionX), (c->PositionY), tileX, tileY);
+        const BYTE angle = (BYTE)((((o->Angle[2] + 180.f) / 360.f) * 255.f));
+        const WORD areaTargetKey = hasTarget ? targetKey : (WORD)0xffff;
+        SendRequestMagicContinue(Skill, tileX, tileY, ((o->Angle[2] / 360.f) * 255), byValue, angle, areaTargetKey, 0);
+    }
+    else
+    {
+        SendRequestMagic(Skill, targetKey);
+    }
+
     c->SkillSuccess = true;
 }
 

@@ -5136,7 +5136,9 @@ BOOL ReceiveMagicContinue(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
 
     if (so->Type == MODEL_PLAYER)
     {
-        if (sc != Hero)
+        // MOBA routes area skills through 0x1E for the local hero too (see MobaCastSkill),
+        // so this per-skill cast-pose / particle switch must run for the hero as well.
+        if (sc != Hero || g_MobaLevel > 0)
         {
             switch (MagicNumber)
             {
