@@ -224,25 +224,47 @@ bool CheckMana(CHARACTER* c, int Skill)
 // are patched to also fire when g_MobaLevel > 0, so the hero sees his own cast. Melee
 // sword skills call SetAction unconditionally, so do NOT add a local pose here or they
 // double-swing.
+// Server-side SkillType 3/4/5 (area) skills - kept as raw numbers so it stays in sync with
+// the config without chasing per-skill client enum names. These must go out as 0x1E
+// (SendAreaSkill) or the server never applies their damage and the client never plays
+// their cast pose / particle burst.
 static bool MobaIsAreaSkill(int Skill)
 {
     switch (Skill)
     {
-    case AT_SKILL_EVIL_SPIRIT:            // 9
-    case AT_SKILL_ICE_STORM:              // 39
-    case AT_SKILL_TWISTING_SLASH:         // 41
-    case AT_SKILL_RAGEFUL_BLOW:           // 42
-    case AT_SKILL_PENETRATION:            // 52
-    case AT_SKILL_FIRE_SLASH:             // 55
-    case AT_SKILL_POWER_SLASH:            // 56
-    case AT_SKILL_THUNDER_STRIKE:         // 65  (server "Electric Spike")
-    case AT_SKILL_ALICE_DRAINLIFE:        // 214
-    case AT_SKILL_ALICE_CHAINLIGHTNING:   // 215
-    case AT_SKILL_ALICE_BLIND:            // 220
-    case AT_SKILL_STRIKE_OF_DESTRUCTION:  // 232
-    case AT_SKILL_MULTI_SHOT:             // 235
-    case AT_SKILL_DRAGON_ROAR:            // 264
-    case AT_SKILL_PHOENIX_SHOT:           // 270
+    case 5:   // Flame
+    case 8:   // Twister
+    case 9:   // Evil Spirit
+    case 10:  // Hellfire
+    case 12:  // Aqua Beam
+    case 13:  // Cometfall
+    case 14:  // Inferno
+    case 24:  // Triple Shot
+    case 38:  // Decay
+    case 39:  // Ice Storm
+    case 41:  // Twisting Slash
+    case 42:  // Rageful Blow
+    case 52:  // Penetration
+    case 55:  // Fire Slash
+    case 56:  // Power Slash
+    case 62:  // Earthshake
+    case 65:  // Electric Spike
+    case 67:  // Stun
+    case 76:  // Plasma Storm
+    case 78:  // Fire Scream
+    case 214: // Drain Life
+    case 215: // Chain Lightning
+    case 223: // Explosion
+    case 224: // Requiem
+    case 225: // Pollution
+    case 230: // Lightning Shock
+    case 232: // Strike of Destruction
+    case 235: // Multi-Shot
+    case 236: // Flame Strike
+    case 237: // Gigantic Storm
+    case 238: // Chaotic Diseier
+    case 264: // Dragon Roar
+    case 270: // Phoenix Shot
         return true;
     default:
         return false;
