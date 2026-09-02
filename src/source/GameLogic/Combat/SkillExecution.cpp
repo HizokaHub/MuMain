@@ -265,8 +265,8 @@ static bool MobaIsAreaSkill(int Skill)
     case 236: // Flame Strike
     case 237: // Gigantic Storm
     case 238: // Chaotic Diseier
-    case 264: // Dragon Roar
-    case 270: // Phoenix Shot
+        // Dragon Roar (264) / Phoenix Shot (270) stay on 0x19 so the Rage Fighter pose +
+        // CMonkSystem effect path (which needs sc->TargetCharacter) drives them.
         return true;
     default:
         return false;

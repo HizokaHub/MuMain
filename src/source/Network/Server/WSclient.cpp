@@ -4087,17 +4087,24 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         sc->Skill = MagicNumber;
     }
 
-    // MOBA: the generic 0x19 cast path (MobaCastSkill) skips the local per-class pose
-    // code. Rage Fighter poses live in CMonkSystem and are otherwise only triggered from
-    // that local code, so drive them from the echo here for the hero.
+    // MOBA: the generic 0x19 cast path (MobaCastSkill) skips the local per-class pose /
+    // effect code. Rage Fighter poses AND particle effects live in CMonkSystem and are
+    // otherwise only triggered from that local code, so drive them from the echo here for
+    // the hero. RageCreateEffect guards itself with m_bUseEffectOnce, so the per-skill
+    // switch cases calling it again below are harmless no-ops.
     if (g_MobaLevel > 0 && sc == Hero && so->Type == MODEL_PLAYER
         && gCharacterManager.GetBaseClass(sc->Class) == CLASS_RAGEFIGHTER)
     {
+        so->m_sTargetIndex = (short)TargetIndex; // Phoenix Shot etc. aim at this
         if (!g_CMonkSystem.SetRageSkillAni(MagicNumber, so))
         {
             SetPlayerAttack(sc);
         }
 
+        // The per-frame RF skill handler that normally clears this (SkillCast) is skipped
+        // in MOBA, so reset it here or only the first RF skill of the match shows an effect.
+        g_CMonkSystem.InitEffectOnce();
+        g_CMonkSystem.RageCreateEffect(so, MagicNumber);
         so->AnimationFrame = 0;
     }
 
