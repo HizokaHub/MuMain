@@ -151,8 +151,19 @@ bool CanExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
 
     // Custom MOBA game mode: a champion casts on flat clone stats + a basic starter
     // weapon, which fail the local stat / weapon-type gates. The server allows the cast,
-    // so skip those checks here (mana is still real and enforced below).
-    if (g_MobaLevel <= 0)
+    // so skip those checks here (mana is still real and enforced below). Instead enforce
+    // the per-match cooldown locally, so a skill on cooldown does not even play its cast
+    // motion (the server would just drop the packet otherwise).
+    if (g_MobaLevel > 0)
+    {
+        const int mobaNum = static_cast<int>(Skill);
+        if (mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER
+            && g_MobaSkillCooldownEnd[mobaNum] > WorldTime)
+        {
+            return false;
+        }
+    }
+    else
     {
         if (!gSkillManager.AreSkillAttributeRequirementsMet(Skill))
         {
@@ -201,11 +212,12 @@ bool CheckMana(CHARACTER* c, int Skill)
 // client's ReceiveMagic plays the projectile / hit visual from that broadcast. So in MOBA
 // we send 0x19 for every skill and let the server + the echo do the rest.
 //
-// The one gap: ReceiveMagic's per-skill CASTER animation blocks are mostly gated
-// "if (sc != Hero)" - they assume the local per-class code already posed the hero. Our
-// generic path skips that, so the hero would stand still while casting. Fix: play a
-// weapon-based attack pose locally here (SetPlayerAttack picks bow / staff / sword / fist
-// from the equipped weapon), so every cast has a visible motion.
+// The one gap: ReceiveMagic's per-skill CASTER animation blocks. The melee sword skills
+// (Falling Slash, Cyclone, Slash, Death Stab, Force, ...) call SetAction unconditionally,
+// so the hero already animates from the broadcast. The magic / buff casters instead gate
+// their pose behind "if (sc != Hero)" - patched to also fire for the local hero when
+// g_MobaLevel > 0 (see ReceiveMagic). So nothing extra is needed here; do NOT play a
+// local attack pose or every melee skill double-swings.
 static void MobaCastSkill(CHARACTER* c, int Skill)
 {
     OBJECT* o = &c->Object;
@@ -224,8 +236,6 @@ static void MobaCastSkill(CHARACTER* c, int Skill)
     }
 
     SendRequestMagic(Skill, targetKey);
-
-    SetPlayerAttack(c);
     c->SkillSuccess = true;
 }
 

@@ -4176,7 +4176,9 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     case AT_SKILL_SOUL_BARRIER:
     case AT_SKILL_SOUL_BARRIER_STR:
     case AT_SKILL_SOUL_BARRIER_PROFICIENCY:
-        if (sc != Hero)
+        // MOBA casts every skill through the generic 0x19 path (see MobaCastSkill) which
+        // skips the local per-class cast pose, so animate the hero here too.
+        if (sc != Hero || g_MobaLevel > 0)
         {
             SetPlayerMagic(sc);
             so->AnimationFrame = 0;
@@ -4203,7 +4205,8 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     case AT_SKILL_FLAME:
     case AT_SKILL_FLAME_STR:
     case AT_SKILL_FLAME_STR_MG:
-        if (sc != Hero)
+        // MOBA: generic 0x19 cast path skips the local per-class pose - animate hero too.
+        if (sc != Hero || g_MobaLevel > 0)
         {
             if (so->Type == MODEL_PLAYER)
             {
