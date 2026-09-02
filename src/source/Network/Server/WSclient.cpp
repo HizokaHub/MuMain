@@ -13255,6 +13255,7 @@ bool     g_MobaHasSkill[MOBA_MAX_SKILL_NUMBER] = {};
 BYTE     g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER] = {};
 double   g_MobaSkillCooldownEnd[MOBA_MAX_SKILL_NUMBER] = {};
 double   g_MobaSkillCooldownFull[MOBA_MAX_SKILL_NUMBER] = {};
+double   g_MobaSkillCooldownGraceEnd[MOBA_MAX_SKILL_NUMBER] = {}; // WorldTime ms until which the skill stays castable after a cast (cooldown starts after)
 
 // Handles packet C1 D5 02: this champion's MOBA level + experience + skill levels.
 // Layout: [4]=level [5..8]=exp u32 LE [9..12]=nextExp u32 LE [13]=skillPoints
@@ -13274,6 +13275,7 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
     {
         memset(g_MobaSkillCooldownEnd, 0, sizeof(g_MobaSkillCooldownEnd));
         memset(g_MobaSkillCooldownFull, 0, sizeof(g_MobaSkillCooldownFull));
+        memset(g_MobaSkillCooldownGraceEnd, 0, sizeof(g_MobaSkillCooldownGraceEnd));
     }
     const int count = ReceiveBuffer[14];
     const BYTE* p = ReceiveBuffer + 15;
@@ -13289,16 +13291,19 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
 }
 
 // Handles packet C1 D5 04: a champion ability just went on its per-match cooldown.
-// Layout: [4..5]=skillNum u16 LE, [6..7]=durationMs u16 LE.
+// Layout: [4..5]=skillNum u16 LE, [6..7]=durationMs u16 LE, [8..9]=graceMs u16 LE.
+// The skill stays castable for graceMs after the cast; the cooldown starts only then.
 static void ReceiveMobaSkillCooldown(const BYTE* ReceiveBuffer)
 {
     const int num = (int)ReceiveBuffer[4] | ((int)ReceiveBuffer[5] << 8);
     const int durMs = (int)ReceiveBuffer[6] | ((int)ReceiveBuffer[7] << 8);
+    const int graceMs = (int)ReceiveBuffer[8] | ((int)ReceiveBuffer[9] << 8);
     if (num <= 0 || num >= MOBA_MAX_SKILL_NUMBER)
         return;
 
     g_MobaSkillCooldownFull[num] = (double)durMs;
-    g_MobaSkillCooldownEnd[num] = WorldTime + (double)durMs;
+    g_MobaSkillCooldownGraceEnd[num] = WorldTime + (double)graceMs;
+    g_MobaSkillCooldownEnd[num] = WorldTime + (double)graceMs + (double)durMs;
 }
 
 void SendMobaSkillUp(int skillNumber)

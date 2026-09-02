@@ -2246,9 +2246,11 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
             const int mobaNum = (mobaIdx >= 0 && mobaIdx < MAX_MAGIC) ? (int)CharacterAttribute->Skill[mobaIdx] : 0;
 
             // Per-match cooldown sweep: darken the slot from the top down in proportion
-            // to the time left, and show the remaining whole seconds.
+            // to the time left, and show the remaining whole seconds. Only once the
+            // post-cast grace window has elapsed - during it the skill is still castable.
             if (moba && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER
-                && g_MobaSkillCooldownEnd[mobaNum] > WorldTime)
+                && g_MobaSkillCooldownEnd[mobaNum] > WorldTime
+                && WorldTime >= g_MobaSkillCooldownGraceEnd[mobaNum])
             {
                 const double remainMs = g_MobaSkillCooldownEnd[mobaNum] - WorldTime;
                 const double fullMs = (g_MobaSkillCooldownFull[mobaNum] > 1.0)

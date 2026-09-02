@@ -103,6 +103,8 @@ extern BYTE g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER];
 // duration (for the HUD sweep fraction). 0 = not on cooldown.
 extern double g_MobaSkillCooldownEnd[MOBA_MAX_SKILL_NUMBER];
 extern double g_MobaSkillCooldownFull[MOBA_MAX_SKILL_NUMBER];
+// WorldTime ms until which the skill stays castable after a cast; its cooldown starts only after this.
+extern double g_MobaSkillCooldownGraceEnd[MOBA_MAX_SKILL_NUMBER];
 
 // Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
 void SendMobaSkillUp(int skillNumber);

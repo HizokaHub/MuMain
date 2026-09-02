@@ -157,8 +157,11 @@ bool CanExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
     if (g_MobaLevel > 0)
     {
         const int mobaNum = static_cast<int>(Skill);
+        // On cooldown only once the post-cast grace window has elapsed - during the grace
+        // window the skill stays castable so a combo can be chained.
         if (mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER
-            && g_MobaSkillCooldownEnd[mobaNum] > WorldTime)
+            && g_MobaSkillCooldownEnd[mobaNum] > WorldTime
+            && WorldTime >= g_MobaSkillCooldownGraceEnd[mobaNum])
         {
             return false;
         }
