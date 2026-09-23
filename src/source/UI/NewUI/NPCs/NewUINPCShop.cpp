@@ -11,6 +11,7 @@
 #include "Engine/Object/ZzzInventory.h"
 
 #include "GameLogic/Social/GambleSystem.h"
+#include "GameLogic/Items/MobaShopPrices.h"
 
 using namespace SEASON3B;
 
@@ -422,6 +423,7 @@ void SEASON3B::CNewUINPCShop::OpenningProcess()
 void SEASON3B::CNewUINPCShop::ClosingProcess()
 {
     SocketClient->ToGameServer()->SendCloseNpcRequest();
+    GameLogic::Items::MobaShopPrices::Clear();
 
     m_dwShopState = SHOP_STATE_BUYNSELL;
     m_iTaxRate = 0;

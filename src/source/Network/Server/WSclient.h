@@ -126,6 +126,9 @@ void ReceiveMobaScoreboard(const BYTE* ReceiveBuffer);
 // Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
 void SendMobaSkillUp(int skillNumber);
 
+// MOBA: tells the server which option of a server-driven NPC menu was picked (C1 D5 07).
+void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex);
+
 inline uint64_t ntoh64(uint64_t value)
 {
     return ((value & 0x00000000000000FFULL) << 56) |

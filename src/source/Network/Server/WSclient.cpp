@@ -69,6 +69,7 @@
 
 #include "GameLogic/Social/GambleSystem.h"
 #include "GameLogic/Quests/QuestMng.h"
+#include "GameLogic/Items/MobaShopPrices.h"
 #include "Scenes/SceneCommon.h"
 #ifdef PBG_ADD_SECRETBUFF
 #include "FatigueTimeSystem.h"
@@ -13321,6 +13322,147 @@ void SendMobaSkillUp(int skillNumber)
     SocketClient->Send(buf, 6);
 }
 
+void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    constexpr BYTE PacketLength = 6;
+    BYTE buf[PacketLength];
+    buf[0] = 0xC1;
+    buf[1] = PacketLength;
+    buf[2] = 0xD5;
+    buf[3] = 0x07;
+    buf[4] = menuId;
+    buf[5] = optionIndex;
+    SocketClient->Send(buf, PacketLength);
+}
+
+namespace
+{
+    // Bounds-checked reader for the variable-length MOBA packets (C2 D5 xx).
+    class MobaPacketReader
+    {
+    public:
+        explicit MobaPacketReader(std::span<const BYTE> packet, size_t offset) : m_packet(packet), m_offset(offset) {}
+
+        bool ReadByte(BYTE& value)
+        {
+            if (m_offset + 1 > m_packet.size())
+                return false;
+
+            value = m_packet[m_offset++];
+            return true;
+        }
+
+        bool ReadWord(WORD& value)
+        {
+            BYTE low = 0;
+            BYTE high = 0;
+            if (!ReadByte(low) || !ReadByte(high))
+                return false;
+
+            value = static_cast<WORD>(low | (high << 8));
+            return true;
+        }
+
+        bool ReadDword(uint32_t& value)
+        {
+            WORD low = 0;
+            WORD high = 0;
+            if (!ReadWord(low) || !ReadWord(high))
+                return false;
+
+            value = static_cast<uint32_t>(low) | (static_cast<uint32_t>(high) << 16);
+            return true;
+        }
+
+        bool ReadUtf8(size_t length, std::wstring& value)
+        {
+            if (m_offset + length > m_packet.size())
+                return false;
+
+            std::vector<wchar_t> buffer(length + 1, L'\0');
+            if (length > 0)
+            {
+                CMultiLanguage::ConvertFromUtf8(buffer.data(), reinterpret_cast<const char*>(m_packet.data() + m_offset), static_cast<int>(length));
+            }
+
+            value = buffer.data();
+            m_offset += length;
+            return true;
+        }
+
+    private:
+        std::span<const BYTE> m_packet;
+        size_t m_offset;
+    };
+
+    constexpr size_t MobaC2HeaderLength = 5; // C2 lenHi lenLo D5 subCode
+}
+
+// Handles packet C2 D5 06: a server-driven NPC menu (the MOBA shop categories), shown
+// by name in the NPC dialogue window. Layout after the header: menuId,
+// titleLen(u8) title, textLen(u16 LE) text, count(u8), count * (len(u8) option). UTF-8.
+static void ReceiveMobaNpcMenu(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    BYTE menuId = 0;
+    BYTE titleLength = 0;
+    WORD textLength = 0;
+    BYTE optionCount = 0;
+    std::wstring title;
+    std::wstring text;
+    if (!reader.ReadByte(menuId) || !reader.ReadByte(titleLength) || !reader.ReadUtf8(titleLength, title)
+        || !reader.ReadWord(textLength) || !reader.ReadUtf8(textLength, text) || !reader.ReadByte(optionCount))
+        return;
+
+    std::vector<std::wstring> options;
+    for (int i = 0; i < optionCount; ++i)
+    {
+        BYTE optionLength = 0;
+        std::wstring option;
+        if (!reader.ReadByte(optionLength) || !reader.ReadUtf8(optionLength, option))
+            return;
+
+        options.push_back(std::move(option));
+    }
+
+    g_pNPCDialogue->OpenServerMenu(menuId, title, text, options);
+}
+
+// Handles packet C2 D5 08: the MOBA shop prices the tooltips show instead of the
+// client-side item value. Layout after the header: sellPercent(u8), count(u16 LE),
+// count * (type u16, level, optionLevel, flags [0x01 luck, 0x02 per unit], excCount, price u32).
+static void ReceiveMobaShopPrices(std::span<const BYTE> packet)
+{
+    constexpr BYTE LuckFlag = 0x01;
+    constexpr BYTE PerUnitFlag = 0x02;
+
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    BYTE sellPercent = 0;
+    WORD count = 0;
+    if (!reader.ReadByte(sellPercent) || !reader.ReadWord(count))
+        return;
+
+    std::vector<GameLogic::Items::MobaShopPrices::Entry> entries;
+    entries.reserve(count);
+    for (int i = 0; i < count; ++i)
+    {
+        GameLogic::Items::MobaShopPrices::Entry entry{};
+        BYTE flags = 0;
+        if (!reader.ReadWord(entry.Type) || !reader.ReadByte(entry.Level) || !reader.ReadByte(entry.OptionLevel)
+            || !reader.ReadByte(flags) || !reader.ReadByte(entry.ExcellentCount) || !reader.ReadDword(entry.Price))
+            return;
+
+        entry.HasLuck = (flags & LuckFlag) != 0;
+        entry.PerUnit = (flags & PerUnitFlag) != 0;
+        entries.push_back(entry);
+    }
+
+    GameLogic::Items::MobaShopPrices::Set(std::move(entries), sellPercent);
+}
+
 // Handles packet C1 D5 01: a list of nearby MOBA participants with their team and
 // health percent, so the client can draw team-coloured always-on HP bars over creeps.
 // Layout: [0]=C1 [1]=len [2]=D5 [3]=01 [4]=count, then count * (idHi idLo team hp0-100).
@@ -13949,8 +14091,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
     break;
     case 0xD5:
     {
-        auto Data = (LPPHEADER_DEFAULT_SUBCODE)ReceiveBuffer;
-        switch (Data->SubCode)
+        // MOBA packets come as C1 (subcode at [3]) or, when variable-length, as C2 ([4]).
+        const BYTE subCode = bIsC1C3 ? ReceiveBuffer[3] : ReceiveBuffer[4];
+        switch (subCode)
         {
         case 0x01:
             ReceiveMobaTeamStatus(ReceiveBuffer);
@@ -13963,6 +14106,12 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x05:
             ReceiveMobaScoreboard(ReceiveBuffer);
+            break;
+        case 0x06:
+            ReceiveMobaNpcMenu(received_span);
+            break;
+        case 0x08:
+            ReceiveMobaShopPrices(received_span);
             break;
         }
     }

@@ -34,6 +34,7 @@ extern bool SelectFlag;
 #include "Character/CharacterManager.h"
 #include "Audio/DSPlaySound.h"
 #include "Engine/Object/ZzzInterface.h"
+#include "Network/Server/WSclient.h"
 
 using namespace SEASON3B;
 
@@ -275,6 +276,10 @@ bool CNewUIMyInventory::IsEquipable(int iIndex, ITEM* pItem) const
 
     if (bEquipable == false)
         return false;
+
+    // MOBA: the match shop has no level/stat requirements - only the class decides.
+    if (g_MobaLevel > 0)
+        return bEquipable;
 
     const WORD wStrength = CharacterAttribute->Strength + CharacterAttribute->AddStrength;
     const WORD wDexterity = CharacterAttribute->Dexterity + CharacterAttribute->AddDexterity;

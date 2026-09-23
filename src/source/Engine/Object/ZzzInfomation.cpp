@@ -26,6 +26,7 @@
 #include "UI/NewUI/NewUISystem.h"
 #include "Character/CharacterManager.h"
 #include "GameLogic/Skills/SkillManager.h"
+#include "Network/Server/WSclient.h"
 
 CLASS_ATTRIBUTE     ClassAttribute[MAX_CLASS];
 MONSTER_SCRIPT      MonsterScript[MAX_MONSTER];
@@ -2233,6 +2234,10 @@ bool IsRequireEquipItem(ITEM* pItem)
 
     if (bEquipable == false)
         return false;
+
+    // MOBA: the match shop has no level/stat requirements - only the class decides.
+    if (g_MobaLevel > 0)
+        return bEquipable;
 
     WORD wStrength = CharacterAttribute->Strength + CharacterAttribute->AddStrength;
     WORD wDexterity = CharacterAttribute->Dexterity + CharacterAttribute->AddDexterity;

@@ -6,6 +6,9 @@
 #include "UI/NewUI/NewUIBase.h"
 #include "UI/NewUI/Quests/NewUIQuestProgress.h"
 
+#include <string>
+#include <vector>
+
 #define ND_NPC_LINE_MAX				35
 #define ND_WORDS_ROW_MAX			64
 #define ND_QUEST_INDEX_MAX_COUNT	20
@@ -78,6 +81,15 @@ namespace SEASON3B
         bool	m_bCanClick;
         DWORD	m_dwContributePoint;
 
+        // Server-driven menu (MOBA shop): title, NPC text and options come from the
+        // server (packet C2 D5 06) instead of the client quest scripts.
+        bool	m_bServerMenuMode;
+        bool	m_bServerMenuAnswered;
+        BYTE	m_byServerMenuId;
+        std::wstring	m_strServerMenuTitle;
+        std::wstring	m_strServerMenuText;
+        std::vector<std::wstring>	m_ServerMenuOptions;
+
     public:
         CNewUINPCDialogue();
         virtual ~CNewUINPCDialogue();
@@ -105,6 +117,7 @@ namespace SEASON3B
         void ProcessQuestListReceive(DWORD* adwSrcQuestIndex, int nIndexCount);
         void ProcessGensJoiningReceive(BYTE byResult, BYTE byInfluence);
         void ProcessGensSecessionReceive(BYTE byResult);
+        void OpenServerMenu(BYTE menuId, const std::wstring& title, const std::wstring& text, const std::vector<std::wstring>& options);
 #ifdef PBG_ADD_GENSRANKING
         void ProcessGensRewardReceive(BYTE byResult);
 #endif //PBG_ADD_GENSRANKING
@@ -129,5 +142,9 @@ namespace SEASON3B
         void CalculateSelTextMaxPage(int nSelTextCount);
 
         void ProcessSelTextResult();
+        void ApplyNPCWords(const wchar_t* pszSrc);
+        void SetServerMenuContents();
+        void SetServerMenuSelTexts();
+        void ProcessServerMenuSelTextResult();
     };
 }

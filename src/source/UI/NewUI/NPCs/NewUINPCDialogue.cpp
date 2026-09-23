@@ -9,6 +9,7 @@
 #include "Core/Platform/CrtDbg.h"
 #include "Audio/DSPlaySound.h"
 #include "UI/NewUI/NewUISystem.h"
+#include "Network/Server/WSclient.h"
 
 using namespace SEASON3B;
 
@@ -21,6 +22,9 @@ CNewUINPCDialogue::CNewUINPCDialogue()
     m_pNewUIMng = NULL;
     m_Pos.x = m_Pos.y = 0;
     m_dwContributePoint = 0;
+    m_bServerMenuMode = false;
+    m_bServerMenuAnswered = false;
+    m_byServerMenuId = 0;
 }
 
 CNewUINPCDialogue::~CNewUINPCDialogue()
@@ -293,7 +297,8 @@ void CNewUINPCDialogue::RenderText()
     g_pRenderText->SetBgColor(0);
 
     g_pRenderText->SetTextColor(150, 255, 240, 255);
-    g_pRenderText->RenderText(m_Pos.x, m_Pos.y + 12, g_QuestMng.GetNPCName(), ND_WIDTH, 0, RT3_SORT_CENTER);
+    const wchar_t* pszTitle = m_bServerMenuMode ? m_strServerMenuTitle.c_str() : g_QuestMng.GetNPCName();
+    g_pRenderText->RenderText(m_Pos.x, m_Pos.y + 12, pszTitle, ND_WIDTH, 0, RT3_SORT_CENTER);
 
     g_pRenderText->SetFont(g_hFont);
     g_pRenderText->SetTextColor(255, 230, 210, 255);
@@ -319,6 +324,9 @@ void CNewUINPCDialogue::RenderText()
 
 void CNewUINPCDialogue::RenderContributePoint()
 {
+    if (m_bServerMenuMode)
+        return;
+
     if ((543 == g_QuestMng.GetNPCIndex() && 1 == Hero->m_byGensInfluence)
         || (544 == g_QuestMng.GetNPCIndex() && 2 == Hero->m_byGensInfluence))
     {
@@ -374,7 +382,10 @@ void CNewUINPCDialogue::UnloadImages()
 void CNewUINPCDialogue::ProcessOpening()
 {
     m_bQuestListMode = false;
-    SetContents(0);
+    if (m_bServerMenuMode)
+        SetServerMenuContents();
+    else
+        SetContents(0);
     ::PlayBuffer(SOUND_INTERFACE01);
 }
 
@@ -383,7 +394,14 @@ bool CNewUINPCDialogue::ProcessClosing()
     m_dwCurDlgIndex = 0;
     m_dwContributePoint = 0;
     m_bQuestListMode = false;
-    SocketClient->ToGameServer()->SendCloseNpcRequest();
+
+    // A picked server-menu option keeps the NPC open on the server: it answers by
+    // opening the next window (e.g. the shop), so don't tell it the dialog closed.
+    if (!m_bServerMenuAnswered)
+        SocketClient->ToGameServer()->SendCloseNpcRequest();
+
+    m_bServerMenuMode = false;
+    m_bServerMenuAnswered = false;
     ::PlayBuffer(SOUND_CLICK01);
     return true;
 }
@@ -401,15 +419,20 @@ void CNewUINPCDialogue::SetContents(DWORD dwDlgIndex)
 
 void CNewUINPCDialogue::SetCurNPCWords(int nQuestListCount)
 {
-    memset(m_aszNPCWords[0], 0, sizeof(wchar_t) * ND_NPC_LINE_MAX * ND_WORDS_ROW_MAX);
-
-    g_pRenderText->SetFont(g_hFont);
     const wchar_t* pszSrc;
     if (m_bQuestListMode)
         pszSrc = 0 < nQuestListCount ? g_QuestMng.GetWords(1501) : g_QuestMng.GetWords(1502);
     else
         pszSrc = g_QuestMng.GetNPCDlgNPCWords(m_dwCurDlgIndex);
 
+    ApplyNPCWords(pszSrc);
+}
+
+void CNewUINPCDialogue::ApplyNPCWords(const wchar_t* pszSrc)
+{
+    memset(m_aszNPCWords[0], 0, sizeof(wchar_t) * ND_NPC_LINE_MAX * ND_WORDS_ROW_MAX);
+
+    g_pRenderText->SetFont(g_hFont);
     int nLine = ::DivideStringByPixel(&m_aszNPCWords[0][0], ND_NPC_LINE_MAX, ND_WORDS_ROW_MAX,
         pszSrc, 160);
 
@@ -547,6 +570,12 @@ void CNewUINPCDialogue::SetContributePoint(DWORD dwContributePoint)
 
 void CNewUINPCDialogue::ProcessSelTextResult()
 {
+    if (m_bServerMenuMode)
+    {
+        ProcessServerMenuSelTextResult();
+        return;
+    }
+
     if (m_bQuestListMode)
     {
         if (m_nSelSelText == m_nSelTextCount)
@@ -602,6 +631,66 @@ void CNewUINPCDialogue::ProcessSelTextResult()
             }
         }
     }
+}
+
+void CNewUINPCDialogue::OpenServerMenu(BYTE menuId, const std::wstring& title, const std::wstring& text, const std::vector<std::wstring>& options)
+{
+    m_bServerMenuMode = true;
+    m_bServerMenuAnswered = false;
+    m_byServerMenuId = menuId;
+    m_strServerMenuTitle = title;
+    m_strServerMenuText = text;
+    m_ServerMenuOptions = options;
+
+    if (g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_NPC_DIALOGUE))
+        SetServerMenuContents();
+    else
+        g_pNewUISystem->Show(SEASON3B::INTERFACE_NPC_DIALOGUE);
+}
+
+void CNewUINPCDialogue::SetServerMenuContents()
+{
+    ApplyNPCWords(m_strServerMenuText.c_str());
+    SetServerMenuSelTexts();
+    m_bCanClick = true;
+    m_btnProgressL.Lock();
+    m_btnSelTextL.Lock();
+    m_nSelSelText = 0;
+}
+
+// Options are shown by name (no "1." numbering), one or two lines each.
+void CNewUINPCDialogue::SetServerMenuSelTexts()
+{
+    ::memset(m_aszSelTexts[0], 0, sizeof(wchar_t) * ND_SEL_TEXT_LINE_MAX * ND_WORDS_ROW_MAX);
+    ::memset(m_anSelTextLine, 0, sizeof(int) * (ND_QUEST_INDEX_MAX_COUNT + 1));
+
+    g_pRenderText->SetFont(g_hFont);
+
+    const int nMaxOptions = ND_QUEST_INDEX_MAX_COUNT + 1;
+    int nSelTextLineSum = 0;
+    int i;
+    for (i = 0; i < (int)m_ServerMenuOptions.size() && i < nMaxOptions; ++i)
+    {
+        m_anSelTextLine[i] = ::DivideStringByPixel(&m_aszSelTexts[nSelTextLineSum][0], 2, ND_WORDS_ROW_MAX,
+            m_ServerMenuOptions[i].c_str(), 160, false);
+
+        nSelTextLineSum += m_anSelTextLine[i];
+        if (ND_SEL_TEXT_LINE_MAX <= nSelTextLineSum)
+            break;
+    }
+
+    m_nSelTextCount = i;
+    CalculateSelTextMaxPage(i);
+}
+
+void CNewUINPCDialogue::ProcessServerMenuSelTextResult()
+{
+    if (m_nSelSelText <= 0 || m_nSelSelText > m_nSelTextCount)
+        return;
+
+    SendMobaNpcMenuSelect(m_byServerMenuId, (BYTE)(m_nSelSelText - 1));
+    m_bServerMenuAnswered = true;
+    g_pNewUISystem->Hide(SEASON3B::INTERFACE_NPC_DIALOGUE);
 }
 
 void CNewUINPCDialogue::ProcessQuestListReceive(DWORD* adwSrcQuestIndex, int nIndexCount)

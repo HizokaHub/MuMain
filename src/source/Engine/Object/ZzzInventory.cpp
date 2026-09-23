@@ -55,6 +55,7 @@
 #include "Character/CharacterManager.h"
 #include "GameLogic/Skills/SkillManager.h"
 #include "Camera/CameraProjection.h"
+#include "GameLogic/Items/MobaShopPrices.h"
 
 extern CUITextInputBox* g_pSingleTextInputBox;
 extern int g_iChatInputType;
@@ -2250,6 +2251,25 @@ void RenderItemInfo(int sx, int sy, ITEM* ip, bool Sell, int Inventype, bool bIt
     if (g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_NPCSHOP) && !IsSellingBan(ip))
     {
         wchar_t Text[100];
+        uint32_t mobaPrice = 0;
+        if (Sell && GameLogic::Items::MobaShopPrices::TryGetBuyPrice(*ip, mobaPrice))
+        {
+            // MOBA shop: the server owns the price (no tax), see MobaShopPrices.
+            ConvertGold(mobaPrice, Text);
+            mu_swprintf(TextList[TextNum], I18N::Game::PurchasePriceS, Text);
+            TextListColor[TextNum] = Color;
+            TextNum++;
+            mu_swprintf(TextList[TextNum], L"\n"); TextNum++; SkipNum++;
+        }
+        else if (!Sell && GameLogic::Items::MobaShopPrices::TryGetSellPrice(*ip, mobaPrice))
+        {
+            ConvertGold(mobaPrice, Text);
+            mu_swprintf(TextList[TextNum], I18N::Game::SellingPriceS, Text);
+            TextListColor[TextNum] = Color;
+            TextNum++;
+            mu_swprintf(TextList[TextNum], L"\n"); TextNum++; SkipNum++;
+        }
+        else
         {
             if (Sell)
             {
