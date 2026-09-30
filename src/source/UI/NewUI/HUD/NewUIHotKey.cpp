@@ -117,6 +117,13 @@ bool SEASON3B::CNewUIHotKey::UpdateMouseEvent()
 bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
 {
     // MOBA teleport scroll: a left click on an (allied) minion picks it as the destination.
+    if (g_MobaLevel > 0 && g_MobaTeleportTargeting && MouseLButtonPush)
+    {
+        const bool validSelection = SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT;
+        g_ErrorReport.Write(L"[MOBA-TP-CLIENT] click while targeting: selected=%d kind=%d\r\n", SelectedCharacter,
+            validSelection ? (int)CharactersClient[SelectedCharacter].Object.Kind : -1);
+    }
+
     if (g_MobaLevel > 0 && g_MobaTeleportTargeting && MouseLButtonPush
         && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT
         && CharactersClient[SelectedCharacter].Object.Kind == KIND_MONSTER)

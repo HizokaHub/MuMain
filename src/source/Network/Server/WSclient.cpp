@@ -13322,6 +13322,7 @@ static void ReceiveMobaChannel(const BYTE* ReceiveBuffer)
     {
         // Teleport scroll: minion-targeting mode on / off (no channel bar yet).
         g_MobaTeleportTargeting = durMs > 0;
+        g_ErrorReport.Write(L"[MOBA-TP-CLIENT] minion targeting %ls\r\n", g_MobaTeleportTargeting ? L"ON" : L"OFF");
         return;
     }
 
