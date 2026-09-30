@@ -13466,6 +13466,29 @@ static void ReceiveMobaNpcMenu(std::span<const BYTE> packet)
     g_pNPCDialogue->OpenServerMenu(menuId, title, text, options);
 }
 
+// Handles packet C2 D5 0A: the MOBA-only item options for the tooltips.
+// Layout after the header: count(u16 LE), count * (type u16, kind u8, percent u8).
+static void ReceiveMobaItemTraits(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    WORD count = 0;
+    if (!reader.ReadWord(count))
+        return;
+
+    std::vector<GameLogic::Items::MobaShopPrices::Trait> traits;
+    traits.reserve(count);
+    for (int i = 0; i < count; ++i)
+    {
+        GameLogic::Items::MobaShopPrices::Trait trait{};
+        if (!reader.ReadWord(trait.Type) || !reader.ReadByte(trait.Kind) || !reader.ReadByte(trait.Percent))
+            return;
+
+        traits.push_back(trait);
+    }
+
+    GameLogic::Items::MobaShopPrices::SetTraits(std::move(traits));
+}
+
 // Handles packet C2 D5 08: the MOBA shop prices the tooltips show instead of the
 // client-side item value. Layout after the header: sellPercent(u8), count(u16 LE),
 // count * (type u16, level, optionLevel, flags [0x01 luck, 0x02 per unit], excCount, price u32).
@@ -14150,6 +14173,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x09:
             ReceiveMobaChannel(ReceiveBuffer);
+            break;
+        case 0x0A:
+            ReceiveMobaItemTraits(received_span);
             break;
         }
     }

@@ -22,6 +22,21 @@ namespace GameLogic::Items::MobaShopPrices
         uint32_t Price;    // buy price
     };
 
+    // MOBA-only option of an item (anti-heal, crowd-control resistance, cooldown reduction, assist / passive
+    // gold), pushed by the server (packet C2 D5 0A) and shown as one extra tooltip line. Kind: 1 anti-heal,
+    // 2 CC resistance, 3 cooldown reduction, 4 assist gold, 5 passive gold.
+    struct Trait
+    {
+        uint16_t Type;
+        uint8_t Kind;
+        uint8_t Percent;
+    };
+
+    void SetTraits(std::vector<Trait> traits);
+
+    // The tooltip line of the item's trait (e.g. "Anti-curacion 20%"), if it has one.
+    bool TryGetTraitText(uint16_t itemType, wchar_t* text, size_t textLength);
+
     // Replaces the whole price table.
     void Set(std::vector<Entry> entries, uint8_t sellPercent);
 

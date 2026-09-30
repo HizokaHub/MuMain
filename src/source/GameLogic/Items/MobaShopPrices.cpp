@@ -7,6 +7,7 @@ namespace
     constexpr uint32_t PercentBase = 100;
 
     std::vector<GameLogic::Items::MobaShopPrices::Entry> s_entries;
+    std::vector<GameLogic::Items::MobaShopPrices::Trait> s_traits;
     uint8_t s_sellPercent = 0;
 
     int CountExcellentOptions(BYTE excellentFlags)
@@ -46,6 +47,36 @@ namespace
 
 namespace GameLogic::Items::MobaShopPrices
 {
+    void SetTraits(std::vector<Trait> traits)
+    {
+        s_traits = std::move(traits);
+    }
+
+    bool TryGetTraitText(uint16_t itemType, wchar_t* text, size_t textLength)
+    {
+        for (const auto& trait : s_traits)
+        {
+            if (trait.Type != itemType)
+                continue;
+
+            const wchar_t* format = nullptr;
+            switch (trait.Kind)
+            {
+            case 1: format = L"Anti-curacion: los golpes reducen %d%% la curacion del objetivo (3 s)"; break;
+            case 2: format = L"Resistencia a control: -%d%% duracion del control"; break;
+            case 3: format = L"Reduccion de enfriamiento: -%d%%"; break;
+            case 4: format = L"Oro por asistencia: +%d%%"; break;
+            case 5: format = L"Oro pasivo: +%d%%"; break;
+            default: return false;
+            }
+
+            swprintf(text, textLength, format, (int)trait.Percent);
+            return true;
+        }
+
+        return false;
+    }
+
     void Set(std::vector<Entry> entries, uint8_t sellPercent)
     {
         s_entries = std::move(entries);

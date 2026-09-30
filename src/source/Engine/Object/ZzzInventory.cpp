@@ -2248,6 +2248,18 @@ void RenderItemInfo(int sx, int sy, ITEM* ip, bool Sell, int Inventype, bool bIt
         Color = TEXT_COLOR_YELLOW;
     }
 
+    {
+        // MOBA-only option of the item (anti-heal, CC resistance, cooldown reduction, gold), see MobaShopPrices.
+        wchar_t mobaTraitText[100];
+        if (GameLogic::Items::MobaShopPrices::TryGetTraitText((uint16_t)ip->Type, mobaTraitText, 100))
+        {
+            mu_swprintf(TextList[TextNum], L"%s", mobaTraitText);
+            TextListColor[TextNum] = TEXT_COLOR_BLUE;
+            TextNum++;
+            mu_swprintf(TextList[TextNum], L"\n"); TextNum++; SkipNum++;
+        }
+    }
+
     if (g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_NPCSHOP) && !IsSellingBan(ip))
     {
         wchar_t Text[100];
