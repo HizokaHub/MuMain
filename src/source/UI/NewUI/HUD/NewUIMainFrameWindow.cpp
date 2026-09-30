@@ -1609,6 +1609,24 @@ bool SEASON3B::CNewUISkillList::UpdateMouseEvent()
         return true;
     }
 
+    // MOBA: clicking the slot-10 / slot-11 boxes places a ward / uses the sweeper.
+    if (g_MobaLevel > 0 && MouseLButtonPush)
+    {
+        if (SEASON3B::CheckMouseIn(222.f + 32.f * 9.f, 431.f, 32.f, 38.f))
+        {
+            SendMobaVisionAction(0x0D);
+            PlayBuffer(SOUND_CLICK01);
+            return false;
+        }
+
+        if (SEASON3B::CheckMouseIn(222.f + 32.f * 10.f, 431.f, 32.f, 38.f))
+        {
+            SendMobaVisionAction(0x0E);
+            PlayBuffer(SOUND_CLICK01);
+            return false;
+        }
+    }
+
     // Custom MOBA game mode: click a "+" box (drawn over each skill) to spend a champion
     // skill point on that skill - on the bottom bar (always) or the skill window.
     if (MouseLButtonPush)
@@ -2415,8 +2433,17 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
             // Decorative filler frames in the slot-10 / slot-11 positions, so the
             // strip between the last skill slot and the relocated AG / Mana gauges
             // is not raw black.
+            // Slot 10: ward (key 0, click). Slot 11: sweeper (key -, click).
             SEASON3B::RenderImage(IMAGE_SKILLBOX, baseX + 32.f * 9.f, y, width, height);
             SEASON3B::RenderImage(IMAGE_SKILLBOX, baseX + 32.f * 10.f, y, width, height);
+            g_pRenderText->SetFont(g_hFontBold);
+            g_pRenderText->SetBgColor(0, 0, 0, 0);
+            g_pRenderText->SetTextColor(255, 230, 120, 255);
+            g_pRenderText->RenderText((int)((baseX + 32.f * 9.f + 16.f)), (int)((y + 10.f)), L"Ward", 0, 0, RT3_SORT_CENTER);
+            g_pRenderText->RenderText((int)((baseX + 32.f * 10.f + 16.f)), (int)((y + 10.f)), L"Barr.", 0, 0, RT3_SORT_CENTER);
+            g_pRenderText->SetTextColor(200, 200, 200, 255);
+            g_pRenderText->RenderText((int)((baseX + 32.f * 9.f + 16.f)), (int)((y + 24.f)), L"0", 0, 0, RT3_SORT_CENTER);
+            g_pRenderText->RenderText((int)((baseX + 32.f * 10.f + 16.f)), (int)((y + 24.f)), L"-", 0, 0, RT3_SORT_CENTER);
         }
 
         if (!moba)

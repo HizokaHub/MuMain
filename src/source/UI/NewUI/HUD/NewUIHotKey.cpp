@@ -362,6 +362,16 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         return false;
     }
 #endif // PBG_ADD_INGAMESHOP_UI_MAINFRAME
+    else if (SEASON3B::IsPress('0') && g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus())
+    {
+        SendMobaVisionAction(0x0D); // ward (HUD slot 10)
+        return false;
+    }
+    else if (SEASON3B::IsPress(VK_OEM_MINUS) && g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus())
+    {
+        SendMobaVisionAction(0x0E); // sweeper (HUD slot 11)
+        return false;
+    }
     else if (SEASON3B::IsPress('B') && g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus())
     {
         // In a MOBA match B is the recall (channelled teleport to base), not the Gens ranking.

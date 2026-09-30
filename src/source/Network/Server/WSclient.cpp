@@ -13365,6 +13365,20 @@ void SendMobaRecall()
     SocketClient->Send(buf, 4);
 }
 
+// Slot 10 (ward, subCode 0x0D) and slot 11 (sweeper, subCode 0x0E) of the MOBA HUD.
+void SendMobaVisionAction(BYTE subCode)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[4];
+    buf[0] = 0xC1;
+    buf[1] = 4;
+    buf[2] = 0xD5;
+    buf[3] = subCode;
+    SocketClient->Send(buf, 4);
+}
+
 void SendMobaSkillUp(int skillNumber)
 {
     if (SocketClient == nullptr || !SocketClient->IsConnected())
