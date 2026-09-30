@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <utility>
 #include <vector>
 
 struct tagITEM;
@@ -33,6 +35,24 @@ namespace GameLogic::Items::MobaShopPrices
     };
 
     void SetTraits(std::vector<Trait> traits);
+
+    // MOBA options of one kind of shield / book (packet C2 D5 0C). They can differ per item (shields dropped by
+    // creeps roll 1-2 of four), so the item is identified like a price: type, level, option level, luck and
+    // excellent count. Each option is (kind, percent), kinds as in Trait.
+    struct ShieldOptions
+    {
+        uint16_t Type;
+        uint8_t Level;
+        uint8_t OptionLevel;
+        bool HasLuck;
+        uint8_t ExcellentCount;
+        std::vector<std::pair<uint8_t, uint8_t>> Options;
+    };
+
+    void SetShieldOptions(std::vector<ShieldOptions> shields);
+
+    // The tooltip lines of the shield options of the item (empty if it has none).
+    std::vector<std::wstring> GetShieldOptionTexts(const tagITEM& item);
 
     // The tooltip line of the item's trait (e.g. "Anti-curacion 20%"), if it has one.
     bool TryGetTraitText(uint16_t itemType, wchar_t* text, size_t textLength);

@@ -8,6 +8,7 @@ namespace
 
     std::vector<GameLogic::Items::MobaShopPrices::Entry> s_entries;
     std::vector<GameLogic::Items::MobaShopPrices::Trait> s_traits;
+    std::vector<GameLogic::Items::MobaShopPrices::ShieldOptions> s_shields;
     uint8_t s_sellPercent = 0;
 
     int CountExcellentOptions(BYTE excellentFlags)
@@ -50,6 +51,44 @@ namespace GameLogic::Items::MobaShopPrices
     void SetTraits(std::vector<Trait> traits)
     {
         s_traits = std::move(traits);
+    }
+
+    void SetShieldOptions(std::vector<ShieldOptions> shields)
+    {
+        s_shields = std::move(shields);
+    }
+
+    std::vector<std::wstring> GetShieldOptionTexts(const tagITEM& item)
+    {
+        std::vector<std::wstring> lines;
+        const int excellentCount = CountExcellentOptions(item.ExcellentFlags);
+        for (const auto& shield : s_shields)
+        {
+            if (shield.Type != item.Type || shield.Level != item.Level || shield.OptionLevel != item.OptionLevel
+                || shield.HasLuck != item.HasLuck || shield.ExcellentCount != excellentCount)
+                continue;
+
+            for (const auto& [kind, percent] : shield.Options)
+            {
+                const wchar_t* format = nullptr;
+                switch (kind)
+                {
+                case 2: format = L"Resistencia a control: -%d%% duracion del control"; break;
+                case 3: format = L"Reduccion de enfriamiento: -%d%%"; break;
+                case 4: format = L"Oro por asistencia: +%d%%"; break;
+                case 5: format = L"Oro pasivo: +%d%%"; break;
+                default: continue;
+                }
+
+                wchar_t text[100];
+                swprintf(text, 100, format, (int)percent);
+                lines.emplace_back(text);
+            }
+
+            break;
+        }
+
+        return lines;
     }
 
     bool TryGetTraitText(uint16_t itemType, wchar_t* text, size_t textLength)

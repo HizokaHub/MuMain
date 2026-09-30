@@ -13512,6 +13512,43 @@ static void ReceiveMobaItemTraits(std::span<const BYTE> packet)
     GameLogic::Items::MobaShopPrices::SetTraits(std::move(traits));
 }
 
+// Handles packet C2 D5 0C: the MOBA options of every known shield / book. Layout after the header: count(u16 LE),
+// count * (type u16, level, optionLevel, luck, excellentCount, optionCount, optionCount * (kind, percent)).
+static void ReceiveMobaShieldOptions(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    WORD count = 0;
+    if (!reader.ReadWord(count))
+        return;
+
+    std::vector<GameLogic::Items::MobaShopPrices::ShieldOptions> shields;
+    shields.reserve(count);
+    for (int i = 0; i < count; ++i)
+    {
+        GameLogic::Items::MobaShopPrices::ShieldOptions shield{};
+        BYTE luck = 0;
+        BYTE optionCount = 0;
+        if (!reader.ReadWord(shield.Type) || !reader.ReadByte(shield.Level) || !reader.ReadByte(shield.OptionLevel)
+            || !reader.ReadByte(luck) || !reader.ReadByte(shield.ExcellentCount) || !reader.ReadByte(optionCount))
+            return;
+
+        shield.HasLuck = luck != 0;
+        for (int o = 0; o < optionCount; ++o)
+        {
+            BYTE kind = 0;
+            BYTE percent = 0;
+            if (!reader.ReadByte(kind) || !reader.ReadByte(percent))
+                return;
+
+            shield.Options.emplace_back(kind, percent);
+        }
+
+        shields.push_back(std::move(shield));
+    }
+
+    GameLogic::Items::MobaShopPrices::SetShieldOptions(std::move(shields));
+}
+
 // Handles packet C2 D5 08: the MOBA shop prices the tooltips show instead of the
 // client-side item value. Layout after the header: sellPercent(u8), count(u16 LE),
 // count * (type u16, level, optionLevel, flags [0x01 luck, 0x02 per unit], excCount, price u32).
@@ -14199,6 +14236,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x0A:
             ReceiveMobaItemTraits(received_span);
+            break;
+        case 0x0C:
+            ReceiveMobaShieldOptions(received_span);
             break;
         }
     }

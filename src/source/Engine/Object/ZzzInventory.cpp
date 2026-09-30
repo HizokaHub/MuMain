@@ -2260,6 +2260,14 @@ void RenderItemInfo(int sx, int sy, ITEM* ip, bool Sell, int Inventype, bool bIt
         }
     }
 
+    for (const auto& shieldLine : GameLogic::Items::MobaShopPrices::GetShieldOptionTexts(*ip))
+    {
+        mu_swprintf(TextList[TextNum], L"%s", shieldLine.c_str());
+        TextListColor[TextNum] = TEXT_COLOR_BLUE;
+        TextNum++;
+        mu_swprintf(TextList[TextNum], L"\n"); TextNum++; SkipNum++;
+    }
+
     if (g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_NPCSHOP) && !IsSellingBan(ip))
     {
         wchar_t Text[100];
