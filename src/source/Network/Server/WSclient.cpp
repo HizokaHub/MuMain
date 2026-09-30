@@ -13307,6 +13307,41 @@ static void ReceiveMobaSkillCooldown(const BYTE* ReceiveBuffer)
     g_MobaSkillCooldownEnd[num] = WorldTime + (double)graceMs + (double)durMs;
 }
 
+int    g_MobaChannelKind = 0;
+double g_MobaChannelStart = 0.0;
+double g_MobaChannelEnd = 0.0;
+
+// Handles packet C1 D5 09: the champion started (durationMs > 0) or broke (0) a channel.
+// Layout: [4]=kind, [5..6]=durationMs u16 LE.
+static void ReceiveMobaChannel(const BYTE* ReceiveBuffer)
+{
+    const int kind = (int)ReceiveBuffer[4];
+    const int durMs = (int)ReceiveBuffer[5] | ((int)ReceiveBuffer[6] << 8);
+    if (durMs <= 0)
+    {
+        g_MobaChannelKind = 0;
+        g_MobaChannelEnd = 0.0;
+        return;
+    }
+
+    g_MobaChannelKind = kind;
+    g_MobaChannelStart = WorldTime;
+    g_MobaChannelEnd = WorldTime + (double)durMs;
+}
+
+void SendMobaRecall()
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[4];
+    buf[0] = 0xC1;
+    buf[1] = 4;
+    buf[2] = 0xD5;
+    buf[3] = 0x09;
+    SocketClient->Send(buf, 4);
+}
+
 void SendMobaSkillUp(int skillNumber)
 {
     if (SocketClient == nullptr || !SocketClient->IsConnected())
@@ -14112,6 +14147,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x08:
             ReceiveMobaShopPrices(received_span);
+            break;
+        case 0x09:
+            ReceiveMobaChannel(ReceiveBuffer);
             break;
         }
     }

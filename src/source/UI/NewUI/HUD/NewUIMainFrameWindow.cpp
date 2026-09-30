@@ -246,6 +246,36 @@ static void RenderMobaScoreboard()
     g_pRenderText->SetTextColor(255, 255, 255, 255);
 }
 
+// MOBA recall / teleport channel: a bar over the bottom HUD that fills while the server channels.
+static void RenderMobaChannelBar()
+{
+    if (g_MobaLevel <= 0 || g_MobaChannelKind == 0)
+        return;
+    if (WorldTime >= g_MobaChannelEnd)
+    {
+        g_MobaChannelKind = 0;
+        return;
+    }
+
+    const double total = g_MobaChannelEnd - g_MobaChannelStart;
+    const float frac = total > 1.0 ? (float)((WorldTime - g_MobaChannelStart) / total) : 1.f;
+    const float w = 220.f, h = 14.f;
+    const float x = (REFERENCE_WIDTH - w) * 0.5f;
+    const float y = 340.f;
+
+    glColor4f(0.f, 0.f, 0.f, 0.7f);
+    RenderColor(x - 2.f, y - 2.f, w + 4.f, h + 4.f);
+    glColor4f(0.35f, 0.65f, 1.f, 0.95f);
+    RenderColor(x, y, w * frac, h);
+    glColor3f(1.f, 1.f, 1.f);
+    EndRenderColor();
+
+    g_pRenderText->SetFont(g_hFontBold);
+    g_pRenderText->SetBgColor(0, 0, 0, 0);
+    g_pRenderText->SetTextColor(255, 255, 255, 255);
+    g_pRenderText->RenderText((int)(x + w * 0.5f), (int)(y - 14.f), g_MobaChannelKind == 2 ? L"Teletransportando..." : L"Regresando a la base...", 0, 0, RT3_SORT_CENTER);
+}
+
 bool SEASON3B::CNewUIMainFrameWindow::Render()
 {
     EnableAlphaTest();
@@ -264,6 +294,7 @@ bool SEASON3B::CNewUIMainFrameWindow::Render()
     RenderButtons();
     RenderExperience();
     RenderMobaScoreboard();
+    RenderMobaChannelBar();
     DisableAlphaBlend();
 
     // The always-on corner minimap for the MOBA arena used to be drawn here, but

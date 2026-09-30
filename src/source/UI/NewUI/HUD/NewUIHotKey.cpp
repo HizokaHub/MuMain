@@ -345,6 +345,12 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         return false;
     }
 #endif // PBG_ADD_INGAMESHOP_UI_MAINFRAME
+    else if (SEASON3B::IsPress('B') && g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus())
+    {
+        // In a MOBA match B is the recall (channelled teleport to base), not the Gens ranking.
+        SendMobaRecall();
+        return false;
+    }
     else if (SEASON3B::IsPress('B'))
     {
         if (!g_pNewUIGensRanking->SetGensInfo())

@@ -126,6 +126,14 @@ void ReceiveMobaScoreboard(const BYTE* ReceiveBuffer);
 // Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
 void SendMobaSkillUp(int skillNumber);
 
+// MOBA channel bar (recall / teleport), pushed by packet C1 D5 09. 0 = none, 1 = recall, 2 = teleport.
+// g_MobaChannelStart/End are WorldTime ms; the bar is shown while WorldTime < g_MobaChannelEnd.
+extern int    g_MobaChannelKind;
+extern double g_MobaChannelStart;
+extern double g_MobaChannelEnd;
+// Sends the recall request (key B in a MOBA match): C1 04 D5 09.
+void SendMobaRecall();
+
 // MOBA: tells the server which option of a server-driven NPC menu was picked (C1 D5 07).
 void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex);
 
