@@ -13307,6 +13307,7 @@ static void ReceiveMobaSkillCooldown(const BYTE* ReceiveBuffer)
     g_MobaSkillCooldownEnd[num] = WorldTime + (double)graceMs + (double)durMs;
 }
 
+bool   g_MobaTeleportTargeting = false;
 int    g_MobaChannelKind = 0;
 double g_MobaChannelStart = 0.0;
 double g_MobaChannelEnd = 0.0;
@@ -13317,6 +13318,13 @@ static void ReceiveMobaChannel(const BYTE* ReceiveBuffer)
 {
     const int kind = (int)ReceiveBuffer[4];
     const int durMs = (int)ReceiveBuffer[5] | ((int)ReceiveBuffer[6] << 8);
+    if (kind == 3)
+    {
+        // Teleport scroll: minion-targeting mode on / off (no channel bar yet).
+        g_MobaTeleportTargeting = durMs > 0;
+        return;
+    }
+
     if (durMs <= 0)
     {
         g_MobaChannelKind = 0;
@@ -13327,6 +13335,21 @@ static void ReceiveMobaChannel(const BYTE* ReceiveBuffer)
     g_MobaChannelKind = kind;
     g_MobaChannelStart = WorldTime;
     g_MobaChannelEnd = WorldTime + (double)durMs;
+}
+
+void SendMobaTeleportTarget(WORD monsterKey)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[6];
+    buf[0] = 0xC1;
+    buf[1] = 6;
+    buf[2] = 0xD5;
+    buf[3] = 0x0B;
+    buf[4] = (BYTE)(monsterKey & 0xFF);
+    buf[5] = (BYTE)((monsterKey >> 8) & 0xFF);
+    SocketClient->Send(buf, 6);
 }
 
 void SendMobaRecall()

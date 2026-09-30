@@ -156,7 +156,7 @@ int SelectCharacter(BYTE Kind)
 
             // Custom MOBA game mode: an allied creep is not a valid target (the server
             // rejects the damage anyway). MobaTeam 0 == not a match participant.
-            if (g_MyMobaTeam != 0 && o->Kind == KIND_MONSTER && c->MobaTeam == g_MyMobaTeam)
+            if (g_MyMobaTeam != 0 && !g_MobaTeleportTargeting && o->Kind == KIND_MONSTER && c->MobaTeam == g_MyMobaTeam)
             {
                 continue;
             }

@@ -133,6 +133,9 @@ extern double g_MobaChannelStart;
 extern double g_MobaChannelEnd;
 // Sends the recall request (key B in a MOBA match): C1 04 D5 09.
 void SendMobaRecall();
+// Teleport scroll: while true, a left click on an allied minion sends it to the server (C1 06 D5 0B).
+extern bool g_MobaTeleportTargeting;
+void SendMobaTeleportTarget(WORD monsterKey);
 
 // MOBA: tells the server which option of a server-driven NPC menu was picked (C1 D5 07).
 void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex);

@@ -249,6 +249,14 @@ static void RenderMobaScoreboard()
 // MOBA recall / teleport channel: a bar over the bottom HUD that fills while the server channels.
 static void RenderMobaChannelBar()
 {
+    if (g_MobaLevel > 0 && g_MobaTeleportTargeting)
+    {
+        g_pRenderText->SetFont(g_hFontBold);
+        g_pRenderText->SetBgColor(0, 0, 0, 0);
+        g_pRenderText->SetTextColor(255, 230, 120, 255);
+        g_pRenderText->RenderText((int)(REFERENCE_WIDTH * 0.5f), 326, L"Haz clic en un minion aliado (Esc cancela)", 0, 0, RT3_SORT_CENTER);
+    }
+
     if (g_MobaLevel <= 0 || g_MobaChannelKind == 0)
         return;
     if (WorldTime >= g_MobaChannelEnd)

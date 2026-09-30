@@ -116,6 +116,23 @@ bool SEASON3B::CNewUIHotKey::UpdateMouseEvent()
 
 bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
 {
+    // MOBA teleport scroll: a left click on an (allied) minion picks it as the destination.
+    if (g_MobaLevel > 0 && g_MobaTeleportTargeting && MouseLButtonPush
+        && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT
+        && CharactersClient[SelectedCharacter].Object.Kind == KIND_MONSTER)
+    {
+        SendMobaTeleportTarget((WORD)CharactersClient[SelectedCharacter].Key);
+        g_MobaTeleportTargeting = false;
+        MouseLButtonPush = false;
+        return false;
+    }
+
+    if (g_MobaTeleportTargeting && SEASON3B::IsPress(VK_ESCAPE))
+    {
+        g_MobaTeleportTargeting = false; // cancel the targeting (the server drops it after 15 s)
+        return false;
+    }
+
     if (SEASON3B::IsPress(VK_ESCAPE) == true)
     {
         if (g_MessageBox->IsEmpty())
