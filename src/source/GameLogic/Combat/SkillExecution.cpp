@@ -52,6 +52,7 @@
 #include "GameLogic/Items/ChangeRingManager.h"
 #include "UI/NewUI/HUD/NewUIGensRanking.h"
 #include "Network/Server/WSclient.h"   // g_MobaLevel (MOBA skill-use bypass)
+#include "Core/Utilities/Log/ErrorReport.h" // g_ErrorReport (MOBA cast diagnostics)
 
 // File-scope state still owned by ZzzInterface.cpp (no shared header yet).
 extern MovementSkill g_MovementSkill;
@@ -65,6 +66,22 @@ extern int g_iFollowCharacter;
 
 namespace GameLogic::Combat
 {
+// Diagnostics for the MOBA skill-cast complaints: one line per distinct (skill, reason) every
+// 500 ms in ErrorReport.txt. `a` / `b` are reason specific (cooldown: seconds left; mana: need / have).
+static constexpr int MOBA_MANA_COST_MULTIPLIER = 3;       // mirrors Player.TryConsumeForSkillAsync on the server
+static constexpr double MOBA_CAST_LOG_INTERVAL_MS = 500.0;
+
+static void MobaLogCastReject(int skill, const wchar_t* reason, double a, double b)
+{
+    static double s_lastLog[MOBA_MAX_SKILL_NUMBER] = {};
+    if (skill <= 0 || skill >= MOBA_MAX_SKILL_NUMBER || WorldTime - s_lastLog[skill] < MOBA_CAST_LOG_INTERVAL_MS)
+    {
+        return;
+    }
+    s_lastLog[skill] = WorldTime;
+    g_ErrorReport.Write(L"[MOBA-CAST-CLIENT] skill %d rejected locally: %ls (%.2f / %.2f)", skill, reason, a, b);
+}
+
 bool CanExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
 {
     OBJECT* o = &c->Object;
@@ -163,6 +180,7 @@ bool CanExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
             && g_MobaSkillCooldownEnd[mobaNum] > WorldTime
             && WorldTime >= g_MobaSkillCooldownGraceEnd[mobaNum])
         {
+            MobaLogCastReject(mobaNum, L"cooldown", (g_MobaSkillCooldownEnd[mobaNum] - WorldTime) / 1000.0, 0.0);
             return false;
         }
     }
@@ -191,8 +209,18 @@ bool CheckMana(CHARACTER* c, int Skill)
 {
     int iMana, iSkillMana;
     gSkillManager.GetSkillInformation(Skill, 1, NULL, &iMana, NULL, &iSkillMana);
+    if (g_MobaLevel > 0)
+    {
+        // The MOBA server charges 3x the S6 mana cost (Player.TryConsumeForSkillAsync); check the
+        // same amount here, otherwise the cast motion plays and the server silently drops it.
+        iMana *= MOBA_MANA_COST_MULTIPLIER;
+    }
     if (CharacterAttribute->Mana < iMana)
     {
+        if (g_MobaLevel > 0)
+        {
+            MobaLogCastReject(Skill, L"mana", iMana, CharacterAttribute->Mana);
+        }
         int Index = g_pMyInventory->FindManaItemIndex();
 
         if (Index != -1)

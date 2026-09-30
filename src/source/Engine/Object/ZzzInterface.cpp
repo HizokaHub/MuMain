@@ -62,6 +62,7 @@
 #include "Camera/CameraManager.h"
 #include "Camera/CameraMode.h"
 #include "Scenes/SceneCommon.h"
+#include "Network/Server/WSclient.h" // g_MobaLevel / g_MyMobaTeam (MOBA auto-target)
 
 extern CUITextInputBox* g_pSingleTextInputBox;
 extern CUITextInputBox* g_pSinglePasswdInputBox;
@@ -538,6 +539,14 @@ bool CheckWall(int sx1, int sy1, int sx2, int sy2)
     return true;
 }
 
+// Custom MOBA game mode: an enemy-team champion is always attackable / auto-targeted,
+// without holding Ctrl (the vanilla PvP rule).
+static bool IsMobaEnemyChampion(const CHARACTER* c)
+{
+    return g_MobaLevel > 0 && g_MyMobaTeam != 0 && c != nullptr && c != Hero
+        && c->Object.Kind == KIND_PLAYER && c->MobaTeam != 0 && c->MobaTeam != g_MyMobaTeam;
+}
+
 bool CheckAttack_Fenrir(CHARACTER* c)
 {
     if (SEASON3B::CNewUIInventoryCtrl::GetPickedItem())
@@ -678,7 +687,7 @@ bool CheckAttack_Fenrir(CHARACTER* c)
                 return false;
             }
         }
-        else if (c->PK >= PVP_MURDERER2 || (Core::Input::IsKeyDown(VK_CONTROL) && c != Hero))
+        else if (c->PK >= PVP_MURDERER2 || (Core::Input::IsKeyDown(VK_CONTROL) && c != Hero) || IsMobaEnemyChampion(c))
         {
             return true;
         }
@@ -917,7 +926,7 @@ bool CheckAttack()
                 return false;
             }
         }
-        else if (c->PK >= PVP_MURDERER2 || (Core::Input::IsKeyDown(VK_CONTROL) && c != Hero))
+        else if (c->PK >= PVP_MURDERER2 || (Core::Input::IsKeyDown(VK_CONTROL) && c != Hero) || IsMobaEnemyChampion(c))
         {
             return true;
         }
@@ -1011,7 +1020,7 @@ int	getTargetCharacterKey(CHARACTER* c, int selected)
         }
     }
 
-    if ((sc->PK >= PVP_MURDERER2 && sc->Object.Kind == KIND_PLAYER) || (Core::Input::IsKeyDown(VK_CONTROL) && sc != Hero))
+    if ((sc->PK >= PVP_MURDERER2 && sc->Object.Kind == KIND_PLAYER) || (Core::Input::IsKeyDown(VK_CONTROL) && sc != Hero) || IsMobaEnemyChampion(sc))
     {
         return sc->Key;
     }
