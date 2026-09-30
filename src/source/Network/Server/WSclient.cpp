@@ -13353,6 +13353,33 @@ void SendMobaTeleportTarget(WORD monsterKey)
     SocketClient->Send(buf, 6);
 }
 
+// MOBA teleport scroll: while the minion targeting is on, a left click on the monster under the cursor picks it.
+// Called from every place the click may still be alive in a frame (selection, hot keys).
+bool TrySendMobaTeleportClick()
+{
+    if (g_MobaLevel <= 0 || !g_MobaTeleportTargeting || !(MouseLButtonPush || MouseLButton))
+    {
+        return false;
+    }
+
+    const bool validSelection = SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT;
+    g_ErrorReport.Write(L"[MOBA-TP-CLIENT] click while targeting: selected=%d kind=%d\r\n", SelectedCharacter,
+        validSelection ? (int)CharactersClient[SelectedCharacter].Object.Kind : -1);
+    if (!validSelection || CharactersClient[SelectedCharacter].Object.Kind != KIND_MONSTER)
+    {
+        // A click that misses every minion must not walk the hero away while a scroll is waiting for its target.
+        MouseLButtonPush = false;
+        MouseLButton = false;
+        return false;
+    }
+
+    SendMobaTeleportTarget((WORD)CharactersClient[SelectedCharacter].Key);
+    g_MobaTeleportTargeting = false;
+    MouseLButtonPush = false;
+    MouseLButton = false;
+    return true;
+}
+
 void SendMobaRecall()
 {
     if (SocketClient == nullptr || !SocketClient->IsConnected())

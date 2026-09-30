@@ -417,6 +417,8 @@ void SelectObjects()
         Attacking = -1;
     }
 
+    TrySendMobaTeleportClick();
+
     if (g_pPartyListWindow)
     {
         g_pPartyListWindow->SetListBGColor();
