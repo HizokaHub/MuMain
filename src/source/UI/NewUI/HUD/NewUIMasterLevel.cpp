@@ -10,6 +10,7 @@
 #include "Audio/DSPlaySound.h"
 #include "UI/NewUI/Dialogs/NewUICommonMessageBox.h"
 #include "GameLogic/Skills/SkillManager.h"
+#include "Network/Server/WSclient.h" // g_MobaLevel (MOBA: the server decides which nodes can be learned)
 
 namespace 
 {
@@ -955,6 +956,8 @@ bool SEASON3B::CNewUIMasterLevel::CheckSkillPoint(WORD mLevelUpPoint, const _MAS
 
 bool SEASON3B::CNewUIMasterLevel::CheckParentSkill(const _MASTER_SKILLTREE_DATA& masterSkill)
 {
+    if (g_MobaLevel > 0)
+        return true; // MOBA: the server applies its own rank rule and refuses the nodes that don't exist in a match
     for (int i = 0; i < MAX_MASTER_SKILL_REQUIRES; i++)
     {
         const auto requiredSkill = masterSkill.RequireSkill[i];
@@ -980,6 +983,8 @@ bool SEASON3B::CNewUIMasterLevel::CheckParentSkill(const _MASTER_SKILLTREE_DATA&
 
 bool SEASON3B::CNewUIMasterLevel::CheckRankPoint(BYTE group, BYTE rank, BYTE skillLevel)
 {
+    if (g_MobaLevel > 0)
+        return true;
     if (this->skillPoint[group][rank] < skillLevel)
     {
         this->skillPoint[group][rank] = skillLevel;
@@ -995,6 +1000,8 @@ bool SEASON3B::CNewUIMasterLevel::CheckRankPoint(BYTE group, BYTE rank, BYTE ski
 
 bool SEASON3B::CNewUIMasterLevel::CheckBeforeSkill(ActionSkillType skill, BYTE skillLevel)
 {
+    if (g_MobaLevel > 0)
+        return true;
     if (skillLevel != 0)
     {
         return true;
