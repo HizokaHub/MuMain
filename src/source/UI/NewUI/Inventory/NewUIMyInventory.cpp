@@ -210,6 +210,9 @@ bool CNewUIMyInventory::IsEquipable(int iIndex, ITEM* pItem) const
     if (pItem == nullptr)
         return false;
 
+    if (g_MobaLevel > 0 && pItem->Type == ITEM_DARK_RAVEN_ITEM)
+        g_ErrorReport.Write(L"[MOBA-RAVEN-CLIENT] IsEquipable slot=%d class=%d mobaLevel=%d", iIndex, (int)Hero->Class, (int)g_MobaLevel);
+
     const ITEM_ATTRIBUTE* pItemAttr = &ItemAttribute[pItem->Type];
     bool bEquipable = false;
     if (pItemAttr->RequireClass[gCharacterManager.GetBaseClass(Hero->Class)])
