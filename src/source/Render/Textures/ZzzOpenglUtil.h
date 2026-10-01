@@ -138,6 +138,7 @@ void RenderSpriteUV(int Texture, vec3_t Position, float Width, float Height, flo
 void RenderNumber(vec3_t Position, int Num, vec3_t Color, float Alpha = 1.f, float Scale = 15.f);
 float RenderNumber2D(float x, float y, int Num, float Width, float Height);
 void RenderColor(float x, float y, float Width, float Height, float Alpha = 0.f, int Flag = 0);
+void RenderPointRotateSquare(float ix, float iy, float iSize, float x, float y, float Width, float Height, float Rotate);
 void EndRenderColor();
 void RenderBitmap(int Texture, float x, float y, float Width, float Height, float u = 0.f, float v = 0.f, float uWidth = 1.f, float vHeight = 1.f, bool Scale = true, bool StartScale = true, float Alpha = 0.f);
 void RenderColorBitmap(int Texture, float x, float y, float Width, float Height, float u = 0.f, float v = 0.f, float uWidth = 1.f, float vHeight = 1.f, unsigned int color = 0xffffffff);

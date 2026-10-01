@@ -15,6 +15,7 @@
 #include "UI/NewUI/Inventory/NewUIMyInventory.h"
 #include "GameLogic/Items/CSItemOption.h"
 #include "World/MapInfra/MapManager.h"
+#include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
 
 extern BYTE m_OccupationState;
 
@@ -125,6 +126,25 @@ bool SEASON3B::CNewUIMiniMap::UpdateKeyEvent()
     return true;
 }
 
+namespace
+{
+    // MOBA minimap feed: team colour of an entry (wards are green), and its size on the small / full map.
+    void SetMobaMarkerColor(const MobaMinimapEntry& e)
+    {
+        if (e.kind == 4)
+            glColor4f(0.35f, 1.f, 0.35f, 1.f);
+        else if (e.team == 1)
+            glColor4f(0.35f, 0.6f, 1.f, 1.f);
+        else
+            glColor4f(1.f, 0.35f, 0.35f, 1.f);
+    }
+
+    float MobaMarkerSize(const MobaMinimapEntry& e, float champion, float structure, float nexus, float ward)
+    {
+        return e.kind == 1 ? champion : e.kind == 2 ? structure : e.kind == 3 ? nexus : ward;
+    }
+}
+
 bool SEASON3B::CNewUIMiniMap::Render()
 {
     float Rot = 45.f;
@@ -179,6 +199,20 @@ bool SEASON3B::CNewUIMiniMap::Render()
         }
         else
             break;
+    }
+
+    if (g_MobaLevel > 0)
+    {
+        for (int m = 0; m < g_MobaMinimapCount; ++m)
+        {
+            const MobaMinimapEntry& e = g_MobaMinimap[m];
+            SetMobaMarkerColor(e);
+            const float w = MobaMarkerSize(e, 12.f, 14.f, 20.f, 9.f);
+            RenderPointRotateSquare(((float)e.y / 256.f) * FULL_MAP_SIZE, ((float)e.x / 256.f) * FULL_MAP_SIZE, w,
+                MapCenterX, MapCenterY, FULL_MAP_SIZE, FULL_MAP_SIZE, Rot);
+        }
+        EndRenderColor();
+        EnableAlphaTest();
     }
 
     float Ch_wid = 12;
@@ -275,6 +309,21 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
             plot(IMAGE_MINIMAP_INTERFACE + 5, pu, pv, 7.f, 0.f);
         else if (m_Mini_Map_Data[i].Kind == 2)
             plot(IMAGE_MINIMAP_INTERFACE + 4, pu, pv, 12.f, 0.f);
+    }
+
+    if (g_MobaLevel > 0)
+    {
+        for (int m = 0; m < g_MobaMinimapCount; ++m)
+        {
+            const MobaMinimapEntry& e = g_MobaMinimap[m];
+            SetMobaMarkerColor(e);
+            const float w = MobaMarkerSize(e, 6.f, 7.f, 11.f, 5.f);
+            const float lx = ((float)e.y / 256.f - 0.5f) * SIZE;
+            const float ly = (0.5f - (float)e.x / 256.f) * SIZE;
+            RenderColor(CENTRE_X + (lx * ca - ly * sa) - w / 2.f, CENTRE_Y - (lx * sa + ly * ca) - w / 2.f, w, w);
+        }
+        EndRenderColor();
+        EnableAlphaTest();
     }
 
     plot(IMAGE_MINIMAP_INTERFACE + 3, (float)Hero->PositionY / 256.f, (float)Hero->PositionX / 256.f, 8.f, 0.f);

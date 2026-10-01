@@ -13655,6 +13655,25 @@ void ReceiveMobaTeamStatus(const BYTE* ReceiveBuffer)
 // Layout: [4]=count, then count * ( name[10] team(1) classNum(1) level(1) kills(1) deaths(1) assists(1) ).
 MobaScoreRow g_MobaScoreboard[MOBA_MAX_SCORE_ROWS] = {};
 int          g_MobaScoreboardCount = 0;
+
+MobaMinimapEntry g_MobaMinimap[MOBA_MINIMAP_MAX] = {};
+int              g_MobaMinimapCount = 0;
+
+// Handles packet C1 D5 10: [4]=count, then count * (kind team x y hp).
+void ReceiveMobaMinimap(const BYTE* ReceiveBuffer)
+{
+    int count = ReceiveBuffer[4];
+    if (count > MOBA_MINIMAP_MAX)
+        count = MOBA_MINIMAP_MAX;
+    if (ReceiveBuffer[1] < 5 + count * 5)
+        return;
+    for (int i = 0; i < count; ++i)
+    {
+        const BYTE* e = ReceiveBuffer + 5 + i * 5;
+        g_MobaMinimap[i] = { e[0], e[1], e[2], e[3], e[4] };
+    }
+    g_MobaMinimapCount = count;
+}
 double       g_MobaScoreboardTime = 0.0;
 
 void ReceiveMobaScoreboard(const BYTE* ReceiveBuffer)
@@ -14281,6 +14300,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x0C:
             ReceiveMobaShieldOptions(received_span);
+            break;
+        case 0x10:
+            ReceiveMobaMinimap(ReceiveBuffer);
             break;
         }
     }

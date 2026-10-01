@@ -123,6 +123,14 @@ extern int          g_MobaScoreboardCount;
 extern double       g_MobaScoreboardTime; // WorldTime of the last update
 void ReceiveMobaScoreboard(const BYTE* ReceiveBuffer);
 
+// MOBA minimap feed (packet C1 D5 10): allied champions, structures of both teams, allied wards and the
+// enemy champions the team sees. kind: 1 champion, 2 turret, 3 nexus, 4 ward. team: 1 blue, 2 red.
+struct MobaMinimapEntry { BYTE kind; BYTE team; BYTE x; BYTE y; BYTE hp; };
+constexpr int MOBA_MINIMAP_MAX = 48;
+extern MobaMinimapEntry g_MobaMinimap[MOBA_MINIMAP_MAX];
+extern int              g_MobaMinimapCount;
+void ReceiveMobaMinimap(const BYTE* ReceiveBuffer);
+
 // Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
 void SendMobaSkillUp(int skillNumber);
 

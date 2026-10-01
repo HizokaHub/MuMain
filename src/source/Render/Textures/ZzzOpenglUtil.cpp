@@ -1627,6 +1627,49 @@ void RenderPointRotate(int Texture, float ix, float iy, float iWidth, float iHei
     }
 }
 
+// Flat coloured square at a map position of the full minimap: same placement maths as
+// RenderPointRotate (so it lands where an icon would), but untextured, in the current glColor.
+void RenderPointRotateSquare(float ix, float iy, float iSize, float x, float y, float Width, float Height, float Rotate)
+{
+    vec3_t p, p3, Angle;
+    float Matrix[3][4];
+
+    ix = ConvertX(ix);
+    iy = ConvertY(iy);
+    x = ConvertX(x);
+    y = ConvertY(y);
+    Width = ConvertX(Width);
+    Height = ConvertY(Height);
+    const float half = ConvertX(iSize) * 0.5f;
+
+    y = Height - y;
+    iy = Height - iy;
+
+    Vector((ix - (Width * 0.5f)) + ((Width / 2.f) - (Width - x)), (iy - (Height * 0.5f)) + ((Height / 2.f) - (Height - y)), 0.f, p);
+    Vector(0.f, 0.f, Rotate, Angle);
+    AngleMatrix(Angle, Matrix);
+    VectorRotate(p, Matrix, p3);
+
+    const float cx = p3[0] + 25 + (WindowWidth / 2.f);
+    const float cy = p3[1] + (WindowHeight / 2.f);
+
+    float currColor[4] = { 1.f, 1.f, 1.f, 1.f };
+    memcpy(currColor, g_CurrentColor, sizeof(currColor));
+
+    DisableTexture();
+    IR::Begin(GL_TRIANGLE_FAN);
+    PassthroughShader::Instance().SetUseTexture(false);
+    const float xs[4] = { cx - half, cx - half, cx + half, cx + half };
+    const float ys[4] = { cy + half, cy - half, cy - half, cy + half };
+    for (int i = 0; i < 4; i++)
+    {
+        IR::Color4f(currColor[0], currColor[1], currColor[2], currColor[3]);
+        IR::Vertex2f(xs[i], ys[i]);
+    }
+    IR::End();
+    PassthroughShader::Instance().SetUseTexture(true);
+}
+
 void RenderBitmapLocalRotate(int Texture, float x, float y, float Width, float Height, float Rotate, float u, float v, float uWidth, float vHeight)
 {
     BindTexture(Texture);
