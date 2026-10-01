@@ -671,6 +671,18 @@ void SEASON3B::CNewUIMainFrameWindow::RenderExperience()
         x = 635.f; y = 469.f;
         SEASON3B::RenderNumber(x, y, iExp);
 
+        if (bMoba)
+        {
+            // Champion level, always visible (the native level number belongs to the real, level-400 character).
+            wchar_t strMobaLevel[32];
+            mu_swprintf(strMobaLevel, L"Nv %d", g_MobaLevel);
+            g_pRenderText->SetFont(g_hFontBold);
+            g_pRenderText->SetBgColor(0, 0, 0, 160);
+            g_pRenderText->SetTextColor(255, 225, 150, 255);
+            g_pRenderText->RenderText(2, 460, strMobaLevel, 0, 0, RT3_SORT_LEFT);
+            g_pRenderText->SetBgColor(0, 0, 0, 0);
+        }
+
         x = 2.f; y = 473.f; width = 629.f; height = 4.f;
         if (SEASON3B::CheckMouseIn(x, y, width, height) == true)
         {

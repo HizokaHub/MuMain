@@ -18,6 +18,7 @@
 #include "UI/Legacy/UIManager.h"
 #include "Network/Server/ServerListManager.h"
 #include "I18N/All.h"
+#include "Network/Server/WSclient.h" // g_MobaLevel / g_MobaExp / g_MobaSkillPoints (MOBA champion state)
 
 using namespace SEASON3B;
 
@@ -182,7 +183,12 @@ bool SEASON3B::CNewUICharacterInfoWindow::BtnProcess()
         {
             if (m_BtnStat[i].UpdateMouseEvent() == true)
             {
-                SocketClient->ToGameServer()->SendIncreaseCharacterStatPoint(static_cast<CharacterStatAttribute>(i));
+                // MOBA: the server invests a chunk per request; Shift / Ctrl repeat the request (10 / 50 times).
+                int repeats = 1;
+                if (g_MobaLevel > 0)
+                    repeats = (GetAsyncKeyState(VK_CONTROL) & 0x8000) ? 50 : ((GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 10 : 1);
+                for (int r = 0; r < repeats; ++r)
+                    SocketClient->ToGameServer()->SendIncreaseCharacterStatPoint(static_cast<CharacterStatAttribute>(i));
                 PlayBuffer(SOUND_CLICK01);
                 return true;
             }
@@ -333,6 +339,12 @@ void SEASON3B::CNewUICharacterInfoWindow::RenderTableTexts()
 
     mu_swprintf(strLevel, I18N::Game::LevelUResetsU, CharacterAttribute->Level, CharacterAttribute->Resets);
     mu_swprintf(strExp, I18N::Game::EXPI64dI64d, CharacterAttribute->Experience, CharacterAttribute->NextExperience);
+    if (g_MobaLevel > 0)
+    {
+        // MOBA: the champion level (1..30) and its EXP replace the level-400 character's.
+        mu_swprintf(strLevel, L"Nv campeon %d", g_MobaLevel);
+        mu_swprintf(strExp, L"EXP: %u / %u", (unsigned)g_MobaExp, (unsigned)g_MobaNextExp);
+    }
 
     if (CharacterAttribute->Level > 9)
     {
@@ -446,6 +458,8 @@ void SEASON3B::CNewUICharacterInfoWindow::RenderTableTexts()
 
     wchar_t strPointProbability[128];
     mu_swprintf(strPointProbability, I18N::Game::DD1907, iAddPoint, iMinusPoint);
+    if (g_MobaLevel > 0)
+        mu_swprintf(strPointProbability, L"Puntos de habilidad: %d (+ sobre la barra)", (int)g_MobaSkillPoints);
     g_pRenderText->SetFont(g_hFont);
     g_pRenderText->SetTextColor(76, 197, 254, 255);
     g_pRenderText->SetBgColor(0, 0, 0, 0);
@@ -453,6 +467,8 @@ void SEASON3B::CNewUICharacterInfoWindow::RenderTableTexts()
 
     g_pRenderText->SetTextColor(76, 197, 254, 255);
     g_pRenderText->SetBgColor(0, 0, 0, 0);
+    if (g_MobaLevel > 0)
+        mu_swprintf(strPoint, L"Stats: clic +100 | Shift +1.000 | Ctrl +5.000");
     g_pRenderText->RenderText(m_Pos.x + 18, m_Pos.y + 101, strPoint);
 }
 

@@ -13289,6 +13289,12 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
             g_MobaSkillLevel[num] = p[2];
         }
     }
+
+    // Unspent stat points (u32 LE) follow the skill list: they feed the native character window ("C").
+    if (g_MobaLevel > 0 && ReceiveBuffer[1] >= 15 + count * 3 + 4)
+    {
+        CharacterAttribute->LevelUpPoint = (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+    }
 }
 
 // Handles packet C1 D5 04: a champion ability just went on its per-match cooldown.
