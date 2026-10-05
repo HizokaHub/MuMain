@@ -1363,6 +1363,12 @@ void CMapManager::LoadWorld(int Map)
                         TerrainWall[i] = (s_mask[i] == 4) ? (safe | TW_NOMOVE) : safe;
                     }
                     maskLoaded = true;
+                    int walls = 0;
+                    for (int i = 0; i < TERRAIN_SIZE * TERRAIN_SIZE; ++i) { if (s_mask[i] == 4) ++walls; }
+                    wchar_t note[160];
+                    mu_swprintf(note, L"[MOBA] walk mask loaded from Data\\World200\\MobaWalkMask.att: %d wall cells, (116,134)=%d (60,135)=%d (150,135)=%d\r\n",
+                        walls, s_mask[134 * 256 + 116], s_mask[135 * 256 + 60], s_mask[135 * 256 + 150]);
+                    g_ErrorReport.Write(note);
                 }
                 fclose(mfp);
             }

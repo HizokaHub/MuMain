@@ -15,6 +15,7 @@
 #include "UI/NewUI/Inventory/NewUIMyInventory.h"
 #include "GameLogic/Items/CSItemOption.h"
 #include "World/MapInfra/MapManager.h"
+#include "Render/Terrain/ZzzLodTerrain.h" // TerrainWall (MOBA wall overlay)
 #include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
 
 extern BYTE m_OccupationState;
@@ -199,6 +200,27 @@ bool SEASON3B::CNewUIMiniMap::Render()
         }
         else
             break;
+    }
+
+    if (g_MobaLevel > 0)
+    {
+        // Show the walk mask the client is using (edges of the blocked cells) so map edits can be checked in-game.
+        glColor4f(0.85f, 0.25f, 0.25f, 1.f);
+        const float cell = FULL_MAP_SIZE / 256.f * 1.3f;
+        for (int cy = 1; cy < 255; ++cy)
+        {
+            for (int cx = 1; cx < 255; ++cx)
+            {
+                const int idx = cy * 256 + cx;
+                if ((TerrainWall[idx] & TW_NOMOVE) != TW_NOMOVE)
+                    continue;
+                if ((TerrainWall[idx - 1] & TW_NOMOVE) && (TerrainWall[idx + 1] & TW_NOMOVE)
+                    && (TerrainWall[idx - 256] & TW_NOMOVE) && (TerrainWall[idx + 256] & TW_NOMOVE))
+                    continue;
+                RenderPointRotateSquare(((float)cy / 256.f) * FULL_MAP_SIZE, ((float)cx / 256.f) * FULL_MAP_SIZE, cell,
+                    MapCenterX, MapCenterY, FULL_MAP_SIZE, FULL_MAP_SIZE, Rot);
+            }
+        }
     }
 
     if (g_MobaLevel > 0)
