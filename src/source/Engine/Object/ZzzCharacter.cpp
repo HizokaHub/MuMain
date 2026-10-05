@@ -14550,7 +14550,18 @@ CHARACTER* CreateMonster(EMonsterType Type, int PositionX, int PositionY, int Ke
         OpenNpc(MODEL_CRYWOLF_STATUE);
         c = CreateCharacter(Key, MODEL_CRYWOLF_STATUE, PositionX, PositionY);
         wcscpy(c->ID, L"석상");
-        c->Object.Live = false;
+        // In Crywolf the statue is drawn by a map object (the NPC itself is hidden); in the MOBA arena the NPC
+        // IS the nexus: show it, bigger.
+        if (gMapManager.WorldActive == WD_200_MOBA_ARENA)
+        {
+            c->Object.Live = true;
+            c->Object.Scale = 1.8f;
+            wcscpy(c->ID, L"Nexo");
+        }
+        else
+        {
+            c->Object.Live = false;
+        }
         break;
     case MONSTER_WOLF_ALTAR1:
         OpenNpc(MODEL_CRYWOLF_ALTAR1);
