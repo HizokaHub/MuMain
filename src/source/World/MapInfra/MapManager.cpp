@@ -1174,6 +1174,212 @@ void CMapManager::Load() // OK
     }
 }
 
+// ---------------------------------------------------------------------------
+// MOBA arena relief: generated from the walk mask (TerrainWall & TW_NOMOVE) so a
+// single drawing (tools/moba-map-editor.html) drives collision AND visuals.
+//   - open cells keep a flattened version of the Crywolf ground;
+//   - wall cells rise with distance to the nearest open cell (smooth slopes, noise);
+//   - wall cells get rock tiles; old Crywolf ridges that are now open get ground tiles;
+//   - map objects are shifted by the height change under them.
+// Tune the constants below, rebuild, look at the map.
+// ---------------------------------------------------------------------------
+namespace
+{
+    constexpr float MOBA_RELIEF_HEIGHT = 350.f;     // wall height above the lane (100 = one cell)
+    constexpr float MOBA_RELIEF_RADIUS = 4.f;       // cells a wall needs to reach full height
+    constexpr float MOBA_FLOOR_VARIATION = 25.f;    // original ground undulation kept on open cells
+    constexpr float MOBA_RIDGE_STEP = 100.f;        // old Crywolf ridge detection (same as the old mask)
+    constexpr unsigned char MOBA_TILE_ROCK_EDGE = 7;
+    constexpr unsigned char MOBA_TILE_ROCK_DEEP = 11;
+
+    float MobaHash01(int x, int y)
+    {
+        unsigned int h = (unsigned int)(x * 374761393 + y * 668265263);
+        h = (h ^ (h >> 13)) * 1274126177u;
+        h ^= (h >> 16);
+        return (float)(h & 0xFFFF) / 65535.f;
+    }
+
+    float MobaNoise(float fx, float fy)
+    {
+        const int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
+        const float tx = fx - x0, ty = fy - y0;
+        const float sx = tx * tx * (3.f - 2.f * tx), sy = ty * ty * (3.f - 2.f * ty);
+        const float a = MobaHash01(x0, y0), b = MobaHash01(x0 + 1, y0);
+        const float c = MobaHash01(x0, y0 + 1), d = MobaHash01(x0 + 1, y0 + 1);
+        const float top = a + (b - a) * sx;
+        const float bottom = c + (d - c) * sx;
+        return top + (bottom - top) * sy;
+    }
+
+    void ApplyMobaRelief()
+    {
+        constexpr int N = TERRAIN_SIZE;
+        static float s_old[N * N];
+        static float s_new[N * N];
+        static float s_dist[N * N];
+        static unsigned char s_wall[N * N];
+        static unsigned char s_ridge[N * N];
+        static unsigned char s_done[N * N];
+        static int s_queue[N * N];
+
+        memcpy(s_old, BackTerrainHeight, sizeof(s_old));
+        for (int i = 0; i < N * N; ++i)
+            s_wall[i] = (TerrainWall[i] & TW_NOMOVE) ? 1 : 0;
+
+        // Lane height: mean of the original ground along the central corridor.
+        double sum = 0.0;
+        int cnt = 0;
+        for (int y = 60; y < 205; ++y)
+        {
+            for (int x = 112; x <= 120; ++x)
+            {
+                if (!s_wall[y * N + x]) { sum += s_old[y * N + x]; ++cnt; }
+            }
+        }
+        const float base = cnt > 0 ? (float)(sum / cnt) : 195.f;
+
+        // Old Crywolf ridges (steep original heights), used to repaint ground that is now open.
+        for (int y = 0; y < N; ++y)
+        {
+            for (int x = 0; x < N; ++x)
+            {
+                float maxDelta = 0.f;
+                for (int oy = -1; oy <= 1; ++oy)
+                {
+                    for (int ox = -1; ox <= 1; ++ox)
+                    {
+                        const int nx = x + ox, ny = y + oy;
+                        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+                        const float d = fabsf(s_old[ny * N + nx] - s_old[y * N + x]);
+                        if (d > maxDelta) maxDelta = d;
+                    }
+                }
+                s_ridge[y * N + x] = maxDelta > MOBA_RIDGE_STEP ? 1 : 0;
+            }
+        }
+
+        // Distance (in cells) from every cell to the nearest open cell: two-pass chamfer.
+        for (int i = 0; i < N * N; ++i) s_dist[i] = s_wall[i] ? 1e6f : 0.f;
+        for (int y = 0; y < N; ++y)
+        {
+            for (int x = 0; x < N; ++x)
+            {
+                float& d = s_dist[y * N + x];
+                if (x > 0) d = fminf(d, s_dist[y * N + x - 1] + 1.f);
+                if (y > 0) d = fminf(d, s_dist[(y - 1) * N + x] + 1.f);
+                if (x > 0 && y > 0) d = fminf(d, s_dist[(y - 1) * N + x - 1] + 1.414f);
+                if (x < N - 1 && y > 0) d = fminf(d, s_dist[(y - 1) * N + x + 1] + 1.414f);
+            }
+        }
+        for (int y = N - 1; y >= 0; --y)
+        {
+            for (int x = N - 1; x >= 0; --x)
+            {
+                float& d = s_dist[y * N + x];
+                if (x < N - 1) d = fminf(d, s_dist[y * N + x + 1] + 1.f);
+                if (y < N - 1) d = fminf(d, s_dist[(y + 1) * N + x] + 1.f);
+                if (x < N - 1 && y < N - 1) d = fminf(d, s_dist[(y + 1) * N + x + 1] + 1.414f);
+                if (x > 0 && y < N - 1) d = fminf(d, s_dist[(y + 1) * N + x - 1] + 1.414f);
+            }
+        }
+
+        // Heights.
+        for (int y = 0; y < N; ++y)
+        {
+            for (int x = 0; x < N; ++x)
+            {
+                const int i = y * N + x;
+                if (!s_wall[i])
+                {
+                    float dv = s_old[i] - base;
+                    if (dv > MOBA_FLOOR_VARIATION) dv = MOBA_FLOOR_VARIATION;
+                    if (dv < -MOBA_FLOOR_VARIATION) dv = -MOBA_FLOOR_VARIATION;
+                    s_new[i] = base + dv;
+                }
+                else
+                {
+                    float t = s_dist[i] / MOBA_RELIEF_RADIUS;
+                    if (t > 1.f) t = 1.f;
+                    const float s = t * t * (3.f - 2.f * t);
+                    const float n = MobaNoise(x * 0.3f, y * 0.3f);
+                    const float rough = (MobaHash01(x, y) - 0.5f) * 16.f;
+                    s_new[i] = base + (MOBA_RELIEF_HEIGHT * (0.75f + 0.5f * n) + rough) * s;
+                }
+            }
+        }
+
+        // One light 3x3 blur pass so slopes are not faceted.
+        for (int y = 0; y < N; ++y)
+        {
+            for (int x = 0; x < N; ++x)
+            {
+                float acc = 0.f;
+                int c = 0;
+                for (int oy = -1; oy <= 1; ++oy)
+                {
+                    for (int ox = -1; ox <= 1; ++ox)
+                    {
+                        const int nx = x + ox, ny = y + oy;
+                        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+                        acc += s_new[ny * N + nx];
+                        ++c;
+                    }
+                }
+                BackTerrainHeight[y * N + x] = acc / c;
+            }
+        }
+
+        // Ground tiles: spread the nearest non-ridge open tile into open cells that used to be ridge.
+        int qh = 0, qt = 0;
+        for (int i = 0; i < N * N; ++i)
+        {
+            s_done[i] = (!s_wall[i] && !s_ridge[i]) ? 1 : 0;
+            if (s_done[i]) s_queue[qt++] = i;
+        }
+        while (qh < qt)
+        {
+            const int i = s_queue[qh++];
+            const int x = i % N, y = i / N;
+            const int nb[4] = { x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1, y > 0 ? i - N : -1, y < N - 1 ? i + N : -1 };
+            for (int k = 0; k < 4; ++k)
+            {
+                const int n = nb[k];
+                if (n < 0 || s_done[n]) continue;
+                s_done[n] = 1;
+                if (!s_wall[n])
+                {
+                    TerrainMappingLayer1[n] = TerrainMappingLayer1[i];
+                    TerrainMappingLayer2[n] = TerrainMappingLayer2[i];
+                    TerrainMappingAlpha[n] = TerrainMappingAlpha[i];
+                }
+                s_queue[qt++] = n;
+            }
+        }
+        for (int i = 0; i < N * N; ++i)
+        {
+            if (!s_wall[i]) continue;
+            const float h = MobaHash01(i % N, i / N);
+            const bool edge = s_dist[i] < 2.f;
+            TerrainMappingLayer1[i] = edge ? MOBA_TILE_ROCK_EDGE : (h < 0.2f ? 8 : MOBA_TILE_ROCK_DEEP);
+            TerrainMappingLayer2[i] = TerrainMappingLayer1[i];
+            TerrainMappingAlpha[i] = 0.f;
+        }
+
+        // Keep map decoration attached to the ground: shift each object by the height change under it.
+        for (int bi = 0; bi < 256; ++bi)
+        {
+            for (OBJECT* o = ObjectBlock[bi].Head; o != NULL; o = o->Next)
+            {
+                const int cx = (int)(o->Position[0] / TERRAIN_SCALE);
+                const int cy = (int)(o->Position[1] / TERRAIN_SCALE);
+                if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+                o->Position[2] += BackTerrainHeight[cy * N + cx] - s_old[cy * N + cx];
+            }
+        }
+    }
+}
+
 void CMapManager::LoadWorld(int Map)
 {
     if (Map == 32 && this->WorldActive == 32)
@@ -1462,6 +1668,8 @@ void CMapManager::LoadWorld(int Map)
             }
         }
         }
+
+        ApplyMobaRelief();
     }
 
     if (gMapManager.InBattleCastle())
