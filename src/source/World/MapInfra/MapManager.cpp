@@ -1345,6 +1345,34 @@ void CMapManager::LoadWorld(int Map)
         // safezone bit is kept. Runs after CreateTerrain so BackTerrainHeight is
         // populated. Keep the constants in sync with the server-side Terrain201.att
         // bake (openmu-aram).
+        // Preferred source: the walk mask shared with the server (Data\World200\MobaWalkMask.att,
+        // same file as openmu-aram Terrain201.att: 3-byte header + 256x256, 0 walk / 1 safezone / 4 wall).
+        bool maskLoaded = false;
+        {
+            static unsigned char s_mask[TERRAIN_SIZE * TERRAIN_SIZE];
+            unsigned char hdr[3];
+            FILE* mfp = nullptr;
+            if (_wfopen_s(&mfp, L"Data\\World200\\MobaWalkMask.att", L"rb") == 0 && mfp != nullptr)
+            {
+                if (fread(hdr, 1, 3, mfp) == 3 && hdr[1] == 255 && hdr[2] == 255
+                    && fread(s_mask, 1, sizeof(s_mask), mfp) == sizeof(s_mask))
+                {
+                    for (int i = 0; i < TERRAIN_SIZE * TERRAIN_SIZE; ++i)
+                    {
+                        const WORD safe = (s_mask[i] == 1) ? TW_SAFEZONE : 0;
+                        TerrainWall[i] = (s_mask[i] == 4) ? (safe | TW_NOMOVE) : safe;
+                    }
+                    maskLoaded = true;
+                }
+                fclose(mfp);
+            }
+            if (!maskLoaded)
+            {
+                g_ErrorReport.Write(L"[MOBA] MobaWalkMask.att missing or invalid: using the derived mask.\r\n");
+            }
+        }
+        if (!maskLoaded)
+        {
         const float MOBA_ELEVATION_STEP = 100.0f;
         const float MOBA_VOID_HEIGHT = 20.0f;
         const int MOBA_BORDER_RING = 5;
@@ -1426,6 +1454,7 @@ void CMapManager::LoadWorld(int Map)
                 const WORD safe = TerrainWall[idx] & TW_SAFEZONE;
                 TerrainWall[idx] = block ? (safe | TW_NOMOVE) : safe;
             }
+        }
         }
     }
 
