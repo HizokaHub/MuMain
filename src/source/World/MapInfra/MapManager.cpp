@@ -1118,6 +1118,12 @@ void CMapManager::Load() // OK
         {
             iMapWorld = WD_45CURSEDTEMPLE_LV1 + 2;
         }
+        else if (this->WorldActive == WD_200_MOBA_ARENA)
+        {
+            // MOBA Arena reuses the Crywolf object models (otherwise Object201 does not exist and
+            // the map objects would render with whatever models the previous scene left loaded).
+            iMapWorld = WD_34CRYWOLF_1ST + 1;
+        }
 
         mu_swprintf(DirName, L"Data\\Object%d\\", iMapWorld);
         for (i = MODEL_WORLD_OBJECT; i < MAX_WORLD_OBJECTS; i++)
@@ -1189,8 +1195,9 @@ namespace
     constexpr float MOBA_RELIEF_RADIUS = 2.f;       // cells a wall needs to reach full height
     constexpr float MOBA_FLOOR_VARIATION = 25.f;    // original ground undulation kept on open cells
     constexpr float MOBA_RIDGE_STEP = 100.f;        // old Crywolf ridge detection (same as the old mask)
-    constexpr unsigned char MOBA_TILE_ROCK_EDGE = 7;
-    constexpr unsigned char MOBA_TILE_ROCK_DEEP = 11;
+    // Crywolf's base ground is tile 7 (Rock01), so the mountains use the other rock tiles.
+    constexpr unsigned char MOBA_TILE_ROCK_EDGE = 8;
+    constexpr unsigned char MOBA_TILE_ROCK_DEEP = 9;
 
     float MobaHash01(int x, int y)
     {
@@ -1210,6 +1217,39 @@ namespace
         const float top = a + (b - a) * sx;
         const float bottom = c + (d - c) * sx;
         return top + (bottom - top) * sy;
+    }
+
+    // Crywolf object model types (Object35): grass 15-18, trees 24-28/35, stones 19-23/33/34/38/39/52-55.
+    // Everything else (walls, roofs, poles, gates, bridges, shadows...) is hidden in the arena.
+    bool MobaIsGrass(int t) { return t >= 15 && t <= 18; }
+    bool MobaIsTree(int t) { return t == 24 || t == 25 || t == 26 || t == 27 || t == 28 || t == 35; }
+    bool MobaIsStone(int t)
+    {
+        switch (t)
+        {
+        case 19: case 20: case 21: case 22: case 23: case 33: case 34: case 38: case 39:
+        case 52: case 53: case 54: case 55:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    // Grass stays everywhere; trees and stones only next to a wall (they mark it).
+    bool MobaKeepObject(int type, int cx, int cy)
+    {
+        if (MobaIsGrass(type)) return true;
+        if (!MobaIsTree(type) && !MobaIsStone(type)) return false;
+        for (int dy = -2; dy <= 2; ++dy)
+        {
+            for (int dx = -2; dx <= 2; ++dx)
+            {
+                const int nx = cx + dx, ny = cy + dy;
+                if (nx < 0 || ny < 0 || nx >= TERRAIN_SIZE || ny >= TERRAIN_SIZE) continue;
+                if (TerrainWall[ny * TERRAIN_SIZE + nx] & TW_NOMOVE) return true;
+            }
+        }
+        return false;
     }
 
     void ApplyMobaRelief()
@@ -1299,9 +1339,12 @@ namespace
                 }
                 else
                 {
-                    float t = s_dist[i] / MOBA_RELIEF_RADIUS;
+                    // Every wall cell rises to at least 75 % of the full height (so thin walls are real
+                    // mountains), and thicker walls keep climbing to the full height.
+                    float t = (s_dist[i] - 1.f) / MOBA_RELIEF_RADIUS;
+                    if (t < 0.f) t = 0.f;
                     if (t > 1.f) t = 1.f;
-                    const float s = t * t * (3.f - 2.f * t);
+                    const float s = 0.75f + 0.25f * (t * t * (3.f - 2.f * t));
                     const float n = MobaNoise(x * 0.3f, y * 0.3f);
                     const float rough = (MobaHash01(x, y) - 0.5f) * 16.f;
                     s_new[i] = base + (MOBA_RELIEF_HEIGHT * (0.75f + 0.5f * n) + rough) * s;
@@ -1361,7 +1404,7 @@ namespace
             if (!s_wall[i]) continue;
             const float h = MobaHash01(i % N, i / N);
             const bool edge = s_dist[i] < 2.f;
-            TerrainMappingLayer1[i] = edge ? MOBA_TILE_ROCK_EDGE : (h < 0.2f ? 8 : MOBA_TILE_ROCK_DEEP);
+            TerrainMappingLayer1[i] = edge ? MOBA_TILE_ROCK_EDGE : (h < 0.25f ? 10 : (h < 0.5f ? 8 : MOBA_TILE_ROCK_DEEP));
             TerrainMappingLayer2[i] = TerrainMappingLayer1[i];
             TerrainMappingAlpha[i] = 0.f;
         }
@@ -1374,6 +1417,7 @@ namespace
                 const int cx = (int)(o->Position[0] / TERRAIN_SCALE);
                 const int cy = (int)(o->Position[1] / TERRAIN_SCALE);
                 if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+                if (!MobaKeepObject(o->Type, cx, cy)) { o->Live = false; continue; }
                 o->Position[2] += BackTerrainHeight[cy * N + cx] - s_old[cy * N + cx];
             }
         }
@@ -1387,7 +1431,7 @@ namespace
     void PlaceMobaWallDecoration()
     {
         constexpr int N = TERRAIN_SIZE;
-        constexpr float TREE_CHANCE = 0.45f;
+        constexpr float TREE_CHANCE = 0.35f;
         constexpr float ROCK_CHANCE = 0.06f;
         int trees = 0, rocks = 0;
         for (int y = 2; y < N - 2; ++y)
@@ -1407,7 +1451,9 @@ namespace
                     (y + 0.15f + 0.7f * MobaHash01(x, y + 57)) * TERRAIN_SCALE, BackTerrainHeight[i], pos);
                 Vector(0.f, 0.f, MobaHash01(x + 13, y + 29) * 360.f, ang);
                 const float scale = rock ? 1.1f + 0.8f * MobaHash01(x + 5, y + 71) : 0.9f + 0.6f * MobaHash01(x + 17, y + 3);
-                const int type = rock ? ((x + y) & 1 ? 23 : 19) : 24;
+                static const int TREE_TYPES[5] = { 24, 35, 27, 25, 28 };
+                static const int ROCK_TYPES[4] = { 33, 21, 19, 22 };
+                const int type = rock ? ROCK_TYPES[(x * 3 + y) & 3] : TREE_TYPES[(x + y * 2) % 5];
                 if (CreateObject(type, pos, ang, scale) != NULL)
                 {
                     if (rock) ++rocks; else ++trees;
