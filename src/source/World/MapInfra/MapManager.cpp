@@ -1185,8 +1185,8 @@ void CMapManager::Load() // OK
 // ---------------------------------------------------------------------------
 namespace
 {
-    constexpr float MOBA_RELIEF_HEIGHT = 350.f;     // wall height above the lane (100 = one cell)
-    constexpr float MOBA_RELIEF_RADIUS = 4.f;       // cells a wall needs to reach full height
+    constexpr float MOBA_RELIEF_HEIGHT = 550.f;     // wall height above the lane (100 = one cell)
+    constexpr float MOBA_RELIEF_RADIUS = 2.f;       // cells a wall needs to reach full height
     constexpr float MOBA_FLOOR_VARIATION = 25.f;    // original ground undulation kept on open cells
     constexpr float MOBA_RIDGE_STEP = 100.f;        // old Crywolf ridge detection (same as the old mask)
     constexpr unsigned char MOBA_TILE_ROCK_EDGE = 7;
@@ -1377,6 +1377,46 @@ namespace
                 o->Position[2] += BackTerrainHeight[cy * N + cx] - s_old[cy * N + cx];
             }
         }
+    }
+}
+
+namespace
+{
+    // Marks the border of every wall with trees (and a few rocks) so the invisible walls can be seen.
+    // Crywolf object types: 24 = tree, 23 / 19 = stones.
+    void PlaceMobaWallDecoration()
+    {
+        constexpr int N = TERRAIN_SIZE;
+        constexpr float TREE_CHANCE = 0.45f;
+        constexpr float ROCK_CHANCE = 0.06f;
+        int trees = 0, rocks = 0;
+        for (int y = 2; y < N - 2; ++y)
+        {
+            for (int x = 2; x < N - 2; ++x)
+            {
+                const int i = y * N + x;
+                if (!(TerrainWall[i] & TW_NOMOVE)) continue;
+                const bool edge = !(TerrainWall[i - 1] & TW_NOMOVE) || !(TerrainWall[i + 1] & TW_NOMOVE)
+                    || !(TerrainWall[i - N] & TW_NOMOVE) || !(TerrainWall[i + N] & TW_NOMOVE);
+                if (!edge) continue;
+                const float h = MobaHash01(x * 7 + 3, y * 11 + 5);
+                if (h > TREE_CHANCE) continue;
+                const bool rock = h < ROCK_CHANCE;
+                vec3_t pos, ang;
+                Vector((x + 0.15f + 0.7f * MobaHash01(x + 91, y)) * TERRAIN_SCALE,
+                    (y + 0.15f + 0.7f * MobaHash01(x, y + 57)) * TERRAIN_SCALE, BackTerrainHeight[i], pos);
+                Vector(0.f, 0.f, MobaHash01(x + 13, y + 29) * 360.f, ang);
+                const float scale = rock ? 1.1f + 0.8f * MobaHash01(x + 5, y + 71) : 0.9f + 0.6f * MobaHash01(x + 17, y + 3);
+                const int type = rock ? ((x + y) & 1 ? 23 : 19) : 24;
+                if (CreateObject(type, pos, ang, scale) != NULL)
+                {
+                    if (rock) ++rocks; else ++trees;
+                }
+            }
+        }
+        wchar_t note[160];
+        mu_swprintf(note, L"[MOBA] wall decoration: %d trees, %d rocks\r\n", trees, rocks);
+        g_ErrorReport.Write(note);
     }
 }
 
@@ -1670,6 +1710,7 @@ void CMapManager::LoadWorld(int Map)
         }
 
         ApplyMobaRelief();
+        PlaceMobaWallDecoration();
     }
 
     if (gMapManager.InBattleCastle())
