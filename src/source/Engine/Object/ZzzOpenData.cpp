@@ -2008,8 +2008,7 @@ void OpenNpc(int Type)
         gLoadData.OpenTexture(MODEL_BC_BOX, L"Npc\\");
         break;
     case MODEL_CRYWOLF_STATUE:
-        // MOBA arena nexus: the Crywolf altar (holds the crystal) instead of the wolf statue.
-        gLoadData.AccessModel(MODEL_CRYWOLF_STATUE, L"Data\\Object35\\", gMapManager.WorldActive == WD_200_MOBA_ARENA ? L"Object57" : L"Object82");
+        gLoadData.AccessModel(MODEL_CRYWOLF_STATUE, L"Data\\Object35\\", L"Object82");
         gLoadData.OpenTexture(MODEL_CRYWOLF_STATUE, L"Object35\\");
         break;
     case MODEL_CRYWOLF_ALTAR1:

@@ -14547,19 +14547,24 @@ CHARACTER* CreateMonster(EMonsterType Type, int PositionX, int PositionY, int Ke
         c->BodyPart[BODYPART_BOOTS].Type = MODEL_MERCHANT_FEMALE_BOOTS + 1;
         break;
     case MONSTER_WOLF_STATUS:
-        OpenNpc(MODEL_CRYWOLF_STATUE);
-        c = CreateCharacter(Key, MODEL_CRYWOLF_STATUE, PositionX, PositionY);
-        wcscpy(c->ID, L"석상");
-        // In Crywolf the statue is drawn by a map object (the NPC itself is hidden); in the MOBA arena the NPC
-        // IS the nexus: show it, bigger.
         if (gMapManager.WorldActive == WD_200_MOBA_ARENA)
         {
+            // In the MOBA arena the NPC IS the nexus: the Castle Siege Guardian Statue model (the wolf statue of Crywolf
+            // is a giant dog, the Crywolf altar a circle on the floor).
+            OpenMonsterModel(MONSTER_MODEL_GUARDIAN_STATUE);
+            c = CreateCharacter(Key, MODEL_GUARDIAN_STATUE, PositionX, PositionY);
+            c->NotRotateOnMagicHit = true;
             c->Object.Live = true;
-            c->Object.Scale = 1.8f;
+            c->Object.Scale = 1.4f;
+            c->Object.EnableShadow = false;
             wcscpy(c->ID, L"Nexo");
         }
         else
         {
+            // In Crywolf the statue is drawn by a map object (the NPC itself is hidden).
+            OpenNpc(MODEL_CRYWOLF_STATUE);
+            c = CreateCharacter(Key, MODEL_CRYWOLF_STATUE, PositionX, PositionY);
+            wcscpy(c->ID, L"석상");
             c->Object.Live = false;
         }
         break;

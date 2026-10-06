@@ -15745,10 +15745,19 @@ void InsertBuffPhysicalEffect(eBuffState buff, OBJECT* o)
             DeleteEffect(MODEL_SHIELD_CRASH, o);
             DeleteEffect(BITMAP_SHOCK_WAVE, o);
             vec3_t  Light;
-            Vector(0.3f, 0.3f, 0.8f, Light);
-            CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o->Position, o->Angle, Light, 0, o);
-            CreateEffect(MODEL_SHIELD_CRASH, o->Position, o->Angle, Light, 1, o);
-            CreateEffect(BITMAP_SHOCK_WAVE, o->Position, o->Angle, Light, 10, o);
+            if (gMapManager.WorldActive == WD_200_MOBA_ARENA)
+            {
+                // MOBA Aegis barrier: only the white sphere (no blue shield crash / shock wave).
+                Vector(1.0f, 1.0f, 1.0f, Light);
+                CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o->Position, o->Angle, Light, 0, o);
+            }
+            else
+            {
+                Vector(0.3f, 0.3f, 0.8f, Light);
+                CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o->Position, o->Angle, Light, 0, o);
+                CreateEffect(MODEL_SHIELD_CRASH, o->Position, o->Angle, Light, 1, o);
+                CreateEffect(BITMAP_SHOCK_WAVE, o->Position, o->Angle, Light, 10, o);
+            }
         }
     }
     break;

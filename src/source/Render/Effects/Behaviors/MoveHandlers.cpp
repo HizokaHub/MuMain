@@ -4704,15 +4704,20 @@ namespace Render::Effects::Behaviors
         VectorCopy(Position, o->Position);
         VectorCopy(o->Owner->Angle, o->Angle);
 
-        o->Alpha = 0.3f;
-        o->Scale = 1.0f;
+        // MOBA arena (Aegis barrier): a bigger, brighter white sphere around the champion and no blue shock waves.
+        const bool mobaAegis = gMapManager.WorldActive == WD_200_MOBA_ARENA;
+        o->Alpha = mobaAegis ? 0.55f : 0.3f;
+        o->Scale = mobaAegis ? 1.6f : 1.0f;
 
         BMD* effbmd = &Models[o->Type];
 
         effbmd->SetBodyLight(o->Light);
         effbmd->PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, o->Velocity / 3.f, o->Position, o->Angle);
 
-        CreateEffectFpsChecked(BITMAP_SHOCK_WAVE, o->Owner->Position, o->Angle, o->Light, 10, o->Owner);
+        if (!mobaAegis)
+        {
+            CreateEffectFpsChecked(BITMAP_SHOCK_WAVE, o->Owner->Position, o->Angle, o->Light, 10, o->Owner);
+        }
     }
         return true;
     }
