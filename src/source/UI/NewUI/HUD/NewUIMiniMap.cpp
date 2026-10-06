@@ -181,9 +181,11 @@ bool SEASON3B::CNewUIMiniMap::Render()
 
     int NpcWidth = 15;
     int NpcWidthP = 30;
+    // MOBA arena: the static Crywolf markers (altars, NPCs) do not exist there.
+    const bool mobaArena = gMapManager.WorldActive == WD_200_MOBA_ARENA;
     for (i = 0; i < MAX_MINI_MAP_DATA; i++)
     {
-        if (m_Mini_Map_Data[i].Kind > 0)
+        if (m_Mini_Map_Data[i].Kind > 0 && !mobaArena)
         {
             Ty1 = (float)(((float)m_Mini_Map_Data[i].Location[0] / 256.f) * FULL_MAP_SIZE);
             Tx1 = (float)(((float)m_Mini_Map_Data[i].Location[1] / 256.f) * FULL_MAP_SIZE);
@@ -321,7 +323,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
 
     for (int i = 0; i < MAX_MINI_MAP_DATA; i++)
     {
-        if (m_Mini_Map_Data[i].Kind <= 0)
+        if (m_Mini_Map_Data[i].Kind <= 0 || gMapManager.WorldActive == WD_200_MOBA_ARENA)
             break;
 
         const float pu = (float)m_Mini_Map_Data[i].Location[1] / 256.f;
