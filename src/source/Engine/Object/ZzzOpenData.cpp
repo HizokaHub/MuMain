@@ -2537,6 +2537,7 @@ static const wchar_t* GetMonsterModelName(EMonsterModelType Type)
         L"MONSTER_MODEL_CRYPOS",
         L"MONSTER_MODEL_CONDRA",
         L"MONSTER_MODEL_NACONDRA",
+        L"MONSTER_MODEL_GOD_OF_DARKNESS",
     };
     static_assert(sizeof(s_names) / sizeof(s_names[0]) == MONSTER_MODEL_COUNT,
         "GetMonsterModelName table is out of sync with EMonsterModelType");
@@ -2558,7 +2559,9 @@ void OpenMonsterModel(EMonsterModelType Type)
     BMD* b = &Models[Index];
     if (b->NumActions > 0 || b->NumMeshs > 0) return;
 
-    gLoadData.AccessModel(Index, L"Data\\Monster\\", L"Monster", Type + 1);
+    // Models imported from other clients keep their original file number instead of Type + 1.
+    const int fileNumber = (Type == MONSTER_MODEL_GOD_OF_DARKNESS) ? 332 : Type + 1;
+    gLoadData.AccessModel(Index, L"Data\\Monster\\", L"Monster", fileNumber);
 
     if (b->NumMeshs == 0) return;
 

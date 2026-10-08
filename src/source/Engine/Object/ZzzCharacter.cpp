@@ -13311,6 +13311,12 @@ CHARACTER* CreateMonster(EMonsterType Type, int PositionX, int PositionY, int Ke
         c->Weapon[1].Type = -1;
         wcscpy(c->ID, L"Clerk");
         break;
+    case MONSTER_GOD_OF_DARKNESS:
+        OpenMonsterModel(MONSTER_MODEL_GOD_OF_DARKNESS);
+        c = CreateCharacter(Key, MODEL_GOD_OF_DARKNESS, PositionX, PositionY);
+        c->Object.Scale = 1.3f;
+        wcscpy(c->ID, L"God of Darkness");
+        break;
 #ifdef ADD_ELF_SUMMON
     case 276:
         OpenMonsterModel(MONSTER_MODEL_GOLDEN_TITAN);

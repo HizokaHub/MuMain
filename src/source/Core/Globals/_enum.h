@@ -4364,7 +4364,8 @@ enum EMonsterModelType : int
     MONSTER_MODEL_CRYPOS = 214,
     MONSTER_MODEL_CONDRA = 215,
     MONSTER_MODEL_NACONDRA = 216,
-    MONSTER_MODEL_COUNT,            // keep last: number of monster models
+    MONSTER_MODEL_GOD_OF_DARKNESS = 217,   // MOBA import: file Monster332.bmd (IGC season 21), see MonsterModelFileNumber
+    MONSTER_MODEL_COUNT,           // keep last: number of monster models
 };
 
 enum EMonsterType : int
@@ -4916,6 +4917,7 @@ enum EMonsterType : int
     MONSTER_CAPTURED_STONE_STATUE_8 = 666,
     MONSTER_CAPTURED_STONE_STATUE_9 = 667,
     MONSTER_CAPTURED_STONE_STATUE_10 = 668,
+    MONSTER_GOD_OF_DARKNESS = 700,   // custom number of the MOBA server (MobaJungle.GodOfDarknessNumber)
 
     MONSTER_END = 668
 };
@@ -5139,4 +5141,5 @@ enum
     MODEL_CRYPOS = MODEL_MONSTER01 + 214,
     MODEL_CONDRA = MODEL_MONSTER01 + 215,
     MODEL_NACONDRA = MODEL_MONSTER01 + 216,
+    MODEL_GOD_OF_DARKNESS = MODEL_MONSTER01 + 217,
 };
