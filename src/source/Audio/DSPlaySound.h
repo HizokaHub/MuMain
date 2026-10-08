@@ -994,6 +994,15 @@ enum ESound
     SOUND_KARUTAN_KARDAMAHAL_ENV,						// Kardamahal_entrance_env.wav
 #endif	// ASG_ADD_MAP_KARUTAN
 
+    SOUND_MOBA_SD1,
+    SOUND_MOBA_SD2,
+    SOUND_MOBA_SD3,
+    SOUND_MOBA_SD4,
+    SOUND_MOBA_SD5,
+    SOUND_MOBA_SD6,
+    SOUND_MOBA_SD7,
+    SOUND_MOBA_SD8,
+
     MAX_BUFFER
 };
 

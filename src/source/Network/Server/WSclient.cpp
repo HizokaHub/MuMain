@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "UI/Chat/Chat.h"
 #include <memory>
 #include "UI/Legacy/UIManager.h"
@@ -13315,6 +13315,7 @@ static void ReceiveMobaSkillCooldown(const BYTE* ReceiveBuffer)
 
 bool   g_MobaTeleportTargeting = false;
 int    g_MobaChannelKind = 0;
+void SpawnMobaSdFx(int sound, int animation); // ZzzObject.cpp
 double g_MobaChannelStart = 0.0;
 double g_MobaChannelEnd = 0.0;
 
@@ -13324,6 +13325,12 @@ static void ReceiveMobaChannel(const BYTE* ReceiveBuffer)
 {
     const int kind = (int)ReceiveBuffer[4];
     const int durMs = (int)ReceiveBuffer[5] | ((int)ReceiveBuffer[6] << 8);
+    if (kind == 4)
+    {
+        // MOBA shield-break effect test: low nibble = sound 1-8, next nibble = animation 1-5.
+        SpawnMobaSdFx(durMs & 0xF, (durMs >> 4) & 0xF);
+        return;
+    }
     if (kind == 3)
     {
         // Teleport scroll: minion-targeting mode on / off (no channel bar yet).

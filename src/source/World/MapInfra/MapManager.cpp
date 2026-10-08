@@ -1492,7 +1492,7 @@ namespace
         int placed = 0;
         for (int k = 0; k <= MOBA_TEST_MODEL_LAST - MOBA_TEST_MODEL_FIRST; ++k)
         {
-            if (k != 0 && k != 2 && k < 6) continue; // chosen obelisks A (98,30) and C (114,30) + SD-break effect candidates 106..112 (row y=40)
+            if (k != 0 && k != 2 && k != 4 && k < 6) continue; // chosen obelisks A (98,30) and C (114,30) + SD-break effect candidates 106..112 (row y=40)
             const int tx = FIRST_X + (k >= 6 ? k - 6 : k) * STEP_X;
             const int rowY = (k >= 6) ? 40 : ROW_Y;
             const int idx = rowY * TERRAIN_SIZE + tx;

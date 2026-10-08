@@ -418,6 +418,12 @@ bool Calc_ObjectAnimation(OBJECT* o, bool Translate, int Select)
 void Draw_RenderObject(OBJECT* o, bool Translate, int Select, int ExtraMon)
 {
     BMD* b = &Models[o->Type];
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->Type == 110 && o->SubType == 77)
+    {
+        // Animated SD-break sphere (see SpawnMobaSdFx): alpha / scale / texture scroll come from MoveMobaSdFx.
+        b->RenderBody(RENDER_TEXTURE | RENDER_BRIGHT, o->Alpha, -1, 1.f, o->BlendMeshTexCoordU, 0.f, -1);
+        return;
+    }
     if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->Type >= 106 && o->Type <= 112)
     {
         // SD-break effect candidates (spheres / shields of the IGC client): additive so they read as light.
@@ -3682,8 +3688,124 @@ void RenderObjects_AfterCharacter()
 int GetLoginCameraCount();
 int GetLoginCameraWalkCut();
 
+void MoveMobaSdFx(OBJECT* o);
+
+
+// ---- MOBA shield-break (SD to zero) effect: the Sphere02 model animated by code (alpha / scale / spin) ----
+namespace
+{
+    struct MobaSdFx
+    {
+        OBJECT* o;
+        double start;   // WorldTime (ms) when the sphere appears
+        int animation;  // 1..5
+        int index;      // sphere number inside the animation (animation 5 uses three)
+    };
+    std::vector<MobaSdFx> g_mobaSdFx;
+    bool g_mobaSdSoundsLoaded = false;
+
+    float SdEaseOut(float t) { return 1.f - (1.f - t) * (1.f - t); }
+    float SdClamp01(float t) { return t < 0.f ? 0.f : (t > 1.f ? 1.f : t); }
+}
+
+void SpawnMobaSdFx(int sound, int animation)
+{
+    if (gMapManager.WorldActive != WD_200_MOBA_ARENA || Hero == NULL) return;
+    if (animation < 1 || animation > 5) animation = 1;
+
+    if (!g_mobaSdSoundsLoaded)
+    {
+        for (int i = 0; i < 8; ++i)
+        {
+            wchar_t path[96];
+            mu_swprintf(path, L"Data\Sound\MobaSD\sd%d.wav", i + 1);
+            LoadWaveFile((ESound)(SOUND_MOBA_SD1 + i), path, 1);
+        }
+        g_mobaSdSoundsLoaded = true;
+    }
+    if (sound >= 1 && sound <= 8) PlayBuffer((ESound)(SOUND_MOBA_SD1 + sound - 1));
+
+    const int count = (animation == 5) ? 3 : 1;
+    for (int k = 0; k < count; ++k)
+    {
+        vec3_t pos, ang;
+        VectorCopy(Hero->Object.Position, pos);
+        pos[2] += 90.f;
+        Vector(0.f, 0.f, 0.f, ang);
+        OBJECT* o = CreateObject(110, pos, ang, 0.6f);
+        if (o == NULL) continue;
+        o->SubType = 77;
+        o->Alpha = 0.f;
+        o->Visible = true;
+        g_mobaSdFx.push_back({ o, WorldTime + k * 160.0, animation, k });
+    }
+}
+
+void MoveMobaSdFx(OBJECT* o)
+{
+    for (size_t i = 0; i < g_mobaSdFx.size(); ++i)
+    {
+        MobaSdFx& fx = g_mobaSdFx[i];
+        if (fx.o != o) continue;
+
+        static const float duration[6] = { 0.f, 700.f, 1100.f, 1000.f, 1000.f, 800.f };
+        const float t = (float)((WorldTime - fx.start) / duration[fx.animation]);
+        if (t < 0.f) { o->Alpha = 0.f; return; }
+        if (t >= 1.f)
+        {
+            o->Live = false;
+            o->Alpha = 0.f;
+            g_mobaSdFx.erase(g_mobaSdFx.begin() + i);
+            return;
+        }
+
+        float scale = 0.6f, alpha = 0.9f, spin = 0.f;
+        switch (fx.animation)
+        {
+        case 1: // burst: grows fast and fades
+            scale = 0.6f + 2.2f * SdEaseOut(t);
+            alpha = 0.9f * powf(1.f - t, 1.5f);
+            spin = 90.f * t;
+            break;
+        case 2: // swing: spins to one side and the other while growing, like circling
+            scale = 0.6f + 1.8f * SdEaseOut(t);
+            alpha = 0.9f * (1.f - t * t);
+            spin = 200.f * sinf(t * 3.14159f * 3.f);
+            break;
+        case 3: // double pulse: swell, shrink back, then burst
+            if (t < 0.35f) scale = 0.6f + 0.6f * (t / 0.35f);
+            else if (t < 0.5f) scale = 1.2f - 0.4f * ((t - 0.35f) / 0.15f);
+            else scale = 0.8f + 2.0f * SdEaseOut((t - 0.5f) / 0.5f);
+            alpha = (t < 0.5f) ? 0.9f : 0.9f * (1.f - (t - 0.5f) / 0.5f);
+            spin = 120.f * t;
+            break;
+        case 4: // implosion then burst, spinning fast
+            if (t < 0.35f) { const float u = t / 0.35f; scale = 1.4f - 0.9f * u; alpha = 0.5f + 0.5f * u; }
+            else { const float u = (t - 0.35f) / 0.65f; scale = 0.5f + 2.6f * SdEaseOut(u); alpha = 1.f - u; }
+            spin = 720.f * t;
+            break;
+        case 5: // ripples: three spheres in sequence, alternating spin direction
+            scale = 0.6f + 1.6f * SdEaseOut(t) + 0.15f * fx.index;
+            alpha = 0.7f * (1.f - t);
+            spin = (fx.index % 2 ? -1.f : 1.f) * 240.f * t;
+            break;
+        }
+
+        o->Scale = scale;
+        o->Alpha = SdClamp01(alpha);
+        o->Angle[2] = spin;
+        o->BlendMeshTexCoordU = t * 0.8f;
+        return;
+    }
+}
+
 void MoveObject(OBJECT* o)
 {
+    if (o->Type == 110 && o->SubType == 77)
+    {
+        MoveMobaSdFx(o);
+        return;
+    }
     if (gMapManager.WorldActive == WD_200_MOBA_ARENA && (o->Type == 100 || o->Type == 102))
     {
         // MOBA totem obelisks (Arca War obelisk A / C imported from a later season): fire on the tip.

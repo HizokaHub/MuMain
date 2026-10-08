@@ -1,4 +1,4 @@
-﻿//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 //  GMBattleCastle.cpp
 //////////////////////////////////////////////////////////////////////////
 
@@ -1194,6 +1194,22 @@ namespace battleCastle
 
     bool    RenderBattleCastleObjectMesh(OBJECT* o, BMD* b)
     {
+        if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->Type == MODEL_GUARDIAN_STATUE)
+        {
+            // MOBA nexus: the Castle Siege look of the guardian statue (stone + chrome + a pulsing blue glow).
+            const float pulse = sinf(WorldTime * 0.0005f) * 0.25f + 0.75f;
+            vec3_t glow;
+            Vector(pulse * 0.2f, pulse * 0.7f, pulse, glow);
+            AddTerrainLight(o->Position[0], o->Position[1], glow, 3, PrimaryTerrainLight);
+            o->HiddenMesh = -1;
+            b->RenderBody(RENDER_TEXTURE, o->Alpha, o->BlendMesh, o->BlendMeshLight, o->BlendMeshTexCoordU, o->BlendMeshTexCoordV, o->HiddenMesh);
+            Vector(0.3f, 0.3f, 0.3f, b->BodyLight);
+            b->RenderBody(RENDER_BRIGHT | RENDER_CHROME, o->Alpha, 0.5f, o->BlendMeshLight, o->BlendMeshTexCoordU, o->BlendMeshTexCoordV, o->HiddenMesh, BITMAP_CHROME);
+            Vector(0.2f * pulse, 0.55f * pulse, 1.f * pulse, b->BodyLight);
+            b->RenderBody(RENDER_BRIGHT | RENDER_METAL, o->Alpha, 0.5f, o->BlendMeshLight, o->BlendMeshTexCoordU, o->BlendMeshTexCoordV, o->HiddenMesh, BITMAP_CHROME);
+            Vector(1.f, 1.f, 1.f, b->BodyLight);
+            return true;
+        }
         if (gMapManager.InBattleCastle() == false)  return false;
 
         if (o->Type == 12)
