@@ -1492,6 +1492,7 @@ namespace
         int placed = 0;
         for (int k = 0; k <= MOBA_TEST_MODEL_LAST - MOBA_TEST_MODEL_FIRST; ++k)
         {
+            if (k != 0 && k != 2) continue; // only the chosen obelisks A (98,30) and C (114,30)
             const int tx = FIRST_X + k * STEP_X;
             const int idx = ROW_Y * TERRAIN_SIZE + tx;
             vec3_t pos, ang;

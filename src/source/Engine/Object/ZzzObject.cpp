@@ -3678,6 +3678,14 @@ int GetLoginCameraWalkCut();
 
 void MoveObject(OBJECT* o)
 {
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && (o->Type == 100 || o->Type == 102))
+    {
+        // MOBA totem obelisks (Arca War obelisk A / C imported from a later season): fire on the tip.
+        // Model height before scale: A ~554, C ~601 units.
+        const float tip = ((o->Type == 100 ? 554.f : 601.f) + 15.f) * o->Scale;
+        CreateFire(0, o, 0.f, 0.f, tip);
+        CreateFire(0, o, 0.f, 0.f, tip + 25.f);
+    }
     if (gMapManager.WorldActive == 9)
     {
         if ((int)WorldTime % 4000 < 1000)
