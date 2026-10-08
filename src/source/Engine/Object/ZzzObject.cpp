@@ -418,6 +418,12 @@ bool Calc_ObjectAnimation(OBJECT* o, bool Translate, int Select)
 void Draw_RenderObject(OBJECT* o, bool Translate, int Select, int ExtraMon)
 {
     BMD* b = &Models[o->Type];
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->Type >= 106 && o->Type <= 112)
+    {
+        // SD-break effect candidates (spheres / shields of the IGC client): additive so they read as light.
+        b->RenderBody(RENDER_TEXTURE | RENDER_BRIGHT, 0.8f, -1, 1.f, 0.f, 0.f, -1);
+        return;
+    }
     bool View = true;
 
     if ((EditFlag != EDIT_NONE) || (EditFlag == EDIT_NONE && o->HiddenMesh != -2))

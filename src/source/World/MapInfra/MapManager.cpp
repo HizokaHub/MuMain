@@ -23,7 +23,7 @@
 
 // Object slots used for the imported MOBA test models (files Object101..Object106 in Data\Object200).
 constexpr int MOBA_TEST_MODEL_FIRST = 100;
-constexpr int MOBA_TEST_MODEL_LAST = 105;
+constexpr int MOBA_TEST_MODEL_LAST = 112;
 
 
 CMapManager gMapManager;
@@ -1492,11 +1492,12 @@ namespace
         int placed = 0;
         for (int k = 0; k <= MOBA_TEST_MODEL_LAST - MOBA_TEST_MODEL_FIRST; ++k)
         {
-            if (k != 0 && k != 2) continue; // only the chosen obelisks A (98,30) and C (114,30)
-            const int tx = FIRST_X + k * STEP_X;
-            const int idx = ROW_Y * TERRAIN_SIZE + tx;
+            if (k != 0 && k != 2 && k < 6) continue; // chosen obelisks A (98,30) and C (114,30) + SD-break effect candidates 106..112 (row y=40)
+            const int tx = FIRST_X + (k >= 6 ? k - 6 : k) * STEP_X;
+            const int rowY = (k >= 6) ? 40 : ROW_Y;
+            const int idx = rowY * TERRAIN_SIZE + tx;
             vec3_t pos, ang;
-            Vector((tx + 0.5f) * TERRAIN_SCALE, (ROW_Y + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[idx], pos);
+            Vector((tx + 0.5f) * TERRAIN_SCALE, (rowY + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[idx], pos);
             Vector(0.f, 0.f, 0.f, ang);
             if (CreateObject(MOBA_TEST_MODEL_FIRST + k, pos, ang, 1.0f) != NULL)
             {
