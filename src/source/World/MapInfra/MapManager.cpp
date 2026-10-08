@@ -21,6 +21,10 @@
 #include "Network/Server/WSclient.h"
 #include "I18N/All.h"
 
+// Object slots used for the imported MOBA test models (files Object101..Object106 in Data\Object200).
+constexpr int MOBA_TEST_MODEL_FIRST = 100;
+constexpr int MOBA_TEST_MODEL_LAST = 105;
+
 
 CMapManager gMapManager;
 
@@ -1135,6 +1139,17 @@ void CMapManager::Load() // OK
             gLoadData.OpenTexture(i, DirName);
         }
 
+        if (this->WorldActive == WD_200_MOBA_ARENA)
+        {
+            // MOBA test models (Arca War obelisks A/B/C, brazier, guardian statue, totem) imported from a later season,
+            // in free object slots 100..105 (files Object101..Object106 in Data\Object200).
+            for (i = MOBA_TEST_MODEL_FIRST; i <= MOBA_TEST_MODEL_LAST; i++)
+            {
+                gLoadData.AccessModel(i, L"Data\\Object200\\", L"Object", i + 1);
+                gLoadData.OpenTexture(i, L"Object200\\");
+            }
+        }
+
         if (this->WorldActive == WD_1DUNGEON)
         {
             Models[40].Actions[1].PlaySpeed = 0.4f;
@@ -1466,6 +1481,33 @@ namespace
     }
 }
 
+namespace
+{
+    // Row of imported models next to the blue nexus so the user can pick the jungle totem / event objects in game.
+    void PlaceMobaTestModels()
+    {
+        constexpr int ROW_Y = 30;
+        constexpr int FIRST_X = 98;
+        constexpr int STEP_X = 8;
+        int placed = 0;
+        for (int k = 0; k <= MOBA_TEST_MODEL_LAST - MOBA_TEST_MODEL_FIRST; ++k)
+        {
+            const int tx = FIRST_X + k * STEP_X;
+            const int idx = ROW_Y * TERRAIN_SIZE + tx;
+            vec3_t pos, ang;
+            Vector((tx + 0.5f) * TERRAIN_SCALE, (ROW_Y + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[idx], pos);
+            Vector(0.f, 0.f, 0.f, ang);
+            if (CreateObject(MOBA_TEST_MODEL_FIRST + k, pos, ang, 1.0f) != NULL)
+            {
+                ++placed;
+            }
+        }
+        wchar_t note[96];
+        mu_swprintf(note, L"[MOBA] test models placed: %d\r\n", placed);
+        g_ErrorReport.Write(note);
+    }
+}
+
 void CMapManager::LoadWorld(int Map)
 {
     if (Map == 32 && this->WorldActive == 32)
@@ -1757,6 +1799,7 @@ void CMapManager::LoadWorld(int Map)
 
         ApplyMobaRelief();
         PlaceMobaWallDecoration();
+        PlaceMobaTestModels();
     }
 
     if (gMapManager.InBattleCastle())
