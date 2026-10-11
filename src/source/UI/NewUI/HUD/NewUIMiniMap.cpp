@@ -19,6 +19,8 @@
 #include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
 #include "Data/GameConfig/GameConfig.h" // corner minimap options
 #include <algorithm>
+#include <vector>
+#include "Render/RHI/RHI.h"
 
 extern BYTE m_OccupationState;
 float ConvertX(float x);
@@ -336,8 +338,45 @@ namespace
     {
         w = 13;
         h = (int)(13.f * l.sx / l.sy + 0.5f);
-        x = (int)(l.cx - l.size / 2.f) + 2;
-        y = (int)(l.cy - l.sizeY / 2.f) + 2;
+        // Top edge of the map, flush with the screen border on the corner's side.
+        x = (GameConfig::GetInstance().GetMinimapCorner() == 1) ? 0 : (REFERENCE_WIDTH - w);
+        y = (int)(l.cy - l.sizeY / 2.f);
+    }
+
+    // Blocked-terrain layer of the corner minimap: the Crywolf art knows nothing
+    // about the MOBA's walls / "mountains", so a 256x256 texture is built from
+    // the client's walk mask (TerrainWall) and drawn over the art. Texel (row =
+    // tile X, column = tile Y) because the art's (u, v) are (tile Y, tile X).
+    // Rebuilt only when the mask changes (cheap hash checked on every frame).
+    RHI::TextureHandle g_blockedTex{};
+    unsigned int g_blockedHash = 0;
+
+    bool UpdateBlockedTexture()
+    {
+        unsigned int h = 2166136261u;
+        for (int i = 0; i < 256 * 256; ++i)
+            h = (h ^ (unsigned int)(TerrainWall[i] & TW_NOMOVE)) * 16777619u;
+
+        if (g_blockedTex.IsValid() && h == g_blockedHash)
+            return true;
+
+        static std::vector<unsigned int> px(256 * 256);
+        const unsigned int blocked = 0xB4080C14u;   // ABGR: dark, ~70 % opaque
+        for (int tx = 0; tx < 256; ++tx)
+            for (int ty = 0; ty < 256; ++ty)
+                px[tx * 256 + ty] = (TerrainWall[ty * 256 + tx] & TW_NOMOVE) ? blocked : 0u;
+
+        if (!g_blockedTex.IsValid())
+        {
+            RHI::TextureDesc desc{ 256, 256, RHI::TexFilter::Linear, RHI::TexWrap::Clamp };
+            g_blockedTex = RHI::CreateTexture(desc, px.data());
+        }
+        else
+        {
+            RHI::UpdateTexture(g_blockedTex, 0, 0, 256, 256, px.data());
+        }
+        g_blockedHash = h;
+        return g_blockedTex.IsValid();
     }
 
     bool CornerMinimapActive(bool success)
@@ -385,6 +424,12 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     glColor4f(1.f, 1.f, 1.f, L.opacity);
 
     RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
+
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && UpdateBlockedTexture())
+    {
+        glColor4f(1.f, 1.f, 1.f, L.opacity);
+        RenderBitmapRotate(-(int)g_blockedTex.id, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
+    }
 
     DisableAlphaBlend();
     EnableAlphaTest();
