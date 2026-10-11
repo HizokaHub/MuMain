@@ -21,6 +21,10 @@
 #include <algorithm>
 #include <vector>
 #include "Render/RHI/RHI.h"
+#include "Render/Core/BindState.h"
+#include "Render/Sprites/GlobalBitmap.h"
+
+extern unsigned char g_MobaNativeWall[256 * 256];
 
 extern BYTE m_OccupationState;
 float ConvertX(float x);
@@ -312,8 +316,8 @@ namespace
         l.opacity = cfg.GetMinimapOpacity() / 100.f;
         l.markers = cfg.GetMinimapMarkers() / 100.f;
 
-        const float MARGIN = 6.f;
-        const float HUD_BAR = 72.f;   // HUD bar height + a little clearance, reference px
+        const float MARGIN = 0.f;     // flush with the screen edge
+        const float HUD_BAR = 50.f;   // HUD bar height (its top edge is at y = 430 ref px)
         const float TOP_MARGIN = 8.f;
         const int corner = cfg.GetMinimapCorner();
         l.cx = (corner == 1) ? (MARGIN + l.size / 2.f) : (REFERENCE_WIDTH - l.size / 2.f - MARGIN);
@@ -345,30 +349,33 @@ namespace
         y = (corner == 2) ? (int)(l.cy - l.sizeY / 2.f) : (int)(l.cy + l.sizeY / 2.f) - h;
     }
 
-    // MOBA arena minimap drawn from the client's walk mask (TerrainWall) instead
-    // of the Crywolf art, which knows nothing about the MOBA's walls. Walkable
-    // ground is light, walls / islands dark, every outline a uniform 2 cells
-    // wide, and the solid rock outside the arena stays transparent. Texel (row =
-    // tile X, column = tile Y) because the art's (u, v) are (tile Y, tile X).
-    // Rebuilt only when the mask changes (cheap hash checked on every frame).
+    // MOBA arena minimap: walkable ground keeps the original Crywolf art, walls
+    // (the arena mask plus Crywolf's own rocks / cliffs) are drawn in one flat
+    // style with a uniform 2-cell outline, and the solid rock outside the arena
+    // stays transparent. Built on the CPU from the walk mask (TerrainWall) and
+    // the art read back from the GPU. Texel (row = tile X, column = tile Y)
+    // because the art's (u, v) are (tile Y, tile X). Rebuilt only when the walls
+    // change (cheap hash checked on every frame).
     RHI::TextureHandle g_blockedTex{};
     unsigned int g_blockedHash = 0;
 
     bool UpdateBlockedTexture()
     {
         constexpr int N = 256;
+        constexpr int TEX_SIZE = 1024;
+        constexpr int SCALE = TEX_SIZE / N;
         unsigned int h = 2166136261u;
         for (int i = 0; i < N * N; ++i)
-            h = (h ^ (unsigned int)(TerrainWall[i] & TW_NOMOVE)) * 16777619u;
+            h = (h ^ (unsigned int)((TerrainWall[i] & TW_NOMOVE) | (g_MobaNativeWall[i] << 4))) * 16777619u;
 
         if (g_blockedTex.IsValid() && h == g_blockedHash)
             return true;
 
-        static std::vector<unsigned char> blocked(N * N), exterior(N * N);
+        static std::vector<unsigned char> blocked(N * N), exterior(N * N), cls(N * N);
         static std::vector<int> queue;
         for (int i = 0; i < N * N; ++i)
         {
-            blocked[i] = (TerrainWall[i] & TW_NOMOVE) ? 1 : 0;
+            blocked[i] = ((TerrainWall[i] & TW_NOMOVE) || g_MobaNativeWall[i]) ? 1 : 0;
             exterior[i] = 0;
         }
 
@@ -400,50 +407,65 @@ namespace
                 }
             return false;
         };
-        auto blockedNear = [&](int x, int y)
-        {
-            for (int dy = -1; dy <= 1; ++dy)
-                for (int dx = -1; dx <= 1; ++dx)
-                {
-                    const int nx = x + dx, ny = y + dy;
-                    if (nx >= 0 && nx < N && ny >= 0 && ny < N && blocked[ny * N + nx])
-                        return true;
-                }
-            return false;
-        };
 
-        // RGBA bytes as little-endian uint: 0xAABBGGRR.
-        auto rgba = [](unsigned r, unsigned g, unsigned b, unsigned a) { return (a << 24) | (b << 16) | (g << 8) | r; };
-        const unsigned int cWalk  = rgba(178, 150, 100, 255);
-        const unsigned int cEdge  = rgba(140, 114, 72, 255);    // walkable cell next to a wall: inner shade
-        const unsigned int cWall  = rgba(24, 18, 12, 255);      // outline, 2 cells
-        const unsigned int cIsland = rgba(70, 56, 38, 255);     // wall interior (enclosed islands)
-
-        static std::vector<unsigned int> px(N * N);
+        // Cell classes: 0 walkable (art), 1 wall outline, 2 wall interior, 3 outside rock (transparent).
         for (int y = 0; y < N; ++y)
-        {
             for (int x = 0; x < N; ++x)
             {
                 const int i = y * N + x;
-                unsigned int c;
-                if (!blocked[i])
-                    c = blockedNear(x, y) ? cEdge : cWalk;
-                else if (walkableNear(x, y, 2))
-                    c = cWall;
-                else
-                    c = exterior[i] ? 0u : cIsland;
-                px[x * N + y] = c;
+                if (!blocked[i]) cls[i] = 0;
+                else if (walkableNear(x, y, 2)) cls[i] = 1;
+                else cls[i] = exterior[i] ? 3 : 2;
+            }
+
+        // The original art, as the GPU holds it (same (u, v) orientation we sample with).
+        static std::vector<unsigned int> art;
+        int aw = 0, ah = 0;
+        ReadBackBitmapRGBA(CNewUIMiniMap::IMAGE_MINIMAP_INTERFACE, art, aw, ah);
+
+        // RGBA bytes as little-endian uint: 0xAABBGGRR.
+        auto rgba = [](unsigned r, unsigned g, unsigned b, unsigned a) { return (a << 24) | (b << 16) | (g << 8) | r; };
+        const unsigned int cWalk   = rgba(178, 150, 100, 255);  // flat fallback under / without the art
+        const unsigned int cWall   = rgba(24, 18, 12, 255);     // outline, 2 cells
+        const unsigned int cIsland = rgba(70, 56, 38, 255);     // wall interior
+
+        static std::vector<unsigned int> px((size_t)TEX_SIZE * TEX_SIZE);
+        for (int r = 0; r < TEX_SIZE; ++r)
+        {
+            const int tx = r / SCALE;
+            for (int c = 0; c < TEX_SIZE; ++c)
+            {
+                const int ty = c / SCALE;
+                const unsigned char k = cls[ty * N + tx];
+                unsigned int out;
+                if (k == 0)
+                {
+                    out = cWalk;
+                    if (aw > 0)
+                    {
+                        const unsigned int a = art[(size_t)(r * ah / TEX_SIZE) * aw + (c * aw / TEX_SIZE)];
+                        const unsigned int al = a >> 24;
+                        const unsigned int rr = ((a & 255) * al + (cWalk & 255) * (255 - al)) / 255;
+                        const unsigned int gg = (((a >> 8) & 255) * al + ((cWalk >> 8) & 255) * (255 - al)) / 255;
+                        const unsigned int bb = (((a >> 16) & 255) * al + ((cWalk >> 16) & 255) * (255 - al)) / 255;
+                        out = rgba(rr, gg, bb, 255);
+                    }
+                }
+                else if (k == 1) out = cWall;
+                else if (k == 2) out = cIsland;
+                else out = 0u;
+                px[(size_t)r * TEX_SIZE + c] = out;
             }
         }
 
         if (!g_blockedTex.IsValid())
         {
-            RHI::TextureDesc desc{ N, N, RHI::TexFilter::Linear, RHI::TexWrap::Clamp };
+            RHI::TextureDesc desc{ TEX_SIZE, TEX_SIZE, RHI::TexFilter::Linear, RHI::TexWrap::Clamp };
             g_blockedTex = RHI::CreateTexture(desc, px.data());
         }
         else
         {
-            RHI::UpdateTexture(g_blockedTex, 0, 0, N, N, px.data());
+            RHI::UpdateTexture(g_blockedTex, 0, 0, TEX_SIZE, TEX_SIZE, px.data());
         }
         g_blockedHash = h;
         return g_blockedTex.IsValid();
@@ -644,6 +666,7 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     {
         m_bOptionsOpen = false;
         m_iDragSlider = -1;
+        m_bSwallowHold = false;
         return false;
     }
 
@@ -672,6 +695,15 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
         return true;
     }
 
+    // A click used here (e.g. Cerrar, which hides the panel under the cursor)
+    // must not reach the world while the same button press is still held.
+    if (m_bSwallowHold)
+    {
+        if (held)
+            return true;
+        m_bSwallowHold = false;
+    }
+
     const CornerLayout L = ComputeCornerLayout();
     int gx, gy, gw, gh;
     GearRect(L, gx, gy, gw, gh);
@@ -680,6 +712,7 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
         if (press)
         {
             m_bOptionsOpen = !m_bOptionsOpen;
+            m_bSwallowHold = true;
             PlayBuffer(SOUND_CLICK01);
         }
         return true;
@@ -691,6 +724,7 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     if (!press)
         return true;
 
+    m_bSwallowHold = true;
     for (int i = 0; i < 3; ++i)
     {
         if (MouseIn(OPT_X + OPT_BAR_X - 4, OPT_Y + OPT_ROW_Y[i] + 8, OPT_BAR_W + 8, 15))

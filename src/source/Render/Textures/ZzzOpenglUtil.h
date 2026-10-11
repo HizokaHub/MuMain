@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 
 // Include CameraState before compatibility layer
 #include "Camera/CameraState.h"
@@ -142,6 +143,8 @@ void RenderPointRotateSquare(float ix, float iy, float iSize, float x, float y, 
 void EndRenderColor();
 void RenderBitmap(int Texture, float x, float y, float Width, float Height, float u = 0.f, float v = 0.f, float uWidth = 1.f, float vHeight = 1.f, bool Scale = true, bool StartScale = true, float Alpha = 0.f);
 void RenderColorBitmap(int Texture, float x, float y, float Width, float Height, float u = 0.f, float v = 0.f, float uWidth = 1.f, float vHeight = 1.f, unsigned int color = 0xffffffff);
+// Reads a loaded bitmap back from the GPU as RGBA (row 0 = v 0). False if it cannot be read.
+bool ReadBackBitmapRGBA(int bitmapIndex, std::vector<unsigned int>& pixels, int& width, int& height);
 void RenderBitmapRotate(int Texture, float x, float y, float Width, float Height, float Angle, float u = 0.f, float v = 0.f, float uWidth = 1.f, float vHeight = 1.f);
 void RenderBitRotate(int Texture, float x, float y, float Width, float Height, float Rotate);
 void RenderPointRotate(int Texture, float ix, float iy, float iWidth, float iHeight, float x, float y, float Width, float Height, float Rotate, float Rotate_Loc, float uWidth, float vHeight, int Num = -1);

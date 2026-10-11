@@ -92,6 +92,7 @@ namespace SEASON3B
 
     private:
         bool m_bOptionsOpen = false;
+        bool m_bSwallowHold = false;
         int m_iDragSlider = -1;   // options slider being dragged, -1 = none
         void RenderCornerOptions();
         void Render_Text();

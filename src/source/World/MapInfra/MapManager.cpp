@@ -28,6 +28,9 @@ constexpr int MOBA_TEST_MODEL_LAST = 112;
 
 CMapManager gMapManager;
 
+// Crywolf's original wall cells (TW_NOMOVE), captured when the MOBA arena loads; read by the corner minimap.
+unsigned char g_MobaNativeWall[256 * 256] = {};
+
 CMapManager::CMapManager() // OK
 {
     this->WorldActive = -1;
@@ -1683,6 +1686,11 @@ void CMapManager::LoadWorld(int Map)
         // bake (openmu-aram).
         // Preferred source: the walk mask shared with the server (Data\World200\MobaWalkMask.att,
         // same file as openmu-aram Terrain201.att: 3-byte header + 256x256, 0 walk / 1 safezone / 4 wall).
+        // Remember Crywolf's own wall attributes (rocks, cliffs, fortress) before the mask replaces
+        // them: the arena minimap draws them as walls too (they are the "mountains" the player sees).
+        for (int i = 0; i < TERRAIN_SIZE * TERRAIN_SIZE; ++i)
+            g_MobaNativeWall[i] = (TerrainWall[i] & TW_NOMOVE) ? 1 : 0;
+
         bool maskLoaded = false;
         {
             static unsigned char s_mask[TERRAIN_SIZE * TERRAIN_SIZE];

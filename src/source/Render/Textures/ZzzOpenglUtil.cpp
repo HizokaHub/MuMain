@@ -1459,6 +1459,25 @@ void RenderBitmap(int Texture, float x, float y, float Width, float Height, floa
     IR::End();
 }
 
+bool ReadBackBitmapRGBA(int bitmapIndex, std::vector<unsigned int>& pixels, int& width, int& height)
+{
+    width = height = 0;
+    const GLuint id = (GLuint)Bitmaps[bitmapIndex].TextureNumber;
+    if (id == 0)
+        return false;
+    BindTexture2D(0, id);
+    GLint w = 0, h = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
+    if (w <= 0 || h <= 0 || w > 4096 || h > 4096)
+        return false;
+    pixels.resize((size_t)w * h);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    width = w;
+    height = h;
+    return true;
+}
+
 void RenderBitmapRotate(int Texture, float x, float y, float Width, float Height, float Rotate, float u, float v, float uWidth, float vHeight)
 {
     x = ConvertX(x);
