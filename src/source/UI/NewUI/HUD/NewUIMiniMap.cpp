@@ -338,14 +338,17 @@ namespace
     {
         w = 13;
         h = (int)(13.f * l.sx / l.sy + 0.5f);
-        // Top edge of the map, flush with the screen border on the corner's side.
-        x = (GameConfig::GetInstance().GetMinimapCorner() == 1) ? 0 : (REFERENCE_WIDTH - w);
-        y = (int)(l.cy - l.sizeY / 2.f);
+        // Flush with the screen border on the corner's side; on the map's lower
+        // edge (just above the HUD bar) for the bottom corners, upper edge for the top one.
+        const int corner = GameConfig::GetInstance().GetMinimapCorner();
+        x = (corner == 1) ? 0 : (REFERENCE_WIDTH - w);
+        y = (corner == 2) ? (int)(l.cy - l.sizeY / 2.f) : (int)(l.cy + l.sizeY / 2.f) - h;
     }
 
-    // Blocked-terrain layer of the corner minimap: the Crywolf art knows nothing
-    // about the MOBA's walls / "mountains", so a 256x256 texture is built from
-    // the client's walk mask (TerrainWall) and drawn over the art. Texel (row =
+    // MOBA arena minimap drawn from the client's walk mask (TerrainWall) instead
+    // of the Crywolf art, which knows nothing about the MOBA's walls. Walkable
+    // ground is light, walls / islands dark, every outline a uniform 2 cells
+    // wide, and the solid rock outside the arena stays transparent. Texel (row =
     // tile X, column = tile Y) because the art's (u, v) are (tile Y, tile X).
     // Rebuilt only when the mask changes (cheap hash checked on every frame).
     RHI::TextureHandle g_blockedTex{};
@@ -353,27 +356,94 @@ namespace
 
     bool UpdateBlockedTexture()
     {
+        constexpr int N = 256;
         unsigned int h = 2166136261u;
-        for (int i = 0; i < 256 * 256; ++i)
+        for (int i = 0; i < N * N; ++i)
             h = (h ^ (unsigned int)(TerrainWall[i] & TW_NOMOVE)) * 16777619u;
 
         if (g_blockedTex.IsValid() && h == g_blockedHash)
             return true;
 
-        static std::vector<unsigned int> px(256 * 256);
-        const unsigned int blocked = 0xB4080C14u;   // ABGR: dark, ~70 % opaque
-        for (int tx = 0; tx < 256; ++tx)
-            for (int ty = 0; ty < 256; ++ty)
-                px[tx * 256 + ty] = (TerrainWall[ty * 256 + tx] & TW_NOMOVE) ? blocked : 0u;
+        static std::vector<unsigned char> blocked(N * N), exterior(N * N);
+        static std::vector<int> queue;
+        for (int i = 0; i < N * N; ++i)
+        {
+            blocked[i] = (TerrainWall[i] & TW_NOMOVE) ? 1 : 0;
+            exterior[i] = 0;
+        }
+
+        // Solid rock outside the arena: blocked cells reachable from the border through blocked cells.
+        queue.clear();
+        auto seed = [&](int x, int y)
+        {
+            const int i = y * N + x;
+            if (blocked[i] && !exterior[i]) { exterior[i] = 1; queue.push_back(i); }
+        };
+        for (int k = 0; k < N; ++k) { seed(k, 0); seed(k, N - 1); seed(0, k); seed(N - 1, k); }
+        for (size_t qi = 0; qi < queue.size(); ++qi)
+        {
+            const int x = queue[qi] % N, y = queue[qi] / N;
+            if (x > 0) seed(x - 1, y);
+            if (x < N - 1) seed(x + 1, y);
+            if (y > 0) seed(x, y - 1);
+            if (y < N - 1) seed(x, y + 1);
+        }
+
+        auto walkableNear = [&](int x, int y, int r)
+        {
+            for (int dy = -r; dy <= r; ++dy)
+                for (int dx = -r; dx <= r; ++dx)
+                {
+                    const int nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && nx < N && ny >= 0 && ny < N && !blocked[ny * N + nx])
+                        return true;
+                }
+            return false;
+        };
+        auto blockedNear = [&](int x, int y)
+        {
+            for (int dy = -1; dy <= 1; ++dy)
+                for (int dx = -1; dx <= 1; ++dx)
+                {
+                    const int nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && nx < N && ny >= 0 && ny < N && blocked[ny * N + nx])
+                        return true;
+                }
+            return false;
+        };
+
+        // RGBA bytes as little-endian uint: 0xAABBGGRR.
+        auto rgba = [](unsigned r, unsigned g, unsigned b, unsigned a) { return (a << 24) | (b << 16) | (g << 8) | r; };
+        const unsigned int cWalk  = rgba(178, 150, 100, 255);
+        const unsigned int cEdge  = rgba(140, 114, 72, 255);    // walkable cell next to a wall: inner shade
+        const unsigned int cWall  = rgba(24, 18, 12, 255);      // outline, 2 cells
+        const unsigned int cIsland = rgba(70, 56, 38, 255);     // wall interior (enclosed islands)
+
+        static std::vector<unsigned int> px(N * N);
+        for (int y = 0; y < N; ++y)
+        {
+            for (int x = 0; x < N; ++x)
+            {
+                const int i = y * N + x;
+                unsigned int c;
+                if (!blocked[i])
+                    c = blockedNear(x, y) ? cEdge : cWalk;
+                else if (walkableNear(x, y, 2))
+                    c = cWall;
+                else
+                    c = exterior[i] ? 0u : cIsland;
+                px[x * N + y] = c;
+            }
+        }
 
         if (!g_blockedTex.IsValid())
         {
-            RHI::TextureDesc desc{ 256, 256, RHI::TexFilter::Linear, RHI::TexWrap::Clamp };
+            RHI::TextureDesc desc{ N, N, RHI::TexFilter::Linear, RHI::TexWrap::Clamp };
             g_blockedTex = RHI::CreateTexture(desc, px.data());
         }
         else
         {
-            RHI::UpdateTexture(g_blockedTex, 0, 0, 256, 256, px.data());
+            RHI::UpdateTexture(g_blockedTex, 0, 0, N, N, px.data());
         }
         g_blockedHash = h;
         return g_blockedTex.IsValid();
@@ -423,13 +493,11 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     EnableAlphaTest();
     glColor4f(1.f, 1.f, 1.f, L.opacity);
 
-    RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
-
+    // MOBA arena: our own map from the walk mask; elsewhere (Crywolf) the original art.
     if (gMapManager.WorldActive == WD_200_MOBA_ARENA && UpdateBlockedTexture())
-    {
-        glColor4f(1.f, 1.f, 1.f, L.opacity);
         RenderBitmapRotate(-(int)g_blockedTex.id, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
-    }
+    else
+        RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
 
     DisableAlphaBlend();
     EnableAlphaTest();
