@@ -457,9 +457,41 @@ namespace
 
         // RGBA bytes as little-endian uint: 0xAABBGGRR.
         auto rgba = [](unsigned r, unsigned g, unsigned b, unsigned a) { return (a << 24) | (b << 16) | (g << 8) | r; };
-        const unsigned int cWalk   = rgba(178, 150, 100, 255);  // flat fallback under / without the art
+        const unsigned int cWalkFallback = rgba(112, 89, 58, 255);  // road colour when there is no art
         const unsigned int cWall   = rgba(24, 18, 12, 255);     // outline, 2 cells
         const unsigned int cIsland = rgba(70, 56, 38, 255);     // wall interior
+
+        // The art keeps the lanes (light tracks) but also paints the original
+        // cliffs / islands, which the arena mask may have turned into road.
+        // Keep an art pixel only if it is opaque, not too dark and not green;
+        // anything else on walkable ground is repainted with the average colour
+        // of the kept pixels, so the roads the mask opens read as roads.
+        auto artKept = [](unsigned int a)
+        {
+            const unsigned int rr = a & 255, gg = (a >> 8) & 255, bb = (a >> 16) & 255, al = a >> 24;
+            const unsigned int lum = (rr * 77 + gg * 151 + bb * 28) >> 8;
+            return al > 200 && lum >= 70 && gg * 100 <= rr * 112;
+        };
+        unsigned int cWalk = cWalkFallback;
+        if (aw > 0)
+        {
+            unsigned long long sr = 0, sg = 0, sb = 0, cnt = 0;
+            for (int r = 0; r < TEX_SIZE; r += 2)
+            {
+                const int tx = r / SCALE;
+                for (int c = 0; c < TEX_SIZE; c += 2)
+                {
+                    if (cls[(c / SCALE) * N + tx] != 0)
+                        continue;
+                    const unsigned int a = art[(size_t)(r * ah / TEX_SIZE) * aw + (c * aw / TEX_SIZE)];
+                    if (!artKept(a))
+                        continue;
+                    sr += a & 255; sg += (a >> 8) & 255; sb += (a >> 16) & 255; ++cnt;
+                }
+            }
+            if (cnt > 0)
+                cWalk = rgba((unsigned)(sr / cnt), (unsigned)(sg / cnt), (unsigned)(sb / cnt), 255);
+        }
 
         static std::vector<unsigned int> px((size_t)TEX_SIZE * TEX_SIZE);
         for (int r = 0; r < TEX_SIZE; ++r)
@@ -476,11 +508,8 @@ namespace
                     if (aw > 0)
                     {
                         const unsigned int a = art[(size_t)(r * ah / TEX_SIZE) * aw + (c * aw / TEX_SIZE)];
-                        const unsigned int al = a >> 24;
-                        const unsigned int rr = ((a & 255) * al + (cWalk & 255) * (255 - al)) / 255;
-                        const unsigned int gg = (((a >> 8) & 255) * al + ((cWalk >> 8) & 255) * (255 - al)) / 255;
-                        const unsigned int bb = (((a >> 16) & 255) * al + ((cWalk >> 16) & 255) * (255 - al)) / 255;
-                        out = rgba(rr, gg, bb, 255);
+                        if (artKept(a))
+                            out = rgba(a & 255, (a >> 8) & 255, (a >> 16) & 255, 255);
                     }
                 }
                 else if (k == 1) out = cWall;
