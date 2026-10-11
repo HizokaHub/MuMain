@@ -17,6 +17,8 @@
 #include "World/MapInfra/MapManager.h"
 #include "Render/Terrain/ZzzLodTerrain.h" // TerrainWall (MOBA wall overlay)
 #include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
+#include "Data/GameConfig/GameConfig.h" // corner minimap options
+#include <algorithm>
 
 extern BYTE m_OccupationState;
 float ConvertX(float x);
@@ -280,30 +282,93 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOverlayIfActive()
     }
 }
 
+namespace
+{
+    // Corner-minimap layout, shared by the draw code and the mouse handling so
+    // both always agree. All "ref" values are in the 640x480 reference space.
+    struct CornerLayout
+    {
+        float sx, sy;       // reference -> screen px
+        float size;         // width in ref px (the map is a true square on screen)
+        float sizeY;        // height in ref px
+        float sidePx;       // side of the square in screen px
+        float cx, cy;       // map centre, ref px
+        float opacity;      // 0.2 .. 1
+        float markers;      // 0.5 .. 2
+    };
+
+    CornerLayout ComputeCornerLayout()
+    {
+        const GameConfig& cfg = GameConfig::GetInstance();
+        CornerLayout l;
+        l.sx = ConvertX(1.f);
+        l.sy = ConvertY(1.f);
+        // Scale 1..100 -> 32..210 ref px wide (50 = 120 ref px = 256 px at 1365 wide).
+        l.size = 30.f + 1.8f * (float)cfg.GetMinimapScale();
+        l.sizeY = l.size * l.sx / l.sy;
+        l.sidePx = l.size * l.sx;
+        l.opacity = cfg.GetMinimapOpacity() / 100.f;
+        l.markers = cfg.GetMinimapMarkers() / 100.f;
+
+        const float MARGIN = 6.f;
+        const float HUD_BAR = 72.f;   // HUD bar height + a little clearance, reference px
+        const float TOP_MARGIN = 8.f;
+        const int corner = cfg.GetMinimapCorner();
+        l.cx = (corner == 1) ? (MARGIN + l.size / 2.f) : (REFERENCE_WIDTH - l.size / 2.f - MARGIN);
+        // Bottom corners clear the top of the HUD bar (no overlap).
+        l.cy = (corner == 2) ? (TOP_MARGIN + l.sizeY / 2.f) : (REFERENCE_HEIGHT - HUD_BAR - l.sizeY / 2.f);
+        return l;
+    }
+
+    // Options panel (reference px).
+    constexpr int OPT_X = 240, OPT_Y = 120, OPT_W = 160, OPT_H = 156;
+    constexpr int OPT_BAR_X = 10, OPT_BAR_W = 140;
+    constexpr int OPT_ROW_Y[3] = { 24, 50, 76 };      // label rows: scale, opacity, markers
+    constexpr int OPT_CORNER_Y = 104, OPT_CORNER_W = 44, OPT_BTN_H = 13;
+    constexpr int OPT_BOTTOM_Y = 134;
+
+    bool MouseIn(int x, int y, int w, int h)
+    {
+        return MouseX >= x && MouseX < x + w && MouseY >= y && MouseY < y + h;
+    }
+
+    void GearRect(const CornerLayout& l, int& x, int& y, int& w, int& h)
+    {
+        w = 13;
+        h = (int)(13.f * l.sx / l.sy + 0.5f);
+        x = (int)(l.cx - l.size / 2.f) + 2;
+        y = (int)(l.cy - l.sizeY / 2.f) + 2;
+    }
+
+    bool CornerMinimapActive(bool success)
+    {
+        return success && Hero != NULL
+            && (gMapManager.WorldActive == WD_200_MOBA_ARENA || gMapManager.WorldActive == WD_34CRYWOLF_1ST)
+            && g_pNewUISystem->IsVisible(SEASON3B::INTERFACE_MINI_MAP) == false;
+    }
+}
+
 void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
 {
     if (m_bSuccess == false || Hero == NULL)
         return;
 
-    // Small map pinned above the HUD bar, bottom-right. Drawn with
-    // RenderBitmapRotate (same family as the full-map RenderBitRotate) so the
-    // texture's transparent corners are honoured. CENTRE_X/CENTRE_Y are the
-    // map centre in reference (640x480) px, top-left origin.
-    // The window is not 4:3, so a square in reference px is a rectangle on
-    // screen, and RenderBitmapRotate rotates in screen px (after scaling): the
-    // art came out squashed while the markers assumed a square. Draw the map
-    // as a true square on screen (SIZE reference px wide, SIZE * sx/sy tall)
-    // and place markers in screen px, converting back to reference px.
-    const float sx = ConvertX(1.f);
-    const float sy = ConvertY(1.f);
-    const float SIZE = 120.f;
-    const float SIZE_Y = SIZE * sx / sy;
-    const float SIDE_PX = SIZE * sx;
-    const float MARGIN = 6.f;
-    const float HUD_BAR = 72.f;   // HUD bar height + a little clearance, reference px
-    const float CENTRE_X = REFERENCE_WIDTH - SIZE / 2.f - MARGIN;
-    // Bottom edge clears the top of the HUD bar (no overlap).
-    const float CENTRE_Y = REFERENCE_HEIGHT - HUD_BAR - SIZE_Y / 2.f;
+    // Small map pinned to a screen corner. Drawn with RenderBitmapRotate (same
+    // family as the full-map RenderBitRotate) so the texture's transparent
+    // corners are honoured. The window is not 4:3, so a square in reference px
+    // is a rectangle on screen, and RenderBitmapRotate rotates in screen px
+    // (after scaling): the art came out squashed while the markers assumed a
+    // square. Draw the map as a true square on screen (size ref px wide,
+    // size * sx/sy tall) and place markers in screen px, converting back to
+    // reference px.
+    const CornerLayout L = ComputeCornerLayout();
+    const float sx = L.sx;
+    const float sy = L.sy;
+    const float SIZE = L.size;
+    const float SIZE_Y = L.sizeY;
+    const float SIDE_PX = L.sidePx;
+    const float CENTRE_X = L.cx;
+    const float CENTRE_Y = L.cy;
 
     // Whole-texture rotation. 90 = one quarter turn; flip the sign to spin the
     // other way.
@@ -314,12 +379,16 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     const float ca = cosf(rad);
     const float sa = sinf(rad);
 
+    // Map art: blended so the opacity option works; transparent corners stay so.
+    EnableAlphaBlend();
     EnableAlphaTest();
+    glColor4f(1.f, 1.f, 1.f, L.opacity);
+
+    RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
+
     DisableAlphaBlend();
     EnableAlphaTest();
     glColor4f(1.f, 1.f, 1.f, 1.f);
-
-    RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
 
     // Map-local position (0..1, texture space) to reference px: rotate the
     // offset by ROT around the map centre in screen px, matching how
@@ -337,6 +406,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     {
         float mx, my;
         toRef(pu, pv, mx, my);
+        w *= L.markers;
         RenderBitmapRotate(tex, mx, my, w, w * sx / sy, rotLoc, 0.f, 0.f, UV, UV);
     };
 
@@ -360,7 +430,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
         {
             const MobaMinimapEntry& e = g_MobaMinimap[m];
             SetMobaMarkerColor(e);
-            const float w = MobaMarkerSize(e, 6.f, 7.f, 11.f, 5.f);
+            const float w = MobaMarkerSize(e, 6.f, 7.f, 11.f, 5.f) * L.markers;
             float mx, my;
             toRef((float)e.y / 256.f, (float)e.x / 256.f, mx, my);
             const float h = w * sx / sy;
@@ -373,6 +443,169 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     plot(IMAGE_MINIMAP_INTERFACE + 3, (float)Hero->PositionY / 256.f, (float)Hero->PositionX / 256.f, 8.f, 0.f);
 
     DisableAlphaBlend();
+
+    // Options gear (opens the panel) and the panel itself.
+    int gx, gy, gw, gh;
+    GearRect(L, gx, gy, gw, gh);
+    const bool gearHot = MouseIn(gx, gy, gw, gh);
+    glColor4f(0.f, 0.f, 0.f, gearHot || m_bOptionsOpen ? 0.85f : 0.55f);
+    RenderColor((float)gx, (float)gy, (float)gw, (float)gh, 0.f);
+    glColor4f(1.f, 1.f, 1.f, gearHot || m_bOptionsOpen ? 1.f : 0.75f);
+    for (int k = 0; k < 3; ++k)
+        RenderColor((float)gx + 2.f, (float)gy + 2.f + k * (gh - 5) / 2.f, (float)gw - 4.f, 1.f, 0.f);
+    EndRenderColor();
+
+    if (m_bOptionsOpen)
+        RenderCornerOptions();
+}
+
+void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
+{
+    GameConfig& cfg = GameConfig::GetInstance();
+
+    glColor4f(0.f, 0.f, 0.f, 0.88f);
+    RenderColor((float)OPT_X, (float)OPT_Y, (float)OPT_W, (float)OPT_H, 0.f);
+    glColor4f(0.8f, 0.7f, 0.3f, 1.f);
+    RenderColor((float)OPT_X, (float)OPT_Y, (float)OPT_W, 1.f, 0.f);
+    RenderColor((float)OPT_X, (float)(OPT_Y + OPT_H - 1), (float)OPT_W, 1.f, 0.f);
+    RenderColor((float)OPT_X, (float)OPT_Y, 1.f, (float)OPT_H, 0.f);
+    RenderColor((float)(OPT_X + OPT_W - 1), (float)OPT_Y, 1.f, (float)OPT_H, 0.f);
+
+    struct Row { const wchar_t* label; int value; int minV, maxV; const wchar_t* unit; };
+    const Row rows[3] = {
+        { L"Tamaño",     cfg.GetMinimapScale(),   1,  100, L"" },
+        { L"Opacidad",        cfg.GetMinimapOpacity(), 20, 100, L"%" },
+        { L"Marcadores",      cfg.GetMinimapMarkers(), 50, 200, L"%" },
+    };
+    for (int i = 0; i < 3; ++i)
+    {
+        const int by = OPT_Y + OPT_ROW_Y[i] + 12;
+        glColor4f(0.25f, 0.25f, 0.25f, 1.f);
+        RenderColor((float)(OPT_X + OPT_BAR_X), (float)(by + 2), (float)OPT_BAR_W, 3.f, 0.f);
+        const float t = (float)(rows[i].value - rows[i].minV) / (float)(rows[i].maxV - rows[i].minV);
+        glColor4f(0.9f, 0.8f, 0.3f, 1.f);
+        RenderColor((float)(OPT_X + OPT_BAR_X) + t * (OPT_BAR_W - 4), (float)by, 4.f, 7.f, 0.f);
+    }
+
+    // Position + action buttons.
+    const wchar_t* cornerLabels[3] = { L"Inf. der.", L"Inf. izq.", L"Sup. der." };
+    for (int c = 0; c < 3; ++c)
+    {
+        const bool sel = cfg.GetMinimapCorner() == c;
+        glColor4f(sel ? 0.55f : 0.2f, sel ? 0.45f : 0.2f, sel ? 0.1f : 0.2f, 1.f);
+        RenderColor((float)(OPT_X + OPT_BAR_X + c * (OPT_CORNER_W + 4)), (float)(OPT_Y + OPT_CORNER_Y + 12), (float)OPT_CORNER_W, (float)OPT_BTN_H, 0.f);
+    }
+    glColor4f(0.2f, 0.2f, 0.2f, 1.f);
+    RenderColor((float)(OPT_X + 10), (float)(OPT_Y + OPT_BOTTOM_Y), 68.f, (float)OPT_BTN_H, 0.f);
+    RenderColor((float)(OPT_X + 82), (float)(OPT_Y + OPT_BOTTOM_Y), 68.f, (float)OPT_BTN_H, 0.f);
+    EndRenderColor();
+
+    DWORD backColor = g_pRenderText->GetTextColor();
+    DWORD backBg = g_pRenderText->GetBgColor();
+    g_pRenderText->SetFont(g_hFont);
+    g_pRenderText->SetBgColor(0);
+    g_pRenderText->SetTextColor(255, 230, 150, 255);
+    g_pRenderText->RenderText(OPT_X + 10, OPT_Y + 7, L"Minimapa", OPT_W - 20, 0, RT3_SORT_LEFT);
+    g_pRenderText->SetTextColor(255, 255, 255, 255);
+    for (int i = 0; i < 3; ++i)
+    {
+        wchar_t buf[48];
+        swprintf(buf, 48, L"%ls: %d%ls", rows[i].label, rows[i].value, rows[i].unit);
+        g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_ROW_Y[i], buf, OPT_W - 20, 0, RT3_SORT_LEFT);
+    }
+    g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_CORNER_Y, L"Posición", OPT_W - 20, 0, RT3_SORT_LEFT);
+    for (int c = 0; c < 3; ++c)
+        g_pRenderText->RenderText(OPT_X + OPT_BAR_X + c * (OPT_CORNER_W + 4), OPT_Y + OPT_CORNER_Y + 13, cornerLabels[c], OPT_CORNER_W, 0, RT3_SORT_CENTER);
+    g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_BOTTOM_Y + 1, L"Restaurar", 68, 0, RT3_SORT_CENTER);
+    g_pRenderText->RenderText(OPT_X + 82, OPT_Y + OPT_BOTTOM_Y + 1, L"Cerrar", 68, 0, RT3_SORT_CENTER);
+    g_pRenderText->SetTextColor(backColor);
+    g_pRenderText->SetBgColor(backBg);
+}
+
+// Mouse handling for the corner minimap's options gear and panel. Called by
+// the UI manager before any window sees the mouse; returns true when the
+// click was used here (so it does not also walk / attack in the world).
+bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
+{
+    if (!CornerMinimapActive(m_bSuccess))
+    {
+        m_bOptionsOpen = false;
+        m_iDragSlider = -1;
+        return false;
+    }
+
+    GameConfig& cfg = GameConfig::GetInstance();
+    const bool press = SEASON3B::IsPress(VK_LBUTTON);
+    const bool held = press || SEASON3B::IsRepeat(VK_LBUTTON);
+
+    auto setSlider = [&](int row, int mouseX)
+    {
+        float t = (float)(mouseX - (OPT_X + OPT_BAR_X)) / (float)OPT_BAR_W;
+        t = std::clamp(t, 0.f, 1.f);
+        if (row == 0) cfg.SetMinimapScale(1 + (int)(t * 99.f + 0.5f));
+        else if (row == 1) cfg.SetMinimapOpacity(20 + (int)(t * 80.f + 0.5f));
+        else cfg.SetMinimapMarkers(50 + (int)(t * 150.f + 0.5f));
+    };
+
+    if (m_iDragSlider >= 0)
+    {
+        if (held)
+        {
+            setSlider(m_iDragSlider, MouseX);
+            return true;
+        }
+        m_iDragSlider = -1;
+        cfg.Save();
+        return true;
+    }
+
+    const CornerLayout L = ComputeCornerLayout();
+    int gx, gy, gw, gh;
+    GearRect(L, gx, gy, gw, gh);
+    if (MouseIn(gx, gy, gw, gh))
+    {
+        if (press)
+        {
+            m_bOptionsOpen = !m_bOptionsOpen;
+            PlayBuffer(SOUND_CLICK01);
+        }
+        return true;
+    }
+
+    if (!m_bOptionsOpen || !MouseIn(OPT_X, OPT_Y, OPT_W, OPT_H))
+        return false;
+
+    if (!press)
+        return true;
+
+    for (int i = 0; i < 3; ++i)
+    {
+        if (MouseIn(OPT_X + OPT_BAR_X - 4, OPT_Y + OPT_ROW_Y[i] + 8, OPT_BAR_W + 8, 15))
+        {
+            m_iDragSlider = i;
+            setSlider(i, MouseX);
+            return true;
+        }
+    }
+    for (int c = 0; c < 3; ++c)
+    {
+        if (MouseIn(OPT_X + OPT_BAR_X + c * (OPT_CORNER_W + 4), OPT_Y + OPT_CORNER_Y + 12, OPT_CORNER_W, OPT_BTN_H))
+        {
+            cfg.SetMinimapCorner(c);
+            cfg.Save();
+            return true;
+        }
+    }
+    if (MouseIn(OPT_X + 10, OPT_Y + OPT_BOTTOM_Y, 68, OPT_BTN_H))
+    {
+        cfg.ResetMinimap();
+        cfg.Save();
+    }
+    else if (MouseIn(OPT_X + 82, OPT_Y + OPT_BOTTOM_Y, 68, OPT_BTN_H))
+    {
+        m_bOptionsOpen = false;
+    }
+    return true;
 }
 
 bool SEASON3B::CNewUIMiniMap::Update()

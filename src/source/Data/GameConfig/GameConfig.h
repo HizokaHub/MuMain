@@ -81,6 +81,17 @@ public:
     int GetZoom() const { return m_zoom; }
     void SetZoom(int zoom);
 
+    // Corner minimap (MOBA). Values are clamped on read and on write.
+    int GetMinimapScale() const   { return m_minimapScale; }    // 1..100
+    int GetMinimapOpacity() const { return m_minimapOpacity; }  // 20..100
+    int GetMinimapMarkers() const { return m_minimapMarkers; }  // 50..200
+    int GetMinimapCorner() const  { return m_minimapCorner; }   // 0..2
+    void SetMinimapScale(int v);
+    void SetMinimapOpacity(int v);
+    void SetMinimapMarkers(int v);
+    void SetMinimapCorner(int v);
+    void ResetMinimap();
+
     // Helpers
     static std::wstring BinaryToHex(const BYTE* data, DWORD size);
     static std::vector<BYTE> HexToBinary(const std::wstring& hex);
@@ -118,6 +129,11 @@ private:
     std::wstring m_fontSelection;
 
     int m_zoom;
+
+    int m_minimapScale;
+    int m_minimapOpacity;
+    int m_minimapMarkers;
+    int m_minimapCorner;
 
     int ReadInt(const wchar_t* section, const wchar_t* key, int defaultValue);
     void WriteInt(const wchar_t* section, const wchar_t* key, int value);

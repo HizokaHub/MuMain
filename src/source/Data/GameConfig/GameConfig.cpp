@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "GameConfig.h"
+#include <algorithm>
 
 #ifdef _WIN32
 #include <imagehlp.h>
@@ -78,6 +79,11 @@ void GameConfig::Load()
 
     m_zoom = ReadInt(CfgSectionCamera, CfgKeyZoom, CfgDefaultZoom);
 
+    SetMinimapScale(ReadInt(CfgSectionMinimap, CfgKeyMinimapScale, CfgDefaultMinimapScale));
+    SetMinimapOpacity(ReadInt(CfgSectionMinimap, CfgKeyMinimapOpacity, CfgDefaultMinimapOpacity));
+    SetMinimapMarkers(ReadInt(CfgSectionMinimap, CfgKeyMinimapMarkers, CfgDefaultMinimapMarkers));
+    SetMinimapCorner(ReadInt(CfgSectionMinimap, CfgKeyMinimapCorner, CfgDefaultMinimapCorner));
+
     // Strip keys/sections we used to write but no longer use, so user config
     // files don't accumulate orphans. Append one line per retired key — no
     // central registry of valid keys to keep in sync.
@@ -120,6 +126,11 @@ void GameConfig::Save()
     WriteString(CfgSectionUI, CfgKeyFont, m_fontSelection);
 
     WriteInt(CfgSectionCamera, CfgKeyZoom, m_zoom);
+
+    WriteInt(CfgSectionMinimap, CfgKeyMinimapScale, m_minimapScale);
+    WriteInt(CfgSectionMinimap, CfgKeyMinimapOpacity, m_minimapOpacity);
+    WriteInt(CfgSectionMinimap, CfgKeyMinimapMarkers, m_minimapMarkers);
+    WriteInt(CfgSectionMinimap, CfgKeyMinimapCorner, m_minimapCorner);
 }
 
 std::vector<std::wstring> GameConfig::ReadStringList(const wchar_t* section, const wchar_t* keyPrefix)
@@ -168,6 +179,20 @@ void GameConfig::SetWindowSize(int width, int height)
 void GameConfig::SetWindowMode(bool windowed)
 {
     m_windowMode = windowed;
+}
+
+void GameConfig::SetMinimapScale(int v)   { m_minimapScale = std::clamp(v, 1, 100); }
+void GameConfig::SetMinimapOpacity(int v) { m_minimapOpacity = std::clamp(v, 20, 100); }
+void GameConfig::SetMinimapMarkers(int v) { m_minimapMarkers = std::clamp(v, 50, 200); }
+void GameConfig::SetMinimapCorner(int v)  { m_minimapCorner = std::clamp(v, 0, 2); }
+
+void GameConfig::ResetMinimap()
+{
+    using namespace CfgDefaults;
+    SetMinimapScale(CfgDefaultMinimapScale);
+    SetMinimapOpacity(CfgDefaultMinimapOpacity);
+    SetMinimapMarkers(CfgDefaultMinimapMarkers);
+    SetMinimapCorner(CfgDefaultMinimapCorner);
 }
 
 void GameConfig::SetSoundVolume(int level)

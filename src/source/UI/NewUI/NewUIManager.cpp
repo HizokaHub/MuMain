@@ -110,6 +110,10 @@ bool SEASON3B::CNewUIManager::UpdateMouseEvent()
 {
     m_pActiveMouseUIObj = NULL;
 
+    // MOBA corner minimap: its options gear / panel take the mouse first.
+    if (g_pNewUIMiniMap && g_pNewUIMiniMap->UpdateCornerMouse())
+        return false;
+
     std::sort(m_vecUI.begin(), m_vecUI.end(), CompareLayerDepthReverse);
     auto vecUI = m_vecUI;
 

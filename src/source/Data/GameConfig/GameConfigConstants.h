@@ -10,6 +10,7 @@ namespace CfgSections
     inline constexpr wchar_t CfgSectionConnectionSettings[] = L"CONNECTION SETTINGS";
     inline constexpr wchar_t CfgSectionCamera[] = L"Camera";
     inline constexpr wchar_t CfgSectionRender[] = L"Render";
+    inline constexpr wchar_t CfgSectionMinimap[] = L"Minimap";
 }
 
 namespace CfgKeys
@@ -41,6 +42,12 @@ namespace CfgKeys
     // Camera
     inline constexpr wchar_t CfgKeyZoom[] = L"Zoom";
 
+    // Corner minimap (MOBA)
+    inline constexpr wchar_t CfgKeyMinimapScale[]   = L"Scale";
+    inline constexpr wchar_t CfgKeyMinimapOpacity[] = L"Opacity";
+    inline constexpr wchar_t CfgKeyMinimapMarkers[] = L"MarkerScale";
+    inline constexpr wchar_t CfgKeyMinimapCorner[]  = L"Corner";
+
     // Render
     // DXP-08: Core Profile GL context flip. 0 = compatibility (rollback), 1 = core.
     inline constexpr wchar_t CfgKeyCoreProfile[] = L"CoreProfile";
@@ -59,6 +66,11 @@ namespace CfgDefaults
     inline constexpr int  CfgDefaultWindowWidth  = 1024;
     inline constexpr int  CfgDefaultWindowHeight = 768;
     inline constexpr bool CfgDefaultWindowed     = true;
+
+    inline constexpr int  CfgDefaultMinimapScale   = 50;   // 1..100 (50 = 256 px at 1365 wide)
+    inline constexpr int  CfgDefaultMinimapOpacity = 100;  // 20..100 %
+    inline constexpr int  CfgDefaultMinimapMarkers = 100;  // 50..200 %
+    inline constexpr int  CfgDefaultMinimapCorner  = 0;    // 0 = bottom-right, 1 = bottom-left, 2 = top-right
 
     inline constexpr int  CfgDefaultSoundVolume = 5;
     inline constexpr int  CfgDefaultMusicVolume = 5;

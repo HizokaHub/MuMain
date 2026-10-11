@@ -71,6 +71,10 @@ namespace SEASON3B
         // The caller decides when to show it (currently only on the Crywolf map).
         void RenderCornerMinimap();
 
+        // Options gear + panel of the corner minimap (size, opacity, markers, corner).
+        // Returns true when the mouse was used by it, so the click does not reach the world.
+        bool UpdateCornerMouse();
+
         // Wraps RenderCornerMinimap with the "on the MOBA arena and the full Tab
         // map isn't open" gate. Called from the UI manager's render pass at a low
         // z so any window the player opens (stats, inventory, skill list, ...)
@@ -87,6 +91,9 @@ namespace SEASON3B
         void UnloadImages();
 
     private:
+        bool m_bOptionsOpen = false;
+        int m_iDragSlider = -1;   // options slider being dragged, -1 = none
+        void RenderCornerOptions();
         void Render_Text();
         void Render_Icon();
         void Render_Scroll();
