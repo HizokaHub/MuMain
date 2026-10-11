@@ -19,6 +19,8 @@
 #include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
 
 extern BYTE m_OccupationState;
+float ConvertX(float x);
+float ConvertY(float y);
 
 using namespace SEASON3B;
 
@@ -287,12 +289,21 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     // RenderBitmapRotate (same family as the full-map RenderBitRotate) so the
     // texture's transparent corners are honoured. CENTRE_X/CENTRE_Y are the
     // map centre in reference (640x480) px, top-left origin.
+    // The window is not 4:3, so a square in reference px is a rectangle on
+    // screen, and RenderBitmapRotate rotates in screen px (after scaling): the
+    // art came out squashed while the markers assumed a square. Draw the map
+    // as a true square on screen (SIZE reference px wide, SIZE * sx/sy tall)
+    // and place markers in screen px, converting back to reference px.
+    const float sx = ConvertX(1.f);
+    const float sy = ConvertY(1.f);
     const float SIZE = 120.f;
+    const float SIZE_Y = SIZE * sx / sy;
+    const float SIDE_PX = SIZE * sx;
     const float MARGIN = 6.f;
     const float HUD_BAR = 72.f;   // HUD bar height + a little clearance, reference px
     const float CENTRE_X = REFERENCE_WIDTH - SIZE / 2.f - MARGIN;
     // Bottom edge clears the top of the HUD bar (no overlap).
-    const float CENTRE_Y = REFERENCE_HEIGHT - HUD_BAR - SIZE / 2.f;
+    const float CENTRE_Y = REFERENCE_HEIGHT - HUD_BAR - SIZE_Y / 2.f;
 
     // Whole-texture rotation. 90 = one quarter turn; flip the sign to spin the
     // other way.
@@ -308,17 +319,25 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     EnableAlphaTest();
     glColor4f(1.f, 1.f, 1.f, 1.f);
 
-    RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE, ROT, 0.f, 0.f, 1.f, 1.f);
+    RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
 
-    // Plot a marker: rotate its map-local offset by ROT around the map centre,
-    // matching how RenderBitmapRotate rotated the texture, then blit the icon.
+    // Map-local position (0..1, texture space) to reference px: rotate the
+    // offset by ROT around the map centre in screen px, matching how
+    // RenderBitmapRotate rotated the texture.
+    auto toRef = [&](float pu, float pv, float& mx, float& my)
+    {
+        const float lx = (pu - 0.5f) * SIDE_PX;
+        const float ly = (0.5f - pv) * SIDE_PX;
+        mx = CENTRE_X + (lx * ca - ly * sa) / sx;
+        my = CENTRE_Y - (lx * sa + ly * ca) / sy;
+    };
+
+    // Plot a marker, then blit the icon (square on screen).
     auto plot = [&](int tex, float pu, float pv, float w, float rotLoc)
     {
-        const float lx = (pu - 0.5f) * SIZE;
-        const float ly = (0.5f - pv) * SIZE;
-        const float mx = CENTRE_X + (lx * ca - ly * sa);
-        const float my = CENTRE_Y - (lx * sa + ly * ca);
-        RenderBitmapRotate(tex, mx, my, w, w, rotLoc, 0.f, 0.f, UV, UV);
+        float mx, my;
+        toRef(pu, pv, mx, my);
+        RenderBitmapRotate(tex, mx, my, w, w * sx / sy, rotLoc, 0.f, 0.f, UV, UV);
     };
 
     for (int i = 0; i < MAX_MINI_MAP_DATA; i++)
@@ -342,9 +361,10 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
             const MobaMinimapEntry& e = g_MobaMinimap[m];
             SetMobaMarkerColor(e);
             const float w = MobaMarkerSize(e, 6.f, 7.f, 11.f, 5.f);
-            const float lx = ((float)e.y / 256.f - 0.5f) * SIZE;
-            const float ly = (0.5f - (float)e.x / 256.f) * SIZE;
-            RenderColor(CENTRE_X + (lx * ca - ly * sa) - w / 2.f, CENTRE_Y - (lx * sa + ly * ca) - w / 2.f, w, w);
+            float mx, my;
+            toRef((float)e.y / 256.f, (float)e.x / 256.f, mx, my);
+            const float h = w * sx / sy;
+            RenderColor(mx - w / 2.f, my - h / 2.f, w, h);
         }
         EndRenderColor();
         EnableAlphaTest();
