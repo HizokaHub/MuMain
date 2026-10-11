@@ -24,8 +24,6 @@
 #include "Render/Core/BindState.h"
 #include "Render/Sprites/GlobalBitmap.h"
 
-extern unsigned char g_MobaNativeWall[256 * 256];
-
 extern BYTE m_OccupationState;
 float ConvertX(float x);
 float ConvertY(float y);
@@ -350,7 +348,8 @@ namespace
     }
 
     // MOBA arena minimap: walkable ground keeps the original Crywolf art, walls
-    // (the arena mask plus Crywolf's own rocks / cliffs) are drawn in one flat
+    // (the arena mask, plus every walkable pocket the players cannot reach from
+    // the main ground: the islands the lanes go around) are drawn in one flat
     // style with a uniform 2-cell outline, and the solid rock outside the arena
     // stays transparent. Built on the CPU from the walk mask (TerrainWall) and
     // the art read back from the GPU. Texel (row = tile X, column = tile Y)
@@ -366,7 +365,7 @@ namespace
         constexpr int SCALE = TEX_SIZE / N;
         unsigned int h = 2166136261u;
         for (int i = 0; i < N * N; ++i)
-            h = (h ^ (unsigned int)((TerrainWall[i] & TW_NOMOVE) | (g_MobaNativeWall[i] << 4))) * 16777619u;
+            h = (h ^ (unsigned int)(TerrainWall[i] & TW_NOMOVE)) * 16777619u;
 
         if (g_blockedTex.IsValid() && h == g_blockedHash)
             return true;
@@ -375,8 +374,41 @@ namespace
         static std::vector<int> queue;
         for (int i = 0; i < N * N; ++i)
         {
-            blocked[i] = ((TerrainWall[i] & TW_NOMOVE) || g_MobaNativeWall[i]) ? 1 : 0;
+            blocked[i] = (TerrainWall[i] & TW_NOMOVE) ? 1 : 0;
             exterior[i] = 0;
+        }
+
+        // Walkable cells the players cannot reach (everything but the largest
+        // 4-connected walkable region) are islands: draw them as walls.
+        {
+            static std::vector<int> label(N * N);
+            std::fill(label.begin(), label.end(), 0);
+            int bestLabel = 0, bestSize = 0, nextLabel = 0;
+            std::vector<int> stack;
+            for (int start = 0; start < N * N; ++start)
+            {
+                if (blocked[start] || label[start])
+                    continue;
+                const int cur = ++nextLabel;
+                int size = 0;
+                stack.clear();
+                stack.push_back(start);
+                label[start] = cur;
+                while (!stack.empty())
+                {
+                    const int i = stack.back();
+                    stack.pop_back();
+                    ++size;
+                    const int x = i % N, y = i / N;
+                    const int nb[4] = { x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1, y > 0 ? i - N : -1, y < N - 1 ? i + N : -1 };
+                    for (int n : nb)
+                        if (n >= 0 && !blocked[n] && !label[n]) { label[n] = cur; stack.push_back(n); }
+                }
+                if (size > bestSize) { bestSize = size; bestLabel = cur; }
+            }
+            for (int i = 0; i < N * N; ++i)
+                if (!blocked[i] && label[i] != bestLabel)
+                    blocked[i] = 1;
         }
 
         // Solid rock outside the arena: blocked cells reachable from the border through blocked cells.
