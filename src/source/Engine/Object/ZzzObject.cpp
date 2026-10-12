@@ -3808,6 +3808,27 @@ void MoveObject(OBJECT* o)
         MoveMobaSdFx(o);
         return;
     }
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && (o->SubType == 2001 || o->SubType == 2002))
+    {
+        // MOBA fountain: grey while neutral, blue / red once a team owns it; always lights the ground around it.
+        const MobaFountainInfo& f = g_MobaFountainInfo[o->SubType - 2001];
+        float r = 0.65f, g = 0.65f, b = 0.7f;
+        if (f.owner == 1) { r = 0.35f; g = 0.55f; b = 1.f; }
+        else if (f.owner == 2) { r = 1.f; g = 0.35f; b = 0.3f; }
+        const float pulse = 0.85f + 0.15f * sinf((float)WorldTime * 0.004f);
+        vec3_t light;
+        Vector(r * pulse, g * pulse, b * pulse, light);
+        AddTerrainLight(o->Position[0], o->Position[1], light, 9, PrimaryTerrainLight);
+        Vector(r, g, b, o->Light);
+        o->BlendMeshLight = 1.f;
+        o->BlendMeshTexCoordV = -(int)WorldTime % 1000 * 0.001f;
+        if (rand_fps_check(2))
+        {
+            vec3_t p;
+            Vector(o->Position[0] + (float)(rand() % 60 - 30), o->Position[1] + (float)(rand() % 60 - 30), o->Position[2] + 170.f, p);
+            CreateParticle(BITMAP_SMOKE, p, o->Angle, light);
+        }
+    }
     if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->SubType >= 1001 && o->SubType <= 1007)
     {
         // MOBA city props (Lorencia models): fires and warm street lights.

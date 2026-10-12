@@ -182,7 +182,7 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         return true;
     }
 
-    if (SEASON3B::IsPress('F'))
+    if (SEASON3B::IsPress('F') && g_MobaLevel <= 0)
     {
         if (gMapManager.InChaosCastle() == true)
         {

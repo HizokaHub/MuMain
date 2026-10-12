@@ -1487,6 +1487,9 @@ namespace
 // MOBA jungle totems: tile x, tile y, colour (1 blue, 2 green, 3 red, 4 yellow). Players call them out by colour
 // ("totem azul"). Two in the blue half and their 180 degree turn (x -> 236 - x, y -> 255 - y) in the red half.
 // Read by the corner minimap.
+// MOBA fountains (capturable, see MobaFountains.cs on the server): tile x, tile y. 20 % and 80 % of the horizontal road.
+extern const int g_MobaFountains[2][2] = { { 52, 128 }, { 184, 127 } };
+
 extern const int g_MobaTotemCount = 4;
 extern const int g_MobaTotems[4][3] = { { 86, 93, 1 }, { 158, 105, 2 }, { 150, 162, 3 }, { 78, 150, 4 } };
 
@@ -1507,6 +1510,7 @@ static const MobaCityModel g_mobaCityModels[] = {
     { L"StoneMuWall01", L"StoneMuWall", 1, -1, 0 }, { L"StoneMuWall03", L"StoneMuWall", 3, -1, 0 }, { L"StoneMuWall04", L"StoneMuWall", 4, -1, 0 },
     { L"StoneStatue03", L"StoneStatue", 3, -1, 0 }, { L"SteelStatue01", L"SteelStatue", 1, -1, 0 }, { L"Tomb01", L"Tomb", 1, -1, 0 },
     { L"Cannon01", L"Cannon", 1, -1, 0 }, { L"TreasureChest01", L"TreasureChest", 1, -1, 0 },
+    { L"Fountain", L"Waterspout", 1, 3, 0 },   // the capturable fountains (PlaceMobaFountains), a second copy of Waterspout01
 };
 constexpr int MOBA_CITY_MODEL_COUNT = (int)(sizeof(g_mobaCityModels) / sizeof(g_mobaCityModels[0]));
 
@@ -1573,6 +1577,31 @@ namespace
         wchar_t note[96];
         mu_swprintf(note, L"[MOBA] decoration objects placed from %ls: %d\r\n", path, placed);
         g_ErrorReport.Write(note);
+    }
+
+    void PlaceMobaFountains()
+    {
+        int model = -1;
+        for (int k = 0; k < MOBA_CITY_MODEL_COUNT; ++k)
+        {
+            if (wcscmp(g_mobaCityModels[k].name, L"Fountain") == 0)
+                model = k;
+        }
+        if (model < 0)
+            return;
+        for (int i = 0; i < 2; ++i)
+        {
+            const int tx = g_MobaFountains[i][0], ty = g_MobaFountains[i][1];
+            vec3_t pos, ang;
+            Vector((tx + 0.5f) * TERRAIN_SCALE, (ty + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[ty * TERRAIN_SIZE + tx], pos);
+            Vector(0.f, 0.f, 0.f, ang);
+            OBJECT* o = CreateObject(MOBA_CITY_MODEL_FIRST + model, pos, ang, 0.6f);
+            if (o != NULL)
+            {
+                o->BlendMesh = 3;
+                o->SubType = 2001 + i;   // MoveObject tints / lights it by its owner
+            }
+        }
     }
 
     void PlaceMobaTotems()
@@ -1915,6 +1944,7 @@ void CMapManager::LoadWorld(int Map)
         PlaceMobaWallDecoration();
         PlaceMobaTestModels();
         PlaceMobaTotems();
+        PlaceMobaFountains();
         PlaceMobaFile(L"Data\\World200\\MobaCity.txt");
         PlaceMobaFile(L"Data\\World200\\MobaDecor.txt");
     }

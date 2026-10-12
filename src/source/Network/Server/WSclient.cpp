@@ -13347,7 +13347,8 @@ static void ReceiveMobaChannel(const BYTE* ReceiveBuffer)
     }
 
     g_MobaChannelKind = kind;
-    g_MobaChannelStart = WorldTime;
+    // Fountain capture (kind 5): durMs is what is left of the 15 s, the bar starts at what the team already accumulated.
+    g_MobaChannelStart = (kind == 5) ? WorldTime - (15000.0 - (double)durMs) : WorldTime;
     g_MobaChannelEnd = WorldTime + (double)durMs;
 }
 
@@ -13668,6 +13669,37 @@ void ReceiveMobaTeamStatus(const BYTE* ReceiveBuffer)
 // Layout: [4]=count, then count * ( name[10] team(1) classNum(1) level(1) kills(1) deaths(1) assists(1) ).
 MobaScoreRow g_MobaScoreboard[MOBA_MAX_SCORE_ROWS] = {};
 int          g_MobaScoreboardCount = 0;
+
+MobaFountainInfo g_MobaFountainInfo[MOBA_FOUNTAIN_COUNT] = {};
+
+// Handles packet C1 D5 11: [4]=count, then count * (owner bluePct redPct flags).
+void ReceiveMobaFountain(const BYTE* ReceiveBuffer)
+{
+    int count = ReceiveBuffer[4];
+    if (count > MOBA_FOUNTAIN_COUNT)
+        count = MOBA_FOUNTAIN_COUNT;
+    if (ReceiveBuffer[1] < 5 + count * 4)
+        return;
+    for (int i = 0; i < count; ++i)
+    {
+        const BYTE* e = ReceiveBuffer + 5 + i * 4;
+        g_MobaFountainInfo[i] = { e[0], e[1], e[2], (BYTE)(e[3] & 1) };
+    }
+}
+
+void SendMobaFountainKey(bool on)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[5];
+    buf[0] = 0xC1;
+    buf[1] = 5;
+    buf[2] = 0xD5;
+    buf[3] = 0x0F;
+    buf[4] = on ? 1 : 0;
+    SocketClient->Send(buf, 5);
+}
 
 MobaMinimapEntry g_MobaMinimap[MOBA_MINIMAP_MAX] = {};
 int              g_MobaMinimapCount = 0;
@@ -14316,6 +14348,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x10:
             ReceiveMobaMinimap(ReceiveBuffer);
+            break;
+        case 0x11:
+            ReceiveMobaFountain(ReceiveBuffer);
             break;
         }
     }

@@ -661,6 +661,20 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
             glColor4f(c[0], c[1], c[2], 1.f);
             RenderColor(mx - tw / 2.f, my - tw * sx / sy / 2.f, tw, tw * sx / sy, 0.f);
         }
+        for (int k = 0; k < MOBA_FOUNTAIN_COUNT; ++k)
+        {
+            float mx, my;
+            toRef((float)g_MobaFountains[k][1] / 256.f, (float)g_MobaFountains[k][0] / 256.f, mx, my);
+            const BYTE owner = g_MobaFountainInfo[k].owner;
+            const float fw = 9.f * L.markers;
+            const float fh = fw * sx / sy;
+            glColor4f(1.f, 1.f, 1.f, 1.f);
+            RenderColor(mx - fw / 2.f - 1.f, my - fh / 2.f - 1.f, fw + 2.f, fh + 2.f, 0.f);
+            if (owner == 1) glColor4f(0.3f, 0.55f, 1.f, 1.f);
+            else if (owner == 2) glColor4f(1.f, 0.3f, 0.25f, 1.f);
+            else glColor4f(0.55f, 0.55f, 0.6f, 1.f);
+            RenderColor(mx - fw / 2.f, my - fh / 2.f, fw, fh, 0.f);
+        }
         EndRenderColor();
         EnableAlphaTest();
     }
@@ -792,7 +806,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
     for (int c = 0; c < 3; ++c)
         g_pRenderText->RenderText(OPT_X + OPT_BAR_X + c * (OPT_CORNER_W + 4), OPT_Y + OPT_CORNER_Y + 13, cornerLabels[c], OPT_CORNER_W, 0, RT3_SORT_CENTER);
     g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE_Y, L"Entradas de jungla", OPT_W - 36, 0, RT3_SORT_LEFT);
-    g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE2_Y, L"T\u00f3tems", OPT_W - 36, 0, RT3_SORT_LEFT);
+    g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE2_Y, L"T\u00f3tems y fuentes", OPT_W - 36, 0, RT3_SORT_LEFT);
     g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_BOTTOM_Y + 1, L"Restaurar", 68, 0, RT3_SORT_CENTER);
     g_pRenderText->RenderText(OPT_X + 82, OPT_Y + OPT_BOTTOM_Y + 1, L"Cerrar", 68, 0, RT3_SORT_CENTER);
     g_pRenderText->SetTextColor(backColor);

@@ -247,8 +247,79 @@ static void RenderMobaScoreboard()
 }
 
 // MOBA recall / teleport channel: a bar over the bottom HUD that fills while the server channels.
+// Fountains: holding F next to one channels its capture (C1 D5 0F on, repeated every 0.5 s while held, off on release).
+static void UpdateMobaFountainKey()
+{
+    static bool s_held = false;
+    static double s_lastSend = 0.0;
+
+    bool inReach = false;
+    if (g_MobaLevel > 0 && Hero != NULL)
+    {
+        for (int i = 0; i < MOBA_FOUNTAIN_COUNT; ++i)
+        {
+            const float dx = (float)Hero->PositionX - (float)g_MobaFountains[i][0];
+            const float dy = (float)Hero->PositionY - (float)g_MobaFountains[i][1];
+            if (dx * dx + dy * dy <= 8.f * 8.f)
+                inReach = true;
+        }
+    }
+
+    const bool held = inReach && (GetAsyncKeyState('F') & 0x8000) != 0 && GetForegroundWindow() == g_hWnd
+        && !g_pChatInputBox->HaveFocus();
+    if (held && (!s_held || WorldTime - s_lastSend > 500.0))
+    {
+        SendMobaFountainKey(true);
+        s_lastSend = WorldTime;
+    }
+    else if (!held && s_held)
+    {
+        SendMobaFountainKey(false);
+    }
+    s_held = held;
+}
+
+// Text next to a fountain: what it is, how to capture it and the progress of each team.
+static void RenderMobaFountainHint()
+{
+    if (g_MobaLevel <= 0 || Hero == NULL)
+        return;
+    for (int i = 0; i < MOBA_FOUNTAIN_COUNT; ++i)
+    {
+        const float dx = (float)Hero->PositionX - (float)g_MobaFountains[i][0];
+        const float dy = (float)Hero->PositionY - (float)g_MobaFountains[i][1];
+        if (dx * dx + dy * dy > 8.f * 8.f)
+            continue;
+
+        const MobaFountainInfo& f = g_MobaFountainInfo[i];
+        const wchar_t* ownerText = f.owner == 1 ? L"Fuente del equipo azul" : f.owner == 2 ? L"Fuente del equipo rojo" : L"Fuente neutral";
+        g_pRenderText->SetFont(g_hFontBold);
+        g_pRenderText->SetBgColor(0, 0, 0, 0);
+        g_pRenderText->SetTextColor(f.owner == 1 ? 140 : f.owner == 2 ? 255 : 220, f.owner == 1 ? 190 : f.owner == 2 ? 130 : 220, f.owner == 1 ? 255 : f.owner == 2 ? 120 : 220, 255);
+        g_pRenderText->RenderText((int)(REFERENCE_WIDTH * 0.5f), 286, ownerText, 0, 0, RT3_SORT_CENTER);
+
+        wchar_t line[96];
+        g_pRenderText->SetTextColor(255, 230, 120, 255);
+        if (f.owner == g_MyMobaTeam && f.owner != 0)
+            mu_swprintf(line, L"Te cura un 10%% de vida por segundo");
+        else if (f.contested)
+            mu_swprintf(line, L"En disputa: nadie avanza");
+        else
+            mu_swprintf(line, L"Mant\u00e9n F para capturarla (15 s)");
+        g_pRenderText->RenderText((int)(REFERENCE_WIDTH * 0.5f), 300, line, 0, 0, RT3_SORT_CENTER);
+
+        g_pRenderText->SetTextColor(220, 220, 220, 255);
+        mu_swprintf(line, L"Azul %d%%   Rojo %d%%", (int)f.bluePct, (int)f.redPct);
+        g_pRenderText->RenderText((int)(REFERENCE_WIDTH * 0.5f), 314, line, 0, 0, RT3_SORT_CENTER);
+        break;
+    }
+}
+
 static void RenderMobaChannelBar()
 {
+    UpdateMobaFountainKey();
+    RenderMobaFountainHint();
+
     if (g_MobaLevel > 0 && g_MobaTeleportTargeting)
     {
         g_pRenderText->SetFont(g_hFontBold);
@@ -273,7 +344,10 @@ static void RenderMobaChannelBar()
 
     glColor4f(0.f, 0.f, 0.f, 0.7f);
     RenderColor(x - 2.f, y - 2.f, w + 4.f, h + 4.f);
-    glColor4f(0.35f, 0.65f, 1.f, 0.95f);
+    if (g_MobaChannelKind == 5)
+        glColor4f(1.f, 0.85f, 0.15f, 0.95f);   // fountain capture: yellow like the Castle Siege switch
+    else
+        glColor4f(0.35f, 0.65f, 1.f, 0.95f);
     RenderColor(x, y, w * frac, h);
     glColor3f(1.f, 1.f, 1.f);
     EndRenderColor();
@@ -281,7 +355,7 @@ static void RenderMobaChannelBar()
     g_pRenderText->SetFont(g_hFontBold);
     g_pRenderText->SetBgColor(0, 0, 0, 0);
     g_pRenderText->SetTextColor(255, 255, 255, 255);
-    g_pRenderText->RenderText((int)(x + w * 0.5f), (int)(y - 14.f), g_MobaChannelKind == 2 ? L"Teletransportando..." : L"Regresando a la base...", 0, 0, RT3_SORT_CENTER);
+    g_pRenderText->RenderText((int)(x + w * 0.5f), (int)(y - 14.f), g_MobaChannelKind == 5 ? L"Capturando la fuente..." : g_MobaChannelKind == 2 ? L"Teletransportando..." : L"Regresando a la base...", 0, 0, RT3_SORT_CENTER);
 }
 
 bool SEASON3B::CNewUIMainFrameWindow::Render()

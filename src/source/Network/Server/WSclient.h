@@ -131,6 +131,16 @@ extern MobaMinimapEntry g_MobaMinimap[MOBA_MINIMAP_MAX];
 extern int              g_MobaMinimapCount;
 void ReceiveMobaMinimap(const BYTE* ReceiveBuffer);
 
+// MOBA fountains (packet C1 D5 11): owner 0 neutral / 1 blue / 2 red, capture progress of each team in %, contested flag.
+// The two fountain centres are fixed (tile x, y) and mirror the server (MobaFountains.Positions); defined in MapManager.cpp.
+struct MobaFountainInfo { BYTE owner; BYTE bluePct; BYTE redPct; BYTE contested; };
+constexpr int MOBA_FOUNTAIN_COUNT = 2;
+extern MobaFountainInfo g_MobaFountainInfo[MOBA_FOUNTAIN_COUNT];
+extern const int g_MobaFountains[MOBA_FOUNTAIN_COUNT][2];
+void ReceiveMobaFountain(const BYTE* ReceiveBuffer);
+// The capture key (F) of the fountains: C1 05 D5 0F on (repeated while held).
+void SendMobaFountainKey(bool on);
+
 // Sends the "+" skill level-up request (C1 06 D5 03 skillNumber-u16-LE).
 void SendMobaSkillUp(int skillNumber);
 
