@@ -3799,6 +3799,8 @@ void MoveMobaSdFx(OBJECT* o)
     }
 }
 
+void CreateFireColored(OBJECT* o, float z, float r, float g, float b);
+
 void MoveObject(OBJECT* o)
 {
     if (o->Type == 110 && o->SubType == 77)
@@ -3811,8 +3813,19 @@ void MoveObject(OBJECT* o)
         // MOBA totem obelisks (Arca War obelisk A / C imported from a later season): fire on the tip.
         // Model height before scale: A ~554, C ~601 units.
         const float tip = ((o->Type == 100 ? 554.f : 601.f) + 15.f) * o->Scale;
-        CreateFire(0, o, 0.f, 0.f, tip);
-        CreateFire(0, o, 0.f, 0.f, tip + 25.f);
+        // SubType 1..4 = MOBA totem colour (blue, green, red, yellow); 0 = the original orange fire.
+        static const float totemColor[5][3] = { { 1.f, 0.6f, 0.4f }, { 0.25f, 0.5f, 1.f }, { 0.3f, 1.f, 0.35f }, { 1.f, 0.25f, 0.2f }, { 1.f, 0.9f, 0.25f } };
+        if (o->SubType >= 1 && o->SubType <= 4)
+        {
+            const float* c = totemColor[o->SubType];
+            CreateFireColored(o, tip, c[0], c[1], c[2]);
+            CreateFireColored(o, tip + 25.f, c[0], c[1], c[2]);
+        }
+        else
+        {
+            CreateFire(0, o, 0.f, 0.f, tip);
+            CreateFire(0, o, 0.f, 0.f, tip + 25.f);
+        }
     }
     if (gMapManager.WorldActive == 9)
     {

@@ -48,6 +48,7 @@ namespace CfgKeys
     inline constexpr wchar_t CfgKeyMinimapMarkers[] = L"MarkerScale";
     inline constexpr wchar_t CfgKeyMinimapCorner[]  = L"Corner";
     inline constexpr wchar_t CfgKeyMinimapDoors[]   = L"JungleDoors";
+    inline constexpr wchar_t CfgKeyMinimapTotems[]  = L"Totems";
 
     // Render
     // DXP-08: Core Profile GL context flip. 0 = compatibility (rollback), 1 = core.
@@ -73,6 +74,7 @@ namespace CfgDefaults
     inline constexpr int  CfgDefaultMinimapMarkers = 100;  // 50..200 %
     inline constexpr int  CfgDefaultMinimapCorner  = 0;    // 0 = bottom-right, 1 = bottom-left, 2 = top-right
     inline constexpr bool CfgDefaultMinimapDoors   = true; // blue marks on the jungle entrances
+    inline constexpr bool CfgDefaultMinimapTotems  = true; // coloured marks on the jungle totems
 
     inline constexpr int  CfgDefaultSoundVolume = 5;
     inline constexpr int  CfgDefaultMusicVolume = 5;

@@ -286,6 +286,9 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOverlayIfActive()
     }
 }
 
+extern const int g_MobaTotemCount;
+extern const int g_MobaTotems[][3];
+
 namespace
 {
     // Corner-minimap layout, shared by the draw code and the mouse handling so
@@ -325,12 +328,13 @@ namespace
     }
 
     // Options panel (reference px).
-    constexpr int OPT_X = 240, OPT_Y = 120, OPT_W = 160, OPT_H = 176;
+    constexpr int OPT_X = 240, OPT_Y = 120, OPT_W = 160, OPT_H = 192;
     constexpr int OPT_BAR_X = 10, OPT_BAR_W = 140;
     constexpr int OPT_ROW_Y[3] = { 24, 50, 76 };      // label rows: scale, opacity, markers
     constexpr int OPT_CORNER_Y = 104, OPT_CORNER_W = 44, OPT_BTN_H = 13;
     constexpr int OPT_TOGGLE_Y = 134;
-    constexpr int OPT_BOTTOM_Y = 156;
+    constexpr int OPT_TOGGLE2_Y = 150;
+    constexpr int OPT_BOTTOM_Y = 172;
 
     bool MouseIn(int x, int y, int w, int h)
     {
@@ -643,6 +647,24 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
             plot(IMAGE_MINIMAP_INTERFACE + 4, pu, pv, 12.f, 0.f);
     }
 
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && GameConfig::GetInstance().GetMinimapTotems())
+    {
+        static const float tc[5][3] = { { 1.f, 0.6f, 0.4f }, { 0.25f, 0.5f, 1.f }, { 0.3f, 1.f, 0.35f }, { 1.f, 0.25f, 0.2f }, { 1.f, 0.9f, 0.25f } };
+        const float tw = 7.f * L.markers;
+        for (int k = 0; k < g_MobaTotemCount; ++k)
+        {
+            float mx, my;
+            toRef((float)g_MobaTotems[k][1] / 256.f, (float)g_MobaTotems[k][0] / 256.f, mx, my);
+            glColor4f(0.f, 0.f, 0.f, 1.f);
+            RenderColor(mx - tw / 2.f - 0.7f, my - tw * sx / sy / 2.f - 0.7f, tw + 1.4f, tw * sx / sy + 1.4f, 0.f);
+            const float* c = tc[g_MobaTotems[k][2]];
+            glColor4f(c[0], c[1], c[2], 1.f);
+            RenderColor(mx - tw / 2.f, my - tw * sx / sy / 2.f, tw, tw * sx / sy, 0.f);
+        }
+        EndRenderColor();
+        EnableAlphaTest();
+    }
+
     if (gMapManager.WorldActive == WD_200_MOBA_ARENA && GameConfig::GetInstance().GetMinimapDoors())
     {
         if (!g_jungleDoorsLoaded)
@@ -739,6 +761,15 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
         glColor4f(0.1f, 0.55f, 1.f, 1.f);
         RenderColor((float)(OPT_X + 12), (float)(OPT_Y + OPT_TOGGLE_Y + 2), 6.f, 6.f, 0.f);
     }
+    glColor4f(0.9f, 0.8f, 0.3f, 1.f);
+    RenderColor((float)(OPT_X + 10), (float)(OPT_Y + OPT_TOGGLE2_Y), 10.f, 10.f, 0.f);
+    glColor4f(0.05f, 0.05f, 0.05f, 1.f);
+    RenderColor((float)(OPT_X + 11), (float)(OPT_Y + OPT_TOGGLE2_Y + 1), 8.f, 8.f, 0.f);
+    if (cfg.GetMinimapTotems())
+    {
+        glColor4f(1.f, 0.9f, 0.25f, 1.f);
+        RenderColor((float)(OPT_X + 12), (float)(OPT_Y + OPT_TOGGLE2_Y + 2), 6.f, 6.f, 0.f);
+    }
     glColor4f(0.2f, 0.2f, 0.2f, 1.f);
     RenderColor((float)(OPT_X + 10), (float)(OPT_Y + OPT_BOTTOM_Y), 68.f, (float)OPT_BTN_H, 0.f);
     RenderColor((float)(OPT_X + 82), (float)(OPT_Y + OPT_BOTTOM_Y), 68.f, (float)OPT_BTN_H, 0.f);
@@ -761,6 +792,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
     for (int c = 0; c < 3; ++c)
         g_pRenderText->RenderText(OPT_X + OPT_BAR_X + c * (OPT_CORNER_W + 4), OPT_Y + OPT_CORNER_Y + 13, cornerLabels[c], OPT_CORNER_W, 0, RT3_SORT_CENTER);
     g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE_Y, L"Entradas de jungla", OPT_W - 36, 0, RT3_SORT_LEFT);
+    g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE2_Y, L"T\u00f3tems", OPT_W - 36, 0, RT3_SORT_LEFT);
     g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_BOTTOM_Y + 1, L"Restaurar", 68, 0, RT3_SORT_CENTER);
     g_pRenderText->RenderText(OPT_X + 82, OPT_Y + OPT_BOTTOM_Y + 1, L"Cerrar", 68, 0, RT3_SORT_CENTER);
     g_pRenderText->SetTextColor(backColor);
@@ -856,6 +888,12 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     if (MouseIn(OPT_X + 10, OPT_Y + OPT_TOGGLE_Y - 2, OPT_W - 20, 14))
     {
         cfg.SetMinimapDoors(!cfg.GetMinimapDoors());
+        cfg.Save();
+        return true;
+    }
+    if (MouseIn(OPT_X + 10, OPT_Y + OPT_TOGGLE2_Y - 2, OPT_W - 20, 14))
+    {
+        cfg.SetMinimapTotems(!cfg.GetMinimapTotems());
         cfg.Save();
         return true;
     }

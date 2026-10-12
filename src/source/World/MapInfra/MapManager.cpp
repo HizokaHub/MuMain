@@ -1481,8 +1481,29 @@ namespace
     }
 }
 
+// MOBA jungle totems: tile x, tile y, colour (1 blue, 2 green, 3 red, 4 yellow). Players call them out by colour
+// ("totem azul"). Two in the blue half and their 180 degree turn (x -> 236 - x, y -> 255 - y) in the red half.
+// Read by the corner minimap.
+extern const int g_MobaTotemCount = 4;
+extern const int g_MobaTotems[4][3] = { { 86, 93, 1 }, { 158, 105, 2 }, { 150, 162, 3 }, { 78, 150, 4 } };
+
 namespace
 {
+    void PlaceMobaTotems()
+    {
+        for (int k = 0; k < g_MobaTotemCount; ++k)
+        {
+            const int tx = g_MobaTotems[k][0], ty = g_MobaTotems[k][1];
+            const int idx = ty * TERRAIN_SIZE + tx;
+            vec3_t pos, ang;
+            Vector((tx + 0.5f) * TERRAIN_SCALE, (ty + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[idx], pos);
+            Vector(0.f, 0.f, 0.f, ang);
+            OBJECT* o = CreateObject(MOBA_TEST_MODEL_FIRST, pos, ang, 1.0f);   // Arca War obelisk A
+            if (o != NULL)
+                o->SubType = g_MobaTotems[k][2];
+        }
+    }
+
     // Row of imported models next to the blue nexus so the user can pick the jungle totem / event objects in game.
     // Off by default: the obelisks (with fire) and the SD sphere candidates stay loaded for later use as jungle totems.
     constexpr bool MOBA_SHOW_TEST_MODELS = false;
@@ -1807,6 +1828,7 @@ void CMapManager::LoadWorld(int Map)
         ApplyMobaRelief();
         PlaceMobaWallDecoration();
         PlaceMobaTestModels();
+        PlaceMobaTotems();
     }
 
     if (gMapManager.InBattleCastle())

@@ -91,6 +91,22 @@ void CreateFire(int Type, OBJECT* o, float x, float y, float z)
     }
 }
 
+// Same flame as CreateFire(0, ...) but with a chosen colour (MOBA totems: one colour per totem so players can call them out).
+void CreateFireColored(OBJECT* o, float z, float r, float g, float b)
+{
+    vec3_t Light;
+    vec3_t Position;
+    Vector(o->Position[0], o->Position[1], o->Position[2] + z, Position);
+    Position[0] += Random::RangeFloat(-8, 7);
+    Position[1] += Random::RangeFloat(-8, 7);
+    Position[2] += Random::RangeFloat(-8, 7);
+    const float Luminosity = Random::RangeFloat(6, 11) * 0.1f;
+    Vector(Luminosity * r, Luminosity * g, Luminosity * b, Light);
+    if (rand_fps_check(2))
+        CreateParticle(BITMAP_FIRE, Position, o->Angle, Light, Random::RangeInt(0, 3));
+    AddTerrainLight(Position[0], Position[1], Light, 4, PrimaryTerrainLight);
+}
+
 void CheckSkull(OBJECT* o)
 {
     vec3_t Position;

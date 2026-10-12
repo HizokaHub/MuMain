@@ -92,6 +92,8 @@ public:
     void SetMinimapCorner(int v);
     bool GetMinimapDoors() const { return m_minimapDoors; }     // jungle entrances on the minimap
     void SetMinimapDoors(bool v) { m_minimapDoors = v; }
+    bool GetMinimapTotems() const { return m_minimapTotems; }   // jungle totems on the minimap
+    void SetMinimapTotems(bool v) { m_minimapTotems = v; }
     void ResetMinimap();
 
     // Helpers
@@ -137,6 +139,7 @@ private:
     int m_minimapMarkers;
     int m_minimapCorner;
     bool m_minimapDoors;
+    bool m_minimapTotems;
 
     int ReadInt(const wchar_t* section, const wchar_t* key, int defaultValue);
     void WriteInt(const wchar_t* section, const wchar_t* key, int value);
