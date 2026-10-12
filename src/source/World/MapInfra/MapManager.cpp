@@ -183,6 +183,12 @@ void CMapManager::Load() // OK
     case WD_200_MOBA_ARENA: // MOBA Arena reuses Crywolf assets
     case WD_34CRYWOLF_1ST:
     {
+        // ambient life of the MOBA arena (GOBoid.cpp): birds and butterflies drifting around the hero
+        gLoadData.AccessModel(MODEL_BIRD01, L"Data\\Object1\\", L"Bird", 1);
+        gLoadData.OpenTexture(MODEL_BIRD01, L"Object1\\");
+        gLoadData.AccessModel(MODEL_BUTTERFLY01, L"Data\\Object1\\", L"Butterfly", 1);
+        gLoadData.OpenTexture(MODEL_BUTTERFLY01, L"Object1\\");
+
         gLoadData.AccessModel(MODEL_SCOLPION, L"Data\\Object35\\", L"scorpion");
         gLoadData.OpenTexture(MODEL_SCOLPION, L"Object35\\");
 
@@ -1510,6 +1516,11 @@ static const MobaCityModel g_mobaCityModels[] = {
     { L"StoneMuWall01", L"StoneMuWall", 1, -1, 0 }, { L"StoneMuWall03", L"StoneMuWall", 3, -1, 0 }, { L"StoneMuWall04", L"StoneMuWall", 4, -1, 0 },
     { L"StoneStatue03", L"StoneStatue", 3, -1, 0 }, { L"SteelStatue01", L"SteelStatue", 1, -1, 0 }, { L"Tomb01", L"Tomb", 1, -1, 0 },
     { L"Cannon01", L"Cannon", 1, -1, 0 }, { L"TreasureChest01", L"TreasureChest", 1, -1, 0 },
+    // team flags between the lane lights, camps, soft vegetation, bridges and emitters
+    { L"FlagCloth", L"Object", 49, -1, 0, 9 }, { L"Straw01", L"Straw", 1, -1, 0 }, { L"Tree05", L"Tree", 5, -1, 0 },
+    { L"Tree09", L"Tree", 9, -1, 0 }, { L"Tree10", L"Tree", 10, -1, 0 }, { L"Tree12", L"Tree", 12, -1, 0 },
+    { L"Grass03", L"Grass", 3, -1, 0 }, { L"Bridge01", L"Bridge", 1, -1, 9 },
+    { L"MistEmitter", L"Grass", 7, -1, 12 }, { L"FireflyEmitter", L"Grass", 7, -1, 13 },
     { L"Fountain", L"Waterspout", 1, 3, 0 },   // the capturable fountains (PlaceMobaFountains), a second copy of Waterspout01
 };
 constexpr int MOBA_CITY_MODEL_COUNT = (int)(sizeof(g_mobaCityModels) / sizeof(g_mobaCityModels[0]));
@@ -1522,9 +1533,11 @@ namespace
         {
             if (g_mobaCityModels[k].world < 0)
                 continue;
-            const bool dungeon = g_mobaCityModels[k].world == 2;
-            gLoadData.AccessModel(MOBA_CITY_MODEL_FIRST + k, dungeon ? L"Data\\Object2\\" : L"Data\\Object1\\", g_mobaCityModels[k].base, g_mobaCityModels[k].index);
-            gLoadData.OpenTexture(MOBA_CITY_MODEL_FIRST + k, dungeon ? L"Object2\\" : L"Object1\\");
+            const int w = g_mobaCityModels[k].world;
+            const wchar_t* dir = w == 2 ? L"Data\\Object2\\" : w == 9 ? L"Data\\Object9\\" : L"Data\\Object1\\";
+            const wchar_t* texDir = w == 2 ? L"Object2\\" : w == 9 ? L"Object9\\" : L"Object1\\";
+            gLoadData.AccessModel(MOBA_CITY_MODEL_FIRST + k, dir, g_mobaCityModels[k].base, g_mobaCityModels[k].index);
+            gLoadData.OpenTexture(MOBA_CITY_MODEL_FIRST + k, texDir);
         }
     }
 
@@ -1544,10 +1557,12 @@ namespace
             if (line[0] == '#' || line[0] == '\n' || line[0] == '\r')
                 continue;
             char name[48];
-            float x = 0.f, y = 0.f, yaw = 0.f, scale = 1.f;
+            float x = 0.f, y = 0.f, yaw = 0.f, scale = 1.f, zOffset = 0.f;
+            int sub = 0;
             if (sscanf_s(line, "yawoffset %f", &yawOffset) == 1)
                 continue;
-            if (sscanf_s(line, "%47s %f %f %f %f", name, (unsigned)sizeof(name), &x, &y, &yaw, &scale) != 5)
+            // <Name> x y yaw scale [zOffset [subType]]  (zOffset in world units, subType overrides the model's own)
+            if (sscanf_s(line, "%47s %f %f %f %f %f %d", name, (unsigned)sizeof(name), &x, &y, &yaw, &scale, &zOffset, &sub) < 5)
                 continue;
             for (int k = 0; k < MOBA_CITY_MODEL_COUNT; ++k)
             {
@@ -1559,7 +1574,7 @@ namespace
                 if (tx < 0 || ty < 0 || tx >= TERRAIN_SIZE || ty >= TERRAIN_SIZE)
                     break;
                 vec3_t pos, ang;
-                Vector((x + 0.5f) * TERRAIN_SCALE, (y + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[ty * TERRAIN_SIZE + tx], pos);
+                Vector((x + 0.5f) * TERRAIN_SCALE, (y + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[ty * TERRAIN_SIZE + tx] + zOffset, pos);
                 Vector(0.f, 0.f, yaw + yawOffset, ang);
                 OBJECT* o = CreateObject(g_mobaCityModels[k].world < 0 ? MOBA_TEST_MODEL_FIRST + 3 : MOBA_CITY_MODEL_FIRST + k, pos, ang, scale);
                 if (o != NULL)
@@ -1568,6 +1583,8 @@ namespace
                         o->BlendMesh = g_mobaCityModels[k].blend;
                     if (g_mobaCityModels[k].kind != 0)
                         o->SubType = 1000 + g_mobaCityModels[k].kind;
+                    if (sub != 0)
+                        o->SubType = sub;
                     ++placed;
                 }
                 break;

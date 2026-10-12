@@ -1302,6 +1302,7 @@ void MoveBoids()
                 }
             }
             else if (gMapManager.WorldActive == WD_0LORENCIA
+                || gMapManager.WorldActive == WD_200_MOBA_ARENA
                 || gMapManager.WorldActive == WD_1DUNGEON
                 || gMapManager.WorldActive == WD_3NORIA
                 || gMapManager.WorldActive == WD_4LOSTTOWER
@@ -1328,7 +1329,22 @@ void MoveBoids()
                 o->AI = 0;
                 o->CurrentAction = 0;
 
-                if (gMapManager.WorldActive == WD_0LORENCIA)
+                if (gMapManager.WorldActive == WD_200_MOBA_ARENA)
+                {
+                    // MOBA arena: mostly butterflies, some birds
+                    if (rand() % 3 == 0)
+                    {
+                        o->Type = MODEL_BIRD01;
+                    }
+                    else
+                    {
+                        o->Type = MODEL_BUTTERFLY01;
+                        o->Velocity = 0.3f;
+                        o->LightEnable = false;
+                        Vector(1.f, 1.f, 1.f, o->Light);
+                    }
+                }
+                else if (gMapManager.WorldActive == WD_0LORENCIA)
                     o->Type = MODEL_BIRD01;
                 else if (gMapManager.WorldActive == WD_1DUNGEON || gMapManager.WorldActive == WD_4LOSTTOWER)
                     o->Type = MODEL_BAT01;

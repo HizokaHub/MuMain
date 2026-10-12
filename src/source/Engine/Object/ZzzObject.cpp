@@ -3829,7 +3829,7 @@ void MoveObject(OBJECT* o)
             CreateParticle(BITMAP_SMOKE, p, o->Angle, light);
         }
     }
-    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->SubType >= 1001 && o->SubType <= 1007)
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->SubType >= 1001 && o->SubType <= 1013)
     {
         // MOBA city props (Lorencia models): fires and warm street lights.
         switch (o->SubType)
@@ -3850,6 +3850,40 @@ void MoveObject(OBJECT* o)
         case 1007: // large brazier (Season 14 model): two flames, height is a guess
             CreateFire(0, o, 0.f, 0.f, 120.f);
             CreateFire(0, o, 0.f, 0.f, 140.f);
+            break;
+        case 1009: // bridge torches (same offsets as the Lorencia bridge, scaled)
+            CreateFire(0, o, 90.f * o->Scale, -200.f * o->Scale, 30.f * o->Scale);
+            CreateFire(0, o, 90.f * o->Scale, 200.f * o->Scale, 30.f * o->Scale);
+            break;
+        case 1010: // blue team flag: a soft blue light, tinted cloth
+        case 1011: // red team flag
+        {
+            const bool blue = o->SubType == 1010;
+            const float lr = blue ? 0.3f : 1.f, lg = blue ? 0.5f : 0.3f, lb = blue ? 1.f : 0.25f;
+            vec3_t light;
+            const float flicker = 0.8f + 0.2f * sinf((float)WorldTime * 0.003f + o->Position[0]);
+            Vector(lr * flicker, lg * flicker, lb * flicker, light);
+            AddTerrainLight(o->Position[0], o->Position[1], light, 4, PrimaryTerrainLight);
+            Vector(lr, lg, lb, o->Light);
+            break;
+        }
+        case 1012: // low mist
+            if (rand_fps_check(10))
+            {
+                vec3_t p, light;
+                Vector(o->Position[0] + (float)(rand() % 500 - 250), o->Position[1] + (float)(rand() % 500 - 250), o->Position[2] + 20.f, p);
+                Vector(0.55f, 0.6f, 0.65f, light);
+                CreateParticle(BITMAP_SMOKE, p, o->Angle, light);
+            }
+            break;
+        case 1013: // fireflies
+            if (rand_fps_check(6))
+            {
+                vec3_t p, light;
+                Vector(o->Position[0] + (float)(rand() % 600 - 300), o->Position[1] + (float)(rand() % 600 - 300), o->Position[2] + 60.f + (float)(rand() % 140), p);
+                Vector(0.8f, 1.f, 0.3f, light);
+                CreateParticle(BITMAP_SPARK, p, o->Angle, light, 0);
+            }
             break;
         case 1004: // street light
         {
