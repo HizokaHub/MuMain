@@ -1484,8 +1484,13 @@ namespace
 namespace
 {
     // Row of imported models next to the blue nexus so the user can pick the jungle totem / event objects in game.
+    // Off by default: the obelisks (with fire) and the SD sphere candidates stay loaded for later use as jungle totems.
+    constexpr bool MOBA_SHOW_TEST_MODELS = false;
+
     void PlaceMobaTestModels()
     {
+        if (!MOBA_SHOW_TEST_MODELS)
+            return;
         constexpr int ROW_Y = 30;
         constexpr int FIRST_X = 98;
         constexpr int STEP_X = 8;

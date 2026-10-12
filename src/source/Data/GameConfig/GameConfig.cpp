@@ -83,6 +83,7 @@ void GameConfig::Load()
     SetMinimapOpacity(ReadInt(CfgSectionMinimap, CfgKeyMinimapOpacity, CfgDefaultMinimapOpacity));
     SetMinimapMarkers(ReadInt(CfgSectionMinimap, CfgKeyMinimapMarkers, CfgDefaultMinimapMarkers));
     SetMinimapCorner(ReadInt(CfgSectionMinimap, CfgKeyMinimapCorner, CfgDefaultMinimapCorner));
+    m_minimapDoors = ReadBool(CfgSectionMinimap, CfgKeyMinimapDoors, CfgDefaultMinimapDoors);
 
     // Strip keys/sections we used to write but no longer use, so user config
     // files don't accumulate orphans. Append one line per retired key — no
@@ -131,6 +132,7 @@ void GameConfig::Save()
     WriteInt(CfgSectionMinimap, CfgKeyMinimapOpacity, m_minimapOpacity);
     WriteInt(CfgSectionMinimap, CfgKeyMinimapMarkers, m_minimapMarkers);
     WriteInt(CfgSectionMinimap, CfgKeyMinimapCorner, m_minimapCorner);
+    WriteBool(CfgSectionMinimap, CfgKeyMinimapDoors, m_minimapDoors);
 }
 
 std::vector<std::wstring> GameConfig::ReadStringList(const wchar_t* section, const wchar_t* keyPrefix)
@@ -193,6 +195,7 @@ void GameConfig::ResetMinimap()
     SetMinimapOpacity(CfgDefaultMinimapOpacity);
     SetMinimapMarkers(CfgDefaultMinimapMarkers);
     SetMinimapCorner(CfgDefaultMinimapCorner);
+    m_minimapDoors = CfgDefaultMinimapDoors;
 }
 
 void GameConfig::SetSoundVolume(int level)
