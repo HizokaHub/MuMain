@@ -3808,6 +3808,29 @@ void MoveObject(OBJECT* o)
         MoveMobaSdFx(o);
         return;
     }
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->SubType >= 1001 && o->SubType <= 1004)
+    {
+        // MOBA city props (Lorencia models): fires and warm street lights.
+        switch (o->SubType)
+        {
+        case 1001: // bonfire
+            CreateFire(0, o, 0.f, 0.f, 60.f);
+            o->BlendMeshLight = (float)(rand() % 6 + 4) * 0.1f;
+            break;
+        case 1002: // fire light
+            CreateFire(0, o, 0.f, 0.f, 200.f);
+            break;
+        case 1004: // street light
+        {
+            const float luminosity = (float)(rand() % 2 + 6) * 0.1f;
+            vec3_t light;
+            Vector(luminosity, luminosity * 0.8f, luminosity * 0.6f, light);
+            AddTerrainLight(o->Position[0], o->Position[1], light, 3, PrimaryTerrainLight);
+            o->BlendMeshLight = 1.f;
+            break;
+        }
+        }
+    }
     if (gMapManager.WorldActive == WD_200_MOBA_ARENA && (o->Type == 100 || o->Type == 102))
     {
         // MOBA totem obelisks (Arca War obelisk A / C imported from a later season): fire on the tip.
