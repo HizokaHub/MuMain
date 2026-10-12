@@ -1492,7 +1492,7 @@ extern const int g_MobaTotems[4][3] = { { 86, 93, 1 }, { 158, 105, 2 }, { 150, 1
 
 // Lorencia models for the MOBA city (Data\Object1), loaded into slots MOBA_CITY_MODEL_FIRST + index.
 // kind: 1 bonfire (fire), 2 fire light (fire), 4 street light (warm light on the ground); blend = glowing mesh of the model.
-struct MobaCityModel { const wchar_t* name; const wchar_t* base; int index; int blend; int kind; };
+struct MobaCityModel { const wchar_t* name; const wchar_t* base; int index; int blend; int kind; int world; };   // world: 0 = Object1 (Lorencia), 2 = Object2 (Dungeon), -1 = already loaded slot MOBA_TEST_MODEL_FIRST + 3
 static const MobaCityModel g_mobaCityModels[] = {
     { L"House01", L"House", 1, -1, 0 }, { L"House02", L"House", 2, -1, 0 }, { L"House03", L"House", 3, -1, 0 },
     { L"House04", L"House", 4, -1, 0 }, { L"House05", L"House", 5, 2, 0 }, { L"HouseEtc01", L"HouseEtc", 1, -1, 0 },
@@ -1501,6 +1501,12 @@ static const MobaCityModel g_mobaCityModels[] = {
     { L"Sign01", L"Sign", 1, -1, 0 }, { L"StoneStatue01", L"StoneStatue", 1, -1, 0 }, { L"StoneStatue02", L"StoneStatue", 2, -1, 0 },
     { L"Bonfire01", L"Bonfire", 1, 1, 1 }, { L"FireLight01", L"FireLight", 1, -1, 2 }, { L"StreetLight01", L"StreetLight", 1, 1, 4 },
     { L"Waterspout01", L"Waterspout", 1, 3, 0 }, { L"Fence01", L"Fence", 1, -1, 0 }, { L"StoneWall01", L"StoneWall", 1, -1, 0 },
+    // lights and relics along the lanes (MobaDecor.txt)
+    { L"FireLight02", L"FireLight", 2, -1, 3 }, { L"DungeonTorch", L"Object", 43, -1, 5, 2 }, { L"Brazier", L"", 0, -1, 7, -1 },
+    { L"StoneWall02", L"StoneWall", 2, -1, 0 }, { L"StoneWall03", L"StoneWall", 3, -1, 0 }, { L"StoneWall05", L"StoneWall", 5, -1, 0 },
+    { L"StoneMuWall01", L"StoneMuWall", 1, -1, 0 }, { L"StoneMuWall03", L"StoneMuWall", 3, -1, 0 }, { L"StoneMuWall04", L"StoneMuWall", 4, -1, 0 },
+    { L"StoneStatue03", L"StoneStatue", 3, -1, 0 }, { L"SteelStatue01", L"SteelStatue", 1, -1, 0 }, { L"Tomb01", L"Tomb", 1, -1, 0 },
+    { L"Cannon01", L"Cannon", 1, -1, 0 }, { L"TreasureChest01", L"TreasureChest", 1, -1, 0 },
 };
 constexpr int MOBA_CITY_MODEL_COUNT = (int)(sizeof(g_mobaCityModels) / sizeof(g_mobaCityModels[0]));
 
@@ -1510,18 +1516,21 @@ namespace
     {
         for (int k = 0; k < MOBA_CITY_MODEL_COUNT; ++k)
         {
-            gLoadData.AccessModel(MOBA_CITY_MODEL_FIRST + k, L"Data\\Object1\\", g_mobaCityModels[k].base, g_mobaCityModels[k].index);
-            gLoadData.OpenTexture(MOBA_CITY_MODEL_FIRST + k, L"Object1\\");
+            if (g_mobaCityModels[k].world < 0)
+                continue;
+            const bool dungeon = g_mobaCityModels[k].world == 2;
+            gLoadData.AccessModel(MOBA_CITY_MODEL_FIRST + k, dungeon ? L"Data\\Object2\\" : L"Data\\Object1\\", g_mobaCityModels[k].base, g_mobaCityModels[k].index);
+            gLoadData.OpenTexture(MOBA_CITY_MODEL_FIRST + k, dungeon ? L"Object2\\" : L"Object1\\");
         }
     }
 
     // Visual-only medieval city around both nexuses. Data\World200\MobaCity.txt (tools/make_city.py in openmu-aram):
     //   yawoffset <deg>                      added to every yaw
     //   <ModelName> <x> <y> <yaw> <scale>    tile position (float), yaw in degrees
-    void PlaceMobaCity()
+    void PlaceMobaFile(const wchar_t* path)
     {
         FILE* f = nullptr;
-        if (_wfopen_s(&f, L"Data\\World200\\MobaCity.txt", L"r") != 0 || f == nullptr)
+        if (_wfopen_s(&f, path, L"r") != 0 || f == nullptr)
             return;
         float yawOffset = 0.f;
         int placed = 0;
@@ -1548,7 +1557,7 @@ namespace
                 vec3_t pos, ang;
                 Vector((x + 0.5f) * TERRAIN_SCALE, (y + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[ty * TERRAIN_SIZE + tx], pos);
                 Vector(0.f, 0.f, yaw + yawOffset, ang);
-                OBJECT* o = CreateObject(MOBA_CITY_MODEL_FIRST + k, pos, ang, scale);
+                OBJECT* o = CreateObject(g_mobaCityModels[k].world < 0 ? MOBA_TEST_MODEL_FIRST + 3 : MOBA_CITY_MODEL_FIRST + k, pos, ang, scale);
                 if (o != NULL)
                 {
                     if (g_mobaCityModels[k].blend >= 0)
@@ -1562,7 +1571,7 @@ namespace
         }
         fclose(f);
         wchar_t note[96];
-        mu_swprintf(note, L"[MOBA] city objects placed: %d\r\n", placed);
+        mu_swprintf(note, L"[MOBA] decoration objects placed from %ls: %d\r\n", path, placed);
         g_ErrorReport.Write(note);
     }
 
@@ -1906,7 +1915,8 @@ void CMapManager::LoadWorld(int Map)
         PlaceMobaWallDecoration();
         PlaceMobaTestModels();
         PlaceMobaTotems();
-        PlaceMobaCity();
+        PlaceMobaFile(L"Data\\World200\\MobaCity.txt");
+        PlaceMobaFile(L"Data\\World200\\MobaDecor.txt");
     }
 
     if (gMapManager.InBattleCastle())

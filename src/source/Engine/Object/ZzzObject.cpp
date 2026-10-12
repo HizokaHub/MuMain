@@ -3808,7 +3808,7 @@ void MoveObject(OBJECT* o)
         MoveMobaSdFx(o);
         return;
     }
-    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->SubType >= 1001 && o->SubType <= 1004)
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->SubType >= 1001 && o->SubType <= 1007)
     {
         // MOBA city props (Lorencia models): fires and warm street lights.
         switch (o->SubType)
@@ -3819,6 +3819,16 @@ void MoveObject(OBJECT* o)
             break;
         case 1002: // fire light
             CreateFire(0, o, 0.f, 0.f, 200.f);
+            break;
+        case 1003: // floor fire dish
+            CreateFire(0, o, 0.f, -30.f, 60.f);
+            break;
+        case 1005: // dungeon wooden torch
+            CreateFire(0, o, 0.f, 0.f, 190.f);
+            break;
+        case 1007: // large brazier (Season 14 model): two flames, height is a guess
+            CreateFire(0, o, 0.f, 0.f, 120.f);
+            CreateFire(0, o, 0.f, 0.f, 140.f);
             break;
         case 1004: // street light
         {
