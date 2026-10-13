@@ -260,7 +260,7 @@ static void UpdateMobaFountainKey()
         {
             const float dx = (float)Hero->PositionX - (float)g_MobaFountains[i][0];
             const float dy = (float)Hero->PositionY - (float)g_MobaFountains[i][1];
-            if (dx * dx + dy * dy <= 8.f * 8.f)
+            if (dx * dx + dy * dy <= 6.5f * 6.5f)   // the server needs 5.5 tiles
                 inReach = true;
         }
     }

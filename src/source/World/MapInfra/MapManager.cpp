@@ -1620,6 +1620,31 @@ namespace
         g_ErrorReport.Write(note);
     }
 
+    // The original Crywolf map has rocks, cliffs and vegetation (loaded from the .obj before this runs) all over the
+    // arena; they hid the west fountain. Removes the objects whose centre is within radiusTiles of a tile.
+    int ClearNativeObjectsAround(float cx, float cy, float radiusTiles)
+    {
+        int removed = 0;
+        for (int b = 0; b < 256; ++b)
+        {
+            OBJECT_BLOCK* ob = &ObjectBlock[b];
+            OBJECT* o = ob->Head;
+            while (o != NULL)
+            {
+                OBJECT* next = o->Next;
+                const float dx = o->Position[0] / TERRAIN_SCALE - (cx + 0.5f);
+                const float dy = o->Position[1] / TERRAIN_SCALE - (cy + 0.5f);
+                if (dx * dx + dy * dy <= radiusTiles * radiusTiles)
+                {
+                    DeleteObject(o, ob);
+                    ++removed;
+                }
+                o = next;
+            }
+        }
+        return removed;
+    }
+
     void PlaceMobaFountains()
     {
         int model = -1;
@@ -1633,8 +1658,17 @@ namespace
         for (int i = 0; i < 2; ++i)
         {
             const int tx = g_MobaFountains[i][0], ty = g_MobaFountains[i][1];
+            const int removed = ClearNativeObjectsAround((float)tx, (float)ty, 9.f);
+            // Stand on the highest ground of the footprint so the basin is never buried.
+            float ground = BackTerrainHeight[ty * TERRAIN_SIZE + tx];
+            for (int oy = -3; oy <= 3; ++oy)
+                for (int ox = -3; ox <= 3; ++ox)
+                    ground = std::max(ground, BackTerrainHeight[(ty + oy) * TERRAIN_SIZE + (tx + ox)]);
+            wchar_t note[160];
+            mu_swprintf(note, L"[MOBA] fountain %d at (%d,%d): ground %.0f (centre %.0f), %d native objects removed\r\n", i, tx, ty, ground, BackTerrainHeight[ty * TERRAIN_SIZE + tx], removed);
+            g_ErrorReport.Write(note);
             vec3_t pos, ang;
-            Vector((tx + 0.5f) * TERRAIN_SCALE, (ty + 0.5f) * TERRAIN_SCALE, BackTerrainHeight[ty * TERRAIN_SIZE + tx], pos);
+            Vector((tx + 0.5f) * TERRAIN_SCALE, (ty + 0.5f) * TERRAIN_SCALE, ground, pos);
             Vector(0.f, 0.f, 0.f, ang);
             OBJECT* o = CreateObject(MOBA_CITY_MODEL_FIRST + model, pos, ang, 0.6f);
             if (o != NULL)
