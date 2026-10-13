@@ -1276,6 +1276,20 @@ namespace
         return false;
     }
 
+    // Cells of the walk mask that are solid DECORATION (lamp posts, houses, the fountain...), not terrain walls:
+    // 256x256 bytes, 1 = decoration (written by tools/solidify_decor.py in openmu-aram). All zero when the file is missing.
+    void LoadMobaDecorCells(unsigned char* cells)
+    {
+        memset(cells, 0, TERRAIN_SIZE * TERRAIN_SIZE);
+        FILE* cf = nullptr;
+        if (_wfopen_s(&cf, L"Data\\World200\\MobaDecorCells.bin", L"rb") == 0 && cf != nullptr)
+        {
+            if (fread(cells, 1, TERRAIN_SIZE * TERRAIN_SIZE, cf) != (size_t)(TERRAIN_SIZE * TERRAIN_SIZE))
+                memset(cells, 0, TERRAIN_SIZE * TERRAIN_SIZE);
+            fclose(cf);
+        }
+    }
+
     void ApplyMobaRelief()
     {
         constexpr int N = TERRAIN_SIZE;
@@ -1285,11 +1299,14 @@ namespace
         static unsigned char s_wall[N * N];
         static unsigned char s_ridge[N * N];
         static unsigned char s_done[N * N];
+        static unsigned char s_decor[N * N];
         static int s_queue[N * N];
 
         memcpy(s_old, BackTerrainHeight, sizeof(s_old));
+        // Solid decoration is not a mountain: its cells stay flat ground in the relief (the model stands on the floor).
+        LoadMobaDecorCells(s_decor);
         for (int i = 0; i < N * N; ++i)
-            s_wall[i] = (TerrainWall[i] & TW_NOMOVE) ? 1 : 0;
+            s_wall[i] = ((TerrainWall[i] & TW_NOMOVE) && !s_decor[i]) ? 1 : 0;
 
         // Lane height: mean of the original ground along the central corridor.
         double sum = 0.0;
@@ -1460,16 +1477,7 @@ namespace
         int trees = 0, rocks = 0;
         // Wall cells that are solid decoration (lamp posts, houses, the fountain...): no trees or rocks on top of them.
         static unsigned char s_decorCells[N * N];
-        memset(s_decorCells, 0, sizeof(s_decorCells));
-        {
-            FILE* cf = nullptr;
-            if (_wfopen_s(&cf, L"Data\\World200\\MobaDecorCells.bin", L"rb") == 0 && cf != nullptr)
-            {
-                if (fread(s_decorCells, 1, sizeof(s_decorCells), cf) != sizeof(s_decorCells))
-                    memset(s_decorCells, 0, sizeof(s_decorCells));
-                fclose(cf);
-            }
-        }
+        LoadMobaDecorCells(s_decorCells);
         for (int y = 2; y < N - 2; ++y)
         {
             for (int x = 2; x < N - 2; ++x)
@@ -1506,6 +1514,9 @@ namespace
 // MOBA jungle totems: tile x, tile y, colour (1 blue, 2 green, 3 red, 4 yellow). Players call them out by colour
 // ("totem azul"). Two in the blue half and their 180 degree turn (x -> 236 - x, y -> 255 - y) in the red half.
 // Read by the corner minimap.
+// For the corner minimap: the solid-decoration cells (they are not drawn as walls there).
+void MobaLoadDecorCells(unsigned char* cells) { LoadMobaDecorCells(cells); }
+
 // MOBA fountains (capturable, see MobaFountains.cs on the server): tile x, tile y. 20 % and 80 % of the horizontal road.
 extern const int g_MobaFountains[2][2] = { { 52, 128 }, { 184, 127 } };
 

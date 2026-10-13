@@ -286,6 +286,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOverlayIfActive()
     }
 }
 
+void MobaLoadDecorCells(unsigned char* cells);   // MapManager.cpp
 extern const int g_MobaTotemCount;
 extern const int g_MobaTotems[][3];
 
@@ -376,10 +377,12 @@ namespace
             return true;
 
         static std::vector<unsigned char> blocked(N * N), exterior(N * N), cls(N * N);
+        static unsigned char decorCells[N * N];
+        MobaLoadDecorCells(decorCells);
         static std::vector<int> queue;
         for (int i = 0; i < N * N; ++i)
         {
-            blocked[i] = (TerrainWall[i] & TW_NOMOVE) ? 1 : 0;
+            blocked[i] = ((TerrainWall[i] & TW_NOMOVE) && !decorCells[i]) ? 1 : 0;   // solid decoration is not a wall on the map
             exterior[i] = 0;
         }
 
