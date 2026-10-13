@@ -1458,12 +1458,25 @@ namespace
         constexpr float TREE_CHANCE = 0.35f;
         constexpr float ROCK_CHANCE = 0.06f;
         int trees = 0, rocks = 0;
+        // Wall cells that are solid decoration (lamp posts, houses, the fountain...): no trees or rocks on top of them.
+        static unsigned char s_decorCells[N * N];
+        memset(s_decorCells, 0, sizeof(s_decorCells));
+        {
+            FILE* cf = nullptr;
+            if (_wfopen_s(&cf, L"Data\\World200\\MobaDecorCells.bin", L"rb") == 0 && cf != nullptr)
+            {
+                if (fread(s_decorCells, 1, sizeof(s_decorCells), cf) != sizeof(s_decorCells))
+                    memset(s_decorCells, 0, sizeof(s_decorCells));
+                fclose(cf);
+            }
+        }
         for (int y = 2; y < N - 2; ++y)
         {
             for (int x = 2; x < N - 2; ++x)
             {
                 const int i = y * N + x;
                 if (!(TerrainWall[i] & TW_NOMOVE)) continue;
+                if (s_decorCells[i]) continue;
                 const bool edge = !(TerrainWall[i - 1] & TW_NOMOVE) || !(TerrainWall[i + 1] & TW_NOMOVE)
                     || !(TerrainWall[i - N] & TW_NOMOVE) || !(TerrainWall[i + N] & TW_NOMOVE);
                 if (!edge) continue;

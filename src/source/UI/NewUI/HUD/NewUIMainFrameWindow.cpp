@@ -265,15 +265,27 @@ static void UpdateMobaFountainKey()
         }
     }
 
-    const bool held = inReach && (GetAsyncKeyState('F') & 0x8000) != 0 && GetForegroundWindow() == g_hWnd
+    // The window is an SDL one, so g_hWnd is not reliable: ask whether the foreground window belongs to this process.
+    bool processInForeground = false;
+    if (HWND foreground = GetForegroundWindow())
+    {
+        DWORD pid = 0;
+        GetWindowThreadProcessId(foreground, &pid);
+        processInForeground = pid == GetCurrentProcessId();
+    }
+
+    const bool held = inReach && (GetAsyncKeyState('F') & 0x8000) != 0 && processInForeground
         && !g_pChatInputBox->HaveFocus();
     if (held && (!s_held || WorldTime - s_lastSend > 500.0))
     {
+        if (!s_held)
+            g_ErrorReport.Write(L"[MOBA] fountain key F down near a fountain: sending C1 D5 0F\r\n");
         SendMobaFountainKey(true);
         s_lastSend = WorldTime;
     }
     else if (!held && s_held)
     {
+        g_ErrorReport.Write(L"[MOBA] fountain key F released\r\n");
         SendMobaFountainKey(false);
     }
     s_held = held;
