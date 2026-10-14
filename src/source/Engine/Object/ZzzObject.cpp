@@ -3718,7 +3718,7 @@ void SpawnMobaSdFx(int sound, int animation)
         for (int i = 0; i < 8; ++i)
         {
             wchar_t path[96];
-            mu_swprintf(path, L"Data\Sound\MobaSD\sd%d.wav", i + 1);
+            mu_swprintf(path, L"Data\\Sound\\MobaSD\\sd%d.wav", i + 1);
             LoadWaveFile((ESound)(SOUND_MOBA_SD1 + i), path, 1);
         }
         g_mobaSdSoundsLoaded = true;

@@ -123,9 +123,11 @@ extern int          g_MobaScoreboardCount;
 extern double       g_MobaScoreboardTime; // WorldTime of the last update
 void ReceiveMobaScoreboard(const BYTE* ReceiveBuffer);
 
-// MOBA minimap feed (packet C1 D5 10): allied champions, structures of both teams, allied wards and the
-// enemy champions the team sees. kind: 1 champion, 2 turret, 3 nexus, 4 ward. team: 1 blue, 2 red.
-struct MobaMinimapEntry { BYTE kind; BYTE team; BYTE x; BYTE y; BYTE hp; };
+// MOBA minimap feed (packet C1 D5 10): allied champions (dead ones too, hp 0 where they died), structures
+// of both teams, allied wards and the enemy champions the team sees. kind: 1 champion, 2 turret, 3 nexus,
+// 4 ward. team: 1 blue, 2 red. hp in %. Champions only: cls = base class index 0..6 (DW, DK, Elf, MG, DL,
+// Summoner, RF: the CLASS_TYPE order), recalling = channelling the recall.
+struct MobaMinimapEntry { BYTE kind; BYTE team; BYTE x; BYTE y; BYTE hp; BYTE cls; bool recalling; };
 constexpr int MOBA_MINIMAP_MAX = 48;
 extern MobaMinimapEntry g_MobaMinimap[MOBA_MINIMAP_MAX];
 extern int              g_MobaMinimapCount;

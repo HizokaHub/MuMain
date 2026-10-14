@@ -13704,6 +13704,12 @@ void SendMobaFountainKey(bool on)
 MobaMinimapEntry g_MobaMinimap[MOBA_MINIMAP_MAX] = {};
 int              g_MobaMinimapCount = 0;
 
+// The kind byte of C1 D5 10 is packed: bits 0-3 kind, bits 4-6 base class index (champions), bit 7 recalling.
+constexpr BYTE MOBA_MINIMAP_KIND_MASK = 0x0F;
+constexpr int  MOBA_MINIMAP_CLASS_SHIFT = 4;
+constexpr BYTE MOBA_MINIMAP_CLASS_MASK = 0x07;
+constexpr BYTE MOBA_MINIMAP_RECALL_BIT = 0x80;
+
 // Handles packet C1 D5 10: [4]=count, then count * (kind team x y hp).
 void ReceiveMobaMinimap(const BYTE* ReceiveBuffer)
 {
@@ -13715,7 +13721,11 @@ void ReceiveMobaMinimap(const BYTE* ReceiveBuffer)
     for (int i = 0; i < count; ++i)
     {
         const BYTE* e = ReceiveBuffer + 5 + i * 5;
-        g_MobaMinimap[i] = { e[0], e[1], e[2], e[3], e[4] };
+        const BYTE packed = e[0];
+        const BYTE kind = (BYTE)(packed & MOBA_MINIMAP_KIND_MASK);
+        const BYTE cls = (BYTE)((packed >> MOBA_MINIMAP_CLASS_SHIFT) & MOBA_MINIMAP_CLASS_MASK);
+        const bool recalling = (packed & MOBA_MINIMAP_RECALL_BIT) != 0;
+        g_MobaMinimap[i] = { kind, e[1], e[2], e[3], e[4], cls, recalling };
     }
     g_MobaMinimapCount = count;
 }

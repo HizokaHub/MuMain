@@ -18,6 +18,9 @@ namespace SEASON3B
         enum IMAGE_LIST
         {
             IMAGE_MINIMAP_INTERFACE = BITMAP_MINI_MAP_BEGIN,
+            // MOBA corner-minimap atlases (Data\Interface\MobaPortraits.OZT, MobaMinimapIcons.OZT).
+            IMAGE_MINIMAP_MOBA_PORTRAITS = IMAGE_MINIMAP_INTERFACE + 7,
+            IMAGE_MINIMAP_MOBA_ICONS = IMAGE_MINIMAP_INTERFACE + 8,
         };
 
         enum MASTER_DATA
@@ -94,6 +97,9 @@ namespace SEASON3B
         bool m_bOptionsOpen = false;
         bool m_bSwallowHold = false;
         int m_iDragSlider = -1;   // options slider being dragged, -1 = none
+        // Whether the MOBA marker atlases loaded (optional files: the markers fall back to flat squares).
+        bool m_bMobaPortraitsLoaded = false;
+        bool m_bMobaIconsLoaded = false;
         void RenderCornerOptions();
         void Render_Text();
         void Render_Icon();

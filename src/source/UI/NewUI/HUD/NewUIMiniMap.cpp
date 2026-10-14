@@ -5,6 +5,7 @@
 #include "I18N/All.h"
 
 #include "UI/NewUI/HUD/NewUIMiniMap.h"
+#include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "UI/NewUI/Dialogs/NewUICommonMessageBox.h"
 #include "UI/NewUI/Dialogs/NewUICustomMessageBox.h"
@@ -54,6 +55,9 @@ bool SEASON3B::CNewUIMiniMap::Create(CNewUIManager* pNewUIMng, int x, int y)
     LoadBitmap(L"Interface\\mini_map_ui_portal.tga", IMAGE_MINIMAP_INTERFACE + 4, GL_LINEAR);
     LoadBitmap(L"Interface\\mini_map_ui_npc.tga", IMAGE_MINIMAP_INTERFACE + 5, GL_LINEAR);
     LoadBitmap(L"Interface\\mini_map_ui_cancel.tga", IMAGE_MINIMAP_INTERFACE + 6, GL_LINEAR);
+    // MOBA marker atlases: optional (bCheck false, a missing file must not close the client).
+    m_bMobaPortraitsLoaded = LoadBitmap(L"Interface\\MobaPortraits.tga", IMAGE_MINIMAP_MOBA_PORTRAITS, GL_LINEAR, GL_CLAMP_TO_EDGE, false);
+    m_bMobaIconsLoaded = LoadBitmap(L"Interface\\MobaMinimapIcons.tga", IMAGE_MINIMAP_MOBA_ICONS, GL_LINEAR, GL_CLAMP_TO_EDGE, false);
 
     m_BtnExit.ChangeButtonImgState(true, IMAGE_MINIMAP_INTERFACE + 6, false);
     m_BtnExit.ChangeButtonInfo(m_Pos.x + 610, 3, 85, 85);
@@ -96,10 +100,12 @@ void SEASON3B::CNewUIMiniMap::Release()
 {
     UnloadImages();
 
-    for (int i = 1; i < 7; i++)
+    for (int i = 1; i <= IMAGE_MINIMAP_MOBA_ICONS - IMAGE_MINIMAP_INTERFACE; i++)
     {
         DeleteBitmap(IMAGE_MINIMAP_INTERFACE + i);
     }
+    m_bMobaPortraitsLoaded = false;
+    m_bMobaIconsLoaded = false;
 
     if (m_pNewUIMng)
     {
@@ -135,24 +141,7 @@ bool SEASON3B::CNewUIMiniMap::UpdateKeyEvent()
     return true;
 }
 
-namespace
-{
-    // MOBA minimap feed: team colour of an entry (wards are green), and its size on the small / full map.
-    void SetMobaMarkerColor(const MobaMinimapEntry& e)
-    {
-        if (e.kind == 4)
-            glColor4f(0.35f, 1.f, 0.35f, 1.f);
-        else if (e.team == 1)
-            glColor4f(0.35f, 0.6f, 1.f, 1.f);
-        else
-            glColor4f(1.f, 0.35f, 0.35f, 1.f);
-    }
-
-    float MobaMarkerSize(const MobaMinimapEntry& e, float champion, float structure, float nexus, float ward)
-    {
-        return e.kind == 1 ? champion : e.kind == 2 ? structure : e.kind == 3 ? nexus : ward;
-    }
-}
+namespace MobaMarkers = ::UI::Minimap::MobaMarkers;
 
 bool SEASON3B::CNewUIMiniMap::Render()
 {
@@ -238,8 +227,8 @@ bool SEASON3B::CNewUIMiniMap::Render()
         for (int m = 0; m < g_MobaMinimapCount; ++m)
         {
             const MobaMinimapEntry& e = g_MobaMinimap[m];
-            SetMobaMarkerColor(e);
-            const float w = MobaMarkerSize(e, 12.f, 14.f, 20.f, 9.f);
+            MobaMarkers::SetEntryColor(e);
+            const float w = MobaMarkers::EntrySize(e, 12.f, 14.f, 20.f, 9.f);
             RenderPointRotateSquare(((float)e.y / 256.f) * FULL_MAP_SIZE, ((float)e.x / 256.f) * FULL_MAP_SIZE, w,
                 MapCenterX, MapCenterY, FULL_MAP_SIZE, FULL_MAP_SIZE, Rot);
         }
@@ -287,8 +276,6 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOverlayIfActive()
 }
 
 void MobaLoadDecorCells(unsigned char* cells);   // MapManager.cpp
-extern const int g_MobaTotemCount;
-extern const int g_MobaTotems[][3];
 
 namespace
 {
@@ -616,22 +603,17 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     EnableAlphaTest();
     glColor4f(1.f, 1.f, 1.f, 1.f);
 
-    // Map-local position (0..1, texture space) to reference px: rotate the
-    // offset by ROT around the map centre in screen px, matching how
+    // Where the art is on screen: map-local positions (0..1, texture space) are
+    // rotated by ROT around the map centre in screen px, matching how
     // RenderBitmapRotate rotated the texture.
-    auto toRef = [&](float pu, float pv, float& mx, float& my)
-    {
-        const float lx = (pu - 0.5f) * SIDE_PX;
-        const float ly = (0.5f - pv) * SIDE_PX;
-        mx = CENTRE_X + (lx * ca - ly * sa) / sx;
-        my = CENTRE_Y - (lx * sa + ly * ca) / sy;
-    };
+    const MobaMarkers::Frame frame{ CENTRE_X, CENTRE_Y, SIDE_PX, ca, sa, sx, sy, L.markers };
+    const MobaMarkers::Atlases atlases{ IMAGE_MINIMAP_MOBA_PORTRAITS, IMAGE_MINIMAP_MOBA_ICONS, m_bMobaPortraitsLoaded, m_bMobaIconsLoaded };
 
     // Plot a marker, then blit the icon (square on screen).
     auto plot = [&](int tex, float pu, float pv, float w, float rotLoc)
     {
         float mx, my;
-        toRef(pu, pv, mx, my);
+        frame.ToRef(pu, pv, mx, my);
         w *= L.markers;
         RenderBitmapRotate(tex, mx, my, w, w * sx / sy, rotLoc, 0.f, 0.f, UV, UV);
     };
@@ -650,72 +632,41 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
             plot(IMAGE_MINIMAP_INTERFACE + 4, pu, pv, 12.f, 0.f);
     }
 
-    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && GameConfig::GetInstance().GetMinimapTotems())
-    {
-        static const float tc[5][3] = { { 1.f, 0.6f, 0.4f }, { 0.25f, 0.5f, 1.f }, { 0.3f, 1.f, 0.35f }, { 1.f, 0.25f, 0.2f }, { 1.f, 0.9f, 0.25f } };
-        const float tw = 7.f * L.markers;
-        for (int k = 0; k < g_MobaTotemCount; ++k)
-        {
-            float mx, my;
-            toRef((float)g_MobaTotems[k][1] / 256.f, (float)g_MobaTotems[k][0] / 256.f, mx, my);
-            glColor4f(0.f, 0.f, 0.f, 1.f);
-            RenderColor(mx - tw / 2.f - 0.7f, my - tw * sx / sy / 2.f - 0.7f, tw + 1.4f, tw * sx / sy + 1.4f, 0.f);
-            const float* c = tc[g_MobaTotems[k][2]];
-            glColor4f(c[0], c[1], c[2], 1.f);
-            RenderColor(mx - tw / 2.f, my - tw * sx / sy / 2.f, tw, tw * sx / sy, 0.f);
-        }
-        for (int k = 0; k < MOBA_FOUNTAIN_COUNT; ++k)
-        {
-            float mx, my;
-            toRef((float)g_MobaFountains[k][1] / 256.f, (float)g_MobaFountains[k][0] / 256.f, mx, my);
-            const BYTE owner = g_MobaFountainInfo[k].owner;
-            const float fw = 9.f * L.markers;
-            const float fh = fw * sx / sy;
-            glColor4f(1.f, 1.f, 1.f, 1.f);
-            RenderColor(mx - fw / 2.f - 1.f, my - fh / 2.f - 1.f, fw + 2.f, fh + 2.f, 0.f);
-            if (owner == 1) glColor4f(0.3f, 0.55f, 1.f, 1.f);
-            else if (owner == 2) glColor4f(1.f, 0.3f, 0.25f, 1.f);
-            else glColor4f(0.55f, 0.55f, 0.6f, 1.f);
-            RenderColor(mx - fw / 2.f, my - fh / 2.f, fw, fh, 0.f);
-        }
-        EndRenderColor();
-        EnableAlphaTest();
-    }
+    // MOBA markers, bottom to top: jungle entrances, totems, fountains, the server's feed (structures,
+    // wards, champions), the own hero and, last, the name of the hovered totem. The module draws them
+    // with alpha blending (soft atlas edges) and falls back to flat squares when an atlas is missing.
+    const bool mobaArena = gMapManager.WorldActive == WD_200_MOBA_ARENA;
+    const GameConfig& cfg = GameConfig::GetInstance();
 
-    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && GameConfig::GetInstance().GetMinimapDoors())
+    if (mobaArena && cfg.GetMinimapDoors())
     {
         if (!g_jungleDoorsLoaded)
             LoadJungleDoors();
-        glColor4f(0.1f, 0.55f, 1.f, 1.f);
-        const float dw = 4.5f * L.markers;
-        for (const auto& d : g_jungleDoors)
-        {
-            float mx, my;
-            toRef((float)d.second / 256.f, (float)d.first / 256.f, mx, my);
-            RenderColor(mx - dw / 2.f, my - dw * sx / sy / 2.f, dw, dw * sx / sy);
-        }
-        EndRenderColor();
-        EnableAlphaTest();
+        MobaMarkers::RenderJungleEntrances(frame, atlases, g_jungleDoors);
     }
+
+    int hoveredTotem = -1;
+    if (mobaArena && cfg.GetMinimapTotems())
+        hoveredTotem = MobaMarkers::RenderTotems(frame, atlases);
+
+    if (mobaArena)
+        MobaMarkers::RenderFountains(frame, atlases);
 
     if (g_MobaLevel > 0)
+        MobaMarkers::RenderFeed(frame, atlases);
+
+    if (!MobaMarkers::RenderOwnHero(frame, atlases))
     {
-        for (int m = 0; m < g_MobaMinimapCount; ++m)
-        {
-            const MobaMinimapEntry& e = g_MobaMinimap[m];
-            SetMobaMarkerColor(e);
-            const float w = MobaMarkerSize(e, 6.f, 7.f, 11.f, 5.f) * L.markers;
-            float mx, my;
-            toRef((float)e.y / 256.f, (float)e.x / 256.f, mx, my);
-            const float h = w * sx / sy;
-            RenderColor(mx - w / 2.f, my - h / 2.f, w, h);
-        }
-        EndRenderColor();
+        // No portrait atlas: the old arrow, drawn with the alpha test like the art.
         EnableAlphaTest();
+        glColor4f(1.f, 1.f, 1.f, 1.f);
+        plot(IMAGE_MINIMAP_INTERFACE + 3, (float)Hero->PositionY / 256.f, (float)Hero->PositionX / 256.f, 8.f, 0.f);
     }
 
-    plot(IMAGE_MINIMAP_INTERFACE + 3, (float)Hero->PositionY / 256.f, (float)Hero->PositionX / 256.f, 8.f, 0.f);
+    MobaMarkers::RenderTotemTooltip(frame, hoveredTotem);
 
+    // Back to the state the rest of the HUD expects (no blending, no alpha test, white).
+    glColor4f(1.f, 1.f, 1.f, 1.f);
     DisableAlphaBlend();
 
     // Options gear (opens the panel) and the panel itself.
@@ -747,7 +698,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
 
     struct Row { const wchar_t* label; int value; int minV, maxV; const wchar_t* unit; };
     const Row rows[3] = {
-        { L"Tamaño",     cfg.GetMinimapScale(),   1,  100, L"" },
+        { L"Tama\u00f1o",     cfg.GetMinimapScale(),   1,  100, L"" },
         { L"Opacidad",        cfg.GetMinimapOpacity(), 20, 100, L"%" },
         { L"Marcadores",      cfg.GetMinimapMarkers(), 50, 200, L"%" },
     };
@@ -805,11 +756,11 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
         swprintf(buf, 48, L"%ls: %d%ls", rows[i].label, rows[i].value, rows[i].unit);
         g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_ROW_Y[i], buf, OPT_W - 20, 0, RT3_SORT_LEFT);
     }
-    g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_CORNER_Y, L"Posición", OPT_W - 20, 0, RT3_SORT_LEFT);
+    g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_CORNER_Y, L"Posici\u00f3n", OPT_W - 20, 0, RT3_SORT_LEFT);
     for (int c = 0; c < 3; ++c)
         g_pRenderText->RenderText(OPT_X + OPT_BAR_X + c * (OPT_CORNER_W + 4), OPT_Y + OPT_CORNER_Y + 13, cornerLabels[c], OPT_CORNER_W, 0, RT3_SORT_CENTER);
     g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE_Y, L"Entradas de jungla", OPT_W - 36, 0, RT3_SORT_LEFT);
-    g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE2_Y, L"T\u00f3tems y fuentes", OPT_W - 36, 0, RT3_SORT_LEFT);
+    g_pRenderText->RenderText(OPT_X + 26, OPT_Y + OPT_TOGGLE2_Y, L"T\u00f3tems", OPT_W - 36, 0, RT3_SORT_LEFT);
     g_pRenderText->RenderText(OPT_X + 10, OPT_Y + OPT_BOTTOM_Y + 1, L"Restaurar", 68, 0, RT3_SORT_CENTER);
     g_pRenderText->RenderText(OPT_X + 82, OPT_Y + OPT_BOTTOM_Y + 1, L"Cerrar", 68, 0, RT3_SORT_CENTER);
     g_pRenderText->SetTextColor(backColor);
