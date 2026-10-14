@@ -2,6 +2,7 @@
 #include "Engine/Object/ZzzObject.h"
 #include "EffectRegistry.h"
 #include "Behaviors/EffectBehaviors.h"
+#include "Behaviors/MobaAegisEffect.h"
 #include "Behaviors/MoveHandlers.h"
 
 #include <algorithm>
@@ -51,6 +52,19 @@ namespace Render::Effects
                     .create = CreateParams{ .lifeTime = 52.f, .scale = 1.4f },
                     .move = &Behaviors::MoveDesair,
                     .render = &Behaviors::RenderDefault });
+
+                // MOBA Aegis (map 200): the Rune Wizard rune sphere, a spinning
+                // cage and a ground ring that ride their champion while the
+                // protection buff lasts, drawn additively (see
+                // Behaviors/MobaAegisEffect.cpp).
+                add({ MODEL_MOBA_AEGIS_CAGE }, {
+                    .onCreate = &MobaAegis::Init,
+                    .move = &MobaAegis::MoveCage,
+                    .render = &MobaAegis::Draw });
+                add({ MODEL_MOBA_AEGIS_RING }, {
+                    .onCreate = &MobaAegis::Init,
+                    .move = &MobaAegis::MoveRing,
+                    .render = &MobaAegis::Draw });
 
                 // --- Effects with creation parameters and a move handler ----
                 add({ MODEL_MAGIC_CAPSULE2 }, { .create = CreateParams{ .lifeTime = 20.f, .blendMesh = 0, .blendMeshLight = 1.0f }, .move = &Behaviors::MoveMagicCapsule2 });

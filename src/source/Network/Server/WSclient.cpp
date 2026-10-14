@@ -17,6 +17,7 @@
 #include "Engine/AI/ZzzAI.h"
 #include "Render/Textures/ZzzTexture.h"
 #include "Render/Effects/ZzzEffect.h"
+#include "Render/Effects/Behaviors/MobaAegisEffect.h"
 #include "Render/Textures/ZzzOpenglUtil.h"
 #include "Engine/Object/ZzzOpenData.h"
 #include "Scenes/SceneCore.h"
@@ -13637,6 +13638,36 @@ static void ReceiveMobaShopPrices(std::span<const BYTE> packet)
     GameLogic::Items::MobaShopPrices::Set(std::move(entries), sellPercent);
 }
 
+// The team byte of C1 D5 01 may carry flags above the team (bit 7: the champion's shield is broken, see
+// MobaTeamStatusPeriodicPlugIn.ShieldBrokenFlag on the server); MobaTeam / g_MyMobaTeam keep only the team.
+constexpr BYTE MOBA_TEAM_STATUS_TEAM_MASK = 0x7F;
+constexpr BYTE MOBA_TEAM_STATUS_SHIELD_BROKEN = 0x80;
+
+// While a champion's shield (SD) is at 0 a white sphere stays around it (Cursed Temple protection model with
+// SubType MOBA_SD_SPHERE_SUBTYPE, see Move_MODEL_CURSEDTEMPLE_PRODECTION_SKILL). The break itself is the
+// ShieldLost effect (atshild crystal shatter + shieldclash), sent by the server when the SD reaches 0.
+constexpr int MOBA_SD_SPHERE_SUBTYPE = 7;
+constexpr double MOBA_SD_SPHERE_STALE_MS = 2500.0;   // no status for that long: the champion left the scope
+static bool s_mobaSdSphere[MAX_CHARACTERS_CLIENT] = {};
+
+static void SetMobaSdSphere(int idx, bool broken)
+{
+    CHARACTER* c = &CharactersClient[idx];
+    if (broken && !s_mobaSdSphere[idx])
+    {
+        vec3_t angle, light;
+        Vector(0.f, 0.f, 0.f, angle);
+        Vector(1.f, 1.f, 1.f, light);
+        CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, c->Object.Position, angle, light, MOBA_SD_SPHERE_SUBTYPE, &c->Object);
+        s_mobaSdSphere[idx] = true;
+    }
+    else if (!broken && s_mobaSdSphere[idx])
+    {
+        DeleteEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, &c->Object, MOBA_SD_SPHERE_SUBTYPE);
+        s_mobaSdSphere[idx] = false;
+    }
+}
+
 // Handles packet C1 D5 01: a list of nearby MOBA participants with their team and
 // health percent, so the client can draw team-coloured always-on HP bars over creeps.
 // Layout: [0]=C1 [1]=len [2]=D5 [3]=01 [4]=count, then count * (idHi idLo team hp0-100).
@@ -13647,7 +13678,7 @@ void ReceiveMobaTeamStatus(const BYTE* ReceiveBuffer)
     for (int i = 0; i < count; ++i, p += 4)
     {
         const int id = ((int)p[0] << 8) | p[1];
-        const int team = p[2];
+        const int team = p[2] & MOBA_TEAM_STATUS_TEAM_MASK;
         float hp = p[3] / 100.f;
         if (hp > 1.f) hp = 1.f;
 
@@ -13659,9 +13690,18 @@ void ReceiveMobaTeamStatus(const BYTE* ReceiveBuffer)
         c->MobaTeam = team;
         c->MobaHealth = hp;
         c->MobaStatusTime = WorldTime;
+        SetMobaSdSphere(idx, gMapManager.WorldActive == WD_200_MOBA_ARENA && (p[2] & MOBA_TEAM_STATUS_SHIELD_BROKEN) != 0
+            && c->Object.Live);
 
         if (id == HeroKey)
             g_MyMobaTeam = team;
+    }
+
+    // Champions that are no longer reported (left the scope, died) lose their SD sphere.
+    for (int idx = 0; idx < MAX_CHARACTERS_CLIENT; ++idx)
+    {
+        if (s_mobaSdSphere[idx] && (!CharactersClient[idx].Object.Live || WorldTime - CharactersClient[idx].MobaStatusTime > MOBA_SD_SPHERE_STALE_MS))
+            SetMobaSdSphere(idx, false);
     }
 }
 
@@ -15796,15 +15836,14 @@ void InsertBuffPhysicalEffect(eBuffState buff, OBJECT* o)
             DeleteEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o);
             DeleteEffect(MODEL_SHIELD_CRASH, o);
             DeleteEffect(BITMAP_SHOCK_WAVE, o);
-            vec3_t  Light;
             if (gMapManager.WorldActive == WD_200_MOBA_ARENA)
             {
-                // MOBA Aegis barrier: only the white sphere (no blue shield crash / shock wave).
-                Vector(1.0f, 1.0f, 1.0f, Light);
-                CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o->Position, o->Angle, Light, 0, o);
+                // MOBA Aegis barrier: the Rune Wizard rune sphere instead of the Cursed Temple shield.
+                Render::Effects::MobaAegis::Spawn(o);
             }
             else
             {
+                vec3_t  Light;
                 Vector(0.3f, 0.3f, 0.8f, Light);
                 CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o->Position, o->Angle, Light, 0, o);
                 CreateEffect(MODEL_SHIELD_CRASH, o->Position, o->Angle, Light, 1, o);
@@ -16018,6 +16057,7 @@ void ClearBuffPhysicalEffect(eBuffState buff, OBJECT* o)
     {
     case eBuff_CursedTempleProdection:
     {
+        Render::Effects::MobaAegis::Remove(o);
         if (g_isCharacterBuff(o, eBuff_CursedTempleProdection))
         {
             DeleteEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o);

@@ -6,6 +6,7 @@
 
 #include "UI/NewUI/HUD/NewUIMiniMap.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
+#include "UI/NewUI/HUD/Minimap/MobaMinimapFog.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "UI/NewUI/Dialogs/NewUICommonMessageBox.h"
 #include "UI/NewUI/Dialogs/NewUICustomMessageBox.h"
@@ -142,6 +143,7 @@ bool SEASON3B::CNewUIMiniMap::UpdateKeyEvent()
 }
 
 namespace MobaMarkers = ::UI::Minimap::MobaMarkers;
+namespace MobaFog = ::UI::Minimap::MobaFog;
 
 bool SEASON3B::CNewUIMiniMap::Render()
 {
@@ -351,6 +353,12 @@ namespace
     RHI::TextureHandle g_blockedTex{};
     unsigned int g_blockedHash = 0;
 
+    // Cells the arena art leaves transparent (the rock outside the arena, TERRAIN_INDEX order), which the
+    // fog of war layer keeps clear; the version changes on every rebuild of the art.
+    constexpr int ART_TILES = 256;   // one cell per terrain tile (the N of UpdateBlockedTexture)
+    unsigned char g_artClearCells[ART_TILES * ART_TILES];
+    unsigned int g_artClearVersion = 0;
+
     bool UpdateBlockedTexture()
     {
         constexpr int N = 256;
@@ -443,7 +451,9 @@ namespace
                 if (!blocked[i]) cls[i] = 0;
                 else if (walkableNear(x, y, 2)) cls[i] = 1;
                 else cls[i] = exterior[i] ? 3 : 2;
+                g_artClearCells[i] = (cls[i] == 3) ? 1 : 0;
             }
+        ++g_artClearVersion;
 
         // The original art, as the GPU holds it (same (u, v) orientation we sample with).
         static std::vector<unsigned int> art;
@@ -594,10 +604,18 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     glColor4f(1.f, 1.f, 1.f, L.opacity);
 
     // MOBA arena: our own map from the walk mask; elsewhere (Crywolf) the original art.
-    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && UpdateBlockedTexture())
+    const bool mobaArt = gMapManager.WorldActive == WD_200_MOBA_ARENA && UpdateBlockedTexture();
+    if (mobaArt)
         RenderBitmapRotate(-(int)g_blockedTex.id, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
     else
         RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
+
+    // Fog of war of the match over the arena art, under every marker (no-op outside a match).
+    if (mobaArt)
+    {
+        const MobaFog::ArtPlacement fogArt{ CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, L.opacity };
+        MobaFog::Render(fogArt, g_artClearCells, g_artClearVersion);
+    }
 
     DisableAlphaBlend();
     EnableAlphaTest();

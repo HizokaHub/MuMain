@@ -1002,6 +1002,7 @@ enum ESound
     SOUND_MOBA_SD6,
     SOUND_MOBA_SD7,
     SOUND_MOBA_SD8,
+    SOUND_MOBA_AEGIS,									// MobaSD\aegis.wav (Rune Wizard RunicSphere.wav)
 
     MAX_BUFFER
 };

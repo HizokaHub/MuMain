@@ -1,0 +1,42 @@
+#pragma once
+
+// MOBA fog of war, visual only (step 1): what the local team cannot see is darkened and desaturated on the
+// terrain (and so on the units and objects standing on it, which take their light from the terrain) and
+// shaded on the corner minimap. Enemies are not hidden here; the server will do that.
+//
+// Mirrors the server's vision model (MobaVision): allied champions and creeps see UnitSightTiles, turrets
+// and the nexus StructureSightTiles, wards WardSightTiles; no line of sight and no brush. The sources are
+// the ones the client knows: the own hero, the minimap feed (allied champions, structures, wards) and the
+// allied characters in scope (creeps, champions nearby).
+//
+// Everything is a no-op outside the MOBA arena, outside a match or while the team is unknown.
+namespace World::Moba::Fog
+{
+    // One cell per terrain tile, TERRAIN_INDEX order (y * GridSize + x).
+    inline constexpr int GridSize = 256;
+
+    // Sight radii in tiles (MobaVision.UnitRadius / StructureRadius / WardRadius on the server).
+    inline constexpr float UnitSightTiles = 9.f;
+    inline constexpr float StructureSightTiles = 11.f;
+    inline constexpr float WardSightTiles = 8.f;
+
+    // How often the team's sight is recomputed, in WorldTime ms (the fog eases toward it every frame).
+    inline constexpr double SightIntervalMs = 200.0;
+
+    // Once per frame, after the entities moved: recomputes the sight at SightIntervalMs and eases the fog.
+    void Update();
+
+    // Darkens and desaturates the tiles in fog in the frustum band of PrimaryTerrainLight that
+    // InitTerrainLight rewrote this frame. Must run once per InitTerrainLight, after the effect lights were
+    // added and before RenderTerrain uploads the light rows.
+    void ApplyToTerrainLight();
+
+    // Whether the fog is shown this frame.
+    bool IsActive();
+
+    // Eased fog of every cell, 0 (seen) .. 1 (hidden); GridSize * GridSize cells.
+    const float* Cells();
+
+    // Changes whenever Cells() does, so a consumer can cache what it derives from them.
+    unsigned int Version();
+}

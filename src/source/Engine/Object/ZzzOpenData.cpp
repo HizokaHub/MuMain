@@ -4155,6 +4155,17 @@ void OpenMonsterModel(EMonsterModelType Type)
     }
 }
 
+// MOBA Aegis (see Render/Effects/Behaviors/MobaAegisEffect.h): the Rune Wizard rune sphere, a spinning cage
+// and a rune ring, both textured with Effect\magic_art04_sub5. OpenSkills calls it after its Skill\ texture
+// pass over the effect range, so that pass does not look for this texture in Data\Skill.
+static void OpenMobaAegisModels()
+{
+    gLoadData.AccessModel(MODEL_MOBA_AEGIS_CAGE, L"Data\\Effect\\", L"rune_skillball");
+    gLoadData.OpenTexture(MODEL_MOBA_AEGIS_CAGE, L"Effect\\");
+    gLoadData.AccessModel(MODEL_MOBA_AEGIS_RING, L"Data\\Effect\\", L"rune_skillb01");
+    gLoadData.OpenTexture(MODEL_MOBA_AEGIS_RING, L"Effect\\");
+}
+
 void OpenSkills()
 {
     gLoadData.AccessModel(MODEL_ICE, L"Data\\Skill\\", L"Ice", 1);
@@ -4495,6 +4506,8 @@ void OpenSkills()
         else
             gLoadData.OpenTexture(i, L"Skill\\");
     }
+
+    OpenMobaAegisModels();
 
     LoadBitmap(L"Skill\\flower1.tga", BITMAP_FLOWER01);
     LoadBitmap(L"Skill\\flower2.tga", BITMAP_FLOWER01 + 1);

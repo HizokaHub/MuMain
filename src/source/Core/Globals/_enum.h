@@ -1319,6 +1319,8 @@ enum
     MODEL_WINDSPIN01,
     MODEL_WINDSPIN02,
     MODEL_WINDSPIN03,
+    MODEL_MOBA_AEGIS_CAGE,  // MOBA Aegis: Rune Wizard rune sphere cage (Effect\rune_skillball.bmd)
+    MODEL_MOBA_AEGIS_RING,  // MOBA Aegis: Rune Wizard rune ring at the feet (Effect\rune_skillb01.bmd)
 
     MODEL_SKILL_END
 };

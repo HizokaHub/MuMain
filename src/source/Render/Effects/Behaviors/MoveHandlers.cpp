@@ -4692,6 +4692,26 @@ namespace Render::Effects::Behaviors
             return true;
         }
 
+        if (o->SubType == 7)
+        {
+            // MOBA: white sphere while the owner's SD is at 0 (created / removed by ReceiveMobaTeamStatus).
+            // It fades in once the crystal shatter of the break (about 1 s) is over.
+            if (o->LifeTime < 10) o->LifeTime = 999999;
+            o->Timer += FPS_ANIMATION_FACTOR;
+            constexpr float DelayTicks = 18.f, FadeTicks = 8.f, MaxAlpha = 0.5f;
+            float t = (o->Timer - DelayTicks) / FadeTicks;
+            t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+            o->Alpha = MaxAlpha * t;
+            o->Scale = 1.6f;
+            VectorCopy(o->Owner->Position, o->Position);
+            o->Position[2] += 90.f;
+            Vector(1.f, 1.f, 1.f, o->Light);
+            BMD* sphere = &Models[o->Type];
+            sphere->SetBodyLight(o->Light);
+            sphere->PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, 0.2f, o->Position, o->Angle);
+            return true;
+        }
+
         if (o->LifeTime < 10) o->LifeTime = 999999;
 
         vec3_t RelativePos, Position;
@@ -4704,20 +4724,15 @@ namespace Render::Effects::Behaviors
         VectorCopy(Position, o->Position);
         VectorCopy(o->Owner->Angle, o->Angle);
 
-        // MOBA arena (Aegis barrier): a bigger, brighter white sphere around the champion and no blue shock waves.
-        const bool mobaAegis = gMapManager.WorldActive == WD_200_MOBA_ARENA;
-        o->Alpha = mobaAegis ? 0.55f : 0.3f;
-        o->Scale = mobaAegis ? 1.6f : 1.0f;
+        o->Alpha = 0.3f;
+        o->Scale = 1.0f;
 
         BMD* effbmd = &Models[o->Type];
 
         effbmd->SetBodyLight(o->Light);
         effbmd->PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, o->Velocity / 3.f, o->Position, o->Angle);
 
-        if (!mobaAegis)
-        {
-            CreateEffectFpsChecked(BITMAP_SHOCK_WAVE, o->Owner->Position, o->Angle, o->Light, 10, o->Owner);
-        }
+        CreateEffectFpsChecked(BITMAP_SHOCK_WAVE, o->Owner->Position, o->Angle, o->Light, 10, o->Owner);
     }
         return true;
     }
