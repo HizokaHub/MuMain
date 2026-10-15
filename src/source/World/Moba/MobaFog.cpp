@@ -3,7 +3,7 @@
 
 #include "Engine/Object/ZzzCharacter.h"     // Hero, CharactersClient
 #include "Network/Server/WSclient.h"        // minimap feed, g_MyMobaTeam, g_MobaLevel
-#include "Render/Terrain/ZzzLodTerrain.h"   // PrimaryTerrainLight, TERRAIN_INDEX
+#include "Render/Terrain/ZzzLodTerrain.h"   // PrimaryTerrainLight, TERRAIN_INDEX, TerrainWall
 #include "World/MapInfra/MapManager.h"      // gMapManager, WD_200_MOBA_ARENA
 
 #include <algorithm>
@@ -79,9 +79,76 @@ namespace
             && Hero != nullptr;
     }
 
-    // Lifts the fog in a disc around (centreX, centreY), in tiles, keeping the lowest fog of each cell.
+    // Walls and solid decoration (the cells nobody can walk through) stop the sight.
+    bool Opaque(int x, int y)
+    {
+        return (TerrainWall[TERRAIN_INDEX(x, y)] & TW_NOMOVE) != 0;
+    }
+
+    // Whether the cell (toX, toY) is seen from the cell (fromX, fromY): the cells the straight line between their
+    // centres crosses must not be opaque. A target that is itself opaque is seen (its face), what lies behind it
+    // is not. A source standing inside opaque cells (a tower, the nexus) sees out of them: opaque cells before the
+    // first open one do not count. The line goes through the exact corner between two cells only if they are not
+    // both opaque. Integer arithmetic only, so the server (MobaSight) gets the very same result.
+    bool LineOfSight(int fromX, int fromY, int toX, int toY)
+    {
+        const int dx = toX - fromX;
+        const int dy = toY - fromY;
+        const int nx = dx < 0 ? -dx : dx;
+        const int ny = dy < 0 ? -dy : dy;
+        const int stepX = dx < 0 ? -1 : 1;
+        const int stepY = dy < 0 ? -1 : 1;
+
+        bool inside = Opaque(fromX, fromY);
+        int x = fromX;
+        int y = fromY;
+        int ix = 0;
+        int iy = 0;
+        while (ix < nx || iy < ny)
+        {
+            const int decision = (1 + 2 * ix) * ny - (1 + 2 * iy) * nx;
+            if (decision == 0)
+            {
+                if (!inside && Opaque(x + stepX, y) && Opaque(x, y + stepY))
+                    return false;
+                x += stepX;
+                y += stepY;
+                ++ix;
+                ++iy;
+            }
+            else if (decision < 0)
+            {
+                x += stepX;
+                ++ix;
+            }
+            else
+            {
+                y += stepY;
+                ++iy;
+            }
+
+            if (x == toX && y == toY)
+                return true;
+
+            if (Opaque(x, y))
+            {
+                if (!inside)
+                    return false;
+            }
+            else
+            {
+                inside = false;
+            }
+        }
+        return true;
+    }
+
+    // Lifts the fog in a disc around (centreX, centreY), in tiles, keeping the lowest fog of each cell. Only the
+    // cells the centre has a line of sight to are lifted.
     void RevealDisc(float centreX, float centreY, float radius)
     {
+        const int sourceX = std::clamp((int)floorf(centreX), 0, GridSize - 1);
+        const int sourceY = std::clamp((int)floorf(centreY), 0, GridSize - 1);
         const float outer = radius + EDGE_OUTSIDE;
         const float inner = std::max(outer - EDGE_WIDTH, 0.f);
         const float outerSq = outer * outer;
@@ -100,6 +167,9 @@ namespace
                 const float dx = (float)x + TILE_CENTRE - centreX;
                 const float distanceSq = dx * dx + dy * dy;
                 if (distanceSq >= outerSq)
+                    continue;
+
+                if (!LineOfSight(sourceX, sourceY, x, y))
                     continue;
 
                 const float fog = (distanceSq <= innerSq) ? FOG_SEEN : (sqrtf(distanceSq) - inner) / EDGE_WIDTH;

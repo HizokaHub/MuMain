@@ -5,8 +5,9 @@
 // shaded on the corner minimap. Enemies are not hidden here; the server will do that.
 //
 // Mirrors the server's vision model (MobaVision): allied champions and creeps see UnitSightTiles, turrets
-// and the nexus StructureSightTiles, wards WardSightTiles; no line of sight and no brush. The sources are
-// the ones the client knows: the own hero, the minimap feed (allied champions, structures, wards) and the
+// and the nexus StructureSightTiles, wards WardSightTiles. Walls and solid decoration (TW_NOMOVE cells) stop the
+// sight (cell-to-cell line of sight, see LineOfSight in MobaFog.cpp; the server must use the same rule); no
+// terrain height and no brush yet. The sources are the ones the client knows: the own hero, the minimap feed (allied champions, structures, wards) and the
 // allied characters in scope (creeps, champions nearby).
 //
 // Everything is a no-op outside the MOBA arena, outside a match or while the team is unknown.
