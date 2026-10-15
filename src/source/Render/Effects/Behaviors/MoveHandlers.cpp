@@ -200,7 +200,10 @@ namespace Render::Effects::Behaviors
             if (o->LifeTime < 10) o->LifeTime = 999999;
             o->Timer += FPS_ANIMATION_FACTOR;
             VectorCopy(o->Owner->Position, o->Position);
-            o->Angle[2] += 1.2f * FPS_ANIMATION_FACTOR;
+            // Spins clockwise around the champion and wobbles slightly, so the rotation reads even on the symmetric sphere.
+            o->Angle[2] = fmodf(o->Angle[2] + 3.5f * FPS_ANIMATION_FACTOR, 360.f);
+            o->Angle[0] = 14.f * sinf(o->Timer * 0.045f);
+            o->Angle[1] = 10.f * sinf(o->Timer * 0.037f + 1.3f);
             const float frame = 4.8f + 0.8f * sinf(o->Timer * 0.06f);
             o->AnimationFrame = frame;
             o->PriorAnimationFrame = frame;
@@ -286,6 +289,9 @@ namespace Render::Effects::Behaviors
             if (o->LifeTime < 10) o->LifeTime = 999999;
             o->Timer += FPS_ANIMATION_FACTOR;
             VectorCopy(o->Owner->Position, o->Position);
+            // Counter-rotates against the outer layer.
+            o->Angle[2] = fmodf(o->Angle[2] - 2.2f * FPS_ANIMATION_FACTOR + 360.f, 360.f);
+            o->Angle[0] = -10.f * sinf(o->Timer * 0.05f);
             const float fade = std::min(1.f, o->Timer / 12.f);
             Vector(0.6f * fade, 0.65f * fade, 1.f * fade, o->Light);
             o->Alpha = 0.7f;

@@ -4201,6 +4201,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     case AT_SKILL_SOUL_BARRIER:
     case AT_SKILL_SOUL_BARRIER_STR:
     case AT_SKILL_SOUL_BARRIER_PROFICIENCY:
+    case AT_SKILL_CURSED_TEMPLE_PRODECTION: // MOBA: Aegis (Spell of Protection of the shields), no class buff sound
         // MOBA casts every skill through the generic 0x19 path (see MobaCastSkill) which
         // skips the local per-class cast pose, so animate the hero here too.
         if (sc != Hero || g_MobaLevel > 0)
@@ -15844,6 +15845,10 @@ void InsertBuffPhysicalEffect(eBuffState buff, OBJECT* o)
                 vec3_t Light;
                 Vector(1.0f, 1.0f, 1.0f, Light);
                 CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o->Position, o->Angle, Light, 0, o);
+                if (o == &Hero->Object)
+                {
+                    Render::Effects::MobaAegis::PlayCastSound();
+                }
             }
             else
             {
@@ -16266,6 +16271,18 @@ void RegisterBuff(eBuffState buff, OBJECT* o, const int bufftime)
         if (buffclasstype != eBuffClass_Count)
         {
             InsertBuffLogicalEffect(buff, o, bufftime);
+        }
+    }
+
+    // MOBA Aegis: the sphere must not depend on the buff script knowing this buff.
+    if (buff == eBuff_CursedTempleProdection && gMapManager.WorldActive == WD_200_MOBA_ARENA && o->Type == MODEL_PLAYER)
+    {
+        const bool hasSphere = SearchEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o);
+        g_ErrorReport.Write(L"[MOBA-AEGIS-CLIENT] buff registered on %ls: class=%d sphere=%d\r\n",
+            o == &Hero->Object ? L"hero" : L"other", static_cast<int>(buffclasstype), hasSphere ? 1 : 0);
+        if (!hasSphere)
+        {
+            InsertBuffPhysicalEffect(buff, o);
         }
     }
 }

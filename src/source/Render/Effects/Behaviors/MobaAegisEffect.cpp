@@ -90,6 +90,11 @@ namespace Render::Effects::MobaAegis
         PlaySpawnSound();
     }
 
+    void PlayCastSound()
+    {
+        PlaySpawnSound();
+    }
+
     void Remove(OBJECT* owner)
     {
         DeleteEffect(MODEL_MOBA_AEGIS_CAGE, owner);

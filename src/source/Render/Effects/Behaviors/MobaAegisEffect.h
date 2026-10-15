@@ -12,6 +12,9 @@ namespace Render::Effects::MobaAegis
     // Replaces any Aegis already on the owner with a fresh cage and ring and plays the Aegis sound.
     void Spawn(OBJECT* owner);
 
+    // Plays the Aegis sound alone (the white-sphere Aegis uses it too).
+    void PlayCastSound();
+
     // Removes the owner's cage and ring.
     void Remove(OBJECT* owner);
 
