@@ -192,6 +192,26 @@ namespace Render::Effects::Behaviors
     bool Move_MODEL_SHIELD_CRASH(OBJECT* o, int index, float Luminosity)
     {
     {
+        if (o->SubType == 7)
+        {
+            // MOBA broken-SD sphere: the break effect held near the peak of the explosion (its most drawn frames),
+            // looping gently around it, for as long as the owner's SD stays at 0 (ReceiveMobaTeamStatus removes it).
+            if (!o->Owner->Live) { o->Live = false; return true; }
+            if (o->LifeTime < 10) o->LifeTime = 999999;
+            o->Timer += FPS_ANIMATION_FACTOR;
+            VectorCopy(o->Owner->Position, o->Position);
+            o->Angle[2] += 1.2f * FPS_ANIMATION_FACTOR;
+            const float frame = 4.8f + 0.8f * sinf(o->Timer * 0.06f);
+            o->AnimationFrame = frame;
+            o->PriorAnimationFrame = frame;
+            const float fade = std::min(1.f, o->Timer / 12.f);
+            Vector(0.75f * fade, 0.8f * fade, 1.f * fade, o->Light);
+            o->Alpha = 0.8f;
+            o->Scale = 1.1f;
+            Models[o->Type].PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, 0.f, o->Position, o->Angle);
+            return true;
+        }
+
         float ftmp = 0.f;
         vec3_t nPos, nLight;
 
@@ -259,6 +279,21 @@ namespace Render::Effects::Behaviors
     bool Move_MODEL_SHIELD_CRASH2(OBJECT* o, int index, float Luminosity)
     {
     {
+        if (o->SubType == 7)
+        {
+            // MOBA broken-SD sphere, inner layer: the intact rotating sphere, looping.
+            if (!o->Owner->Live) { o->Live = false; return true; }
+            if (o->LifeTime < 10) o->LifeTime = 999999;
+            o->Timer += FPS_ANIMATION_FACTOR;
+            VectorCopy(o->Owner->Position, o->Position);
+            const float fade = std::min(1.f, o->Timer / 12.f);
+            Vector(0.6f * fade, 0.65f * fade, 1.f * fade, o->Light);
+            o->Alpha = 0.7f;
+            o->Scale = 1.05f;
+            Models[o->Type].PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, 0.25f, o->Position, o->Angle);
+            return true;
+        }
+
         float ftmp = 0.f;
         if (o->LifeTime >= 0 && o->LifeTime < 8)
         {

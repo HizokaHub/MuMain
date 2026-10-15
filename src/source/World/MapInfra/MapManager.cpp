@@ -1260,7 +1260,8 @@ namespace
     }
 
     // Grass stays everywhere; trees and stones only next to a wall (they mark it).
-    bool MobaKeepObject(int type, int cx, int cy)
+    // Native trees / stones are kept only next to real terrain walls: solid decoration (decor) does not count.
+    bool MobaKeepObject(int type, int cx, int cy, const unsigned char* decor)
     {
         if (MobaIsGrass(type)) return true;
         if (!MobaIsTree(type) && !MobaIsStone(type)) return false;
@@ -1270,7 +1271,7 @@ namespace
             {
                 const int nx = cx + dx, ny = cy + dy;
                 if (nx < 0 || ny < 0 || nx >= TERRAIN_SIZE || ny >= TERRAIN_SIZE) continue;
-                if (TerrainWall[ny * TERRAIN_SIZE + nx] & TW_NOMOVE) return true;
+                if ((TerrainWall[ny * TERRAIN_SIZE + nx] & TW_NOMOVE) && !decor[ny * TERRAIN_SIZE + nx]) return true;
             }
         }
         return false;
@@ -1458,7 +1459,14 @@ namespace
                 const int cx = (int)(o->Position[0] / TERRAIN_SCALE);
                 const int cy = (int)(o->Position[1] / TERRAIN_SCALE);
                 if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-                if (!MobaKeepObject(o->Type, cx, cy)) { o->Live = false; continue; }
+                if (!MobaKeepObject(o->Type, cx, cy, s_decor)) { o->Live = false; continue; }
+                // The big native grass clumps (types 15-18, scale 1.2+) look like mossy mounds: only keep them
+                // on real wall cells (where they hide the wall edge); on open ground they go.
+                if (MobaIsGrass(o->Type) && o->Scale >= 1.2f)
+                {
+                    const bool wallCell = (TerrainWall[cy * N + cx] & TW_NOMOVE) && !s_decor[cy * N + cx];
+                    if (!wallCell) { o->Live = false; continue; }
+                }
                 o->Position[2] += BackTerrainHeight[cy * N + cx] - s_old[cy * N + cx];
             }
         }

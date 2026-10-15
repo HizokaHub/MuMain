@@ -169,11 +169,22 @@ namespace
         }
     }
 
+    // A fountain a team owns gives that team vision around it (server: MobaVision.FountainRadius).
+    void AddFountainSight()
+    {
+        for (int i = 0; i < MOBA_FOUNTAIN_COUNT; ++i)
+        {
+            if (g_MobaFountainInfo[i].owner == g_MyMobaTeam)
+                RevealDisc((float)g_MobaFountains[i][0] + TILE_CENTRE, (float)g_MobaFountains[i][1] + TILE_CENTRE, FountainSightTiles);
+        }
+    }
+
     void RebuildSight()
     {
         std::fill(s_targetFog, s_targetFog + CELL_COUNT, FOG_HIDDEN);
         AddHeroSight();
         AddFeedSight();
+        AddFountainSight();
         AddScopeSight();
         s_settled = false;
     }

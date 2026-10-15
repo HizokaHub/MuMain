@@ -13643,8 +13643,8 @@ static void ReceiveMobaShopPrices(std::span<const BYTE> packet)
 constexpr BYTE MOBA_TEAM_STATUS_TEAM_MASK = 0x7F;
 constexpr BYTE MOBA_TEAM_STATUS_SHIELD_BROKEN = 0x80;
 
-// While a champion's shield (SD) is at 0 a white sphere stays around it (Cursed Temple protection model with
-// SubType MOBA_SD_SPHERE_SUBTYPE, see Move_MODEL_CURSEDTEMPLE_PRODECTION_SKILL). The break itself is the
+// While a champion's shield (SD) is at 0 a crystal sphere stays around it: the break effect itself (atshild + atshild2)
+// held at the peak of the explosion with a looping motion, SubType MOBA_SD_SPHERE_SUBTYPE (see Move_MODEL_SHIELD_CRASH). The break itself is the
 // ShieldLost effect (atshild crystal shatter + shieldclash), sent by the server when the SD reaches 0.
 constexpr int MOBA_SD_SPHERE_SUBTYPE = 7;
 constexpr double MOBA_SD_SPHERE_STALE_MS = 2500.0;   // no status for that long: the champion left the scope
@@ -13658,12 +13658,14 @@ static void SetMobaSdSphere(int idx, bool broken)
         vec3_t angle, light;
         Vector(0.f, 0.f, 0.f, angle);
         Vector(1.f, 1.f, 1.f, light);
-        CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, c->Object.Position, angle, light, MOBA_SD_SPHERE_SUBTYPE, &c->Object);
+        CreateEffect(MODEL_SHIELD_CRASH, c->Object.Position, angle, light, MOBA_SD_SPHERE_SUBTYPE, &c->Object);
+        CreateEffect(MODEL_SHIELD_CRASH2, c->Object.Position, angle, light, MOBA_SD_SPHERE_SUBTYPE, &c->Object);
         s_mobaSdSphere[idx] = true;
     }
     else if (!broken && s_mobaSdSphere[idx])
     {
-        DeleteEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, &c->Object, MOBA_SD_SPHERE_SUBTYPE);
+        DeleteEffect(MODEL_SHIELD_CRASH, &c->Object, MOBA_SD_SPHERE_SUBTYPE);
+        DeleteEffect(MODEL_SHIELD_CRASH2, &c->Object, MOBA_SD_SPHERE_SUBTYPE);
         s_mobaSdSphere[idx] = false;
     }
 }
@@ -15838,8 +15840,10 @@ void InsertBuffPhysicalEffect(eBuffState buff, OBJECT* o)
             DeleteEffect(BITMAP_SHOCK_WAVE, o);
             if (gMapManager.WorldActive == WD_200_MOBA_ARENA)
             {
-                // MOBA Aegis barrier: the Rune Wizard rune sphere instead of the Cursed Temple shield.
-                Render::Effects::MobaAegis::Spawn(o);
+                // MOBA Aegis barrier: only the white sphere (no blue shield crash / shock wave).
+                vec3_t Light;
+                Vector(1.0f, 1.0f, 1.0f, Light);
+                CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o->Position, o->Angle, Light, 0, o);
             }
             else
             {
@@ -16057,7 +16061,6 @@ void ClearBuffPhysicalEffect(eBuffState buff, OBJECT* o)
     {
     case eBuff_CursedTempleProdection:
     {
-        Render::Effects::MobaAegis::Remove(o);
         if (g_isCharacterBuff(o, eBuff_CursedTempleProdection))
         {
             DeleteEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, o);

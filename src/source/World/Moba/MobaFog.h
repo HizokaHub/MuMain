@@ -19,6 +19,7 @@ namespace World::Moba::Fog
     inline constexpr float UnitSightTiles = 9.f;
     inline constexpr float StructureSightTiles = 11.f;
     inline constexpr float WardSightTiles = 8.f;
+    inline constexpr float FountainSightTiles = 12.f;   // an owned fountain, same as the server (MobaVision.FountainRadius)
 
     // How often the team's sight is recomputed, in WorldTime ms (the fog eases toward it every frame).
     inline constexpr double SightIntervalMs = 200.0;
