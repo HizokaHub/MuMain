@@ -32,6 +32,8 @@ float ConvertY(float y);
 
 using namespace SEASON3B;
 
+extern int MouseWheel;
+
 SEASON3B::CNewUIMiniMap::CNewUIMiniMap()
 {
     m_pNewUIMng = NULL;
@@ -326,6 +328,12 @@ namespace
     constexpr int OPT_TOGGLE2_Y = 150;
     constexpr int OPT_BOTTOM_Y = 172;
 
+    // Zoom of the corner minimap (mouse wheel over it): 1x, 1.6x, 2.2x, following the hero; eased between levels.
+    constexpr float ZOOM_LEVELS[3] = { 1.f, 1.6f, 2.2f };
+    float g_zoomCurrent = 1.f;
+    double g_zoomLastTime = 0.0;
+    double g_zoomLabelUntil = 0.0;
+
     bool MouseIn(int x, int y, int w, int h)
     {
         return MouseX >= x && MouseX < x + w && MouseY >= y && MouseY < y + h;
@@ -603,17 +611,32 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     EnableAlphaTest();
     glColor4f(1.f, 1.f, 1.f, L.opacity);
 
+    // Zoom window: a part of the texture centred on the hero (clamped inside the map), eased between levels.
+    const float zoomTarget = ZOOM_LEVELS[GameConfig::GetInstance().GetMinimapZoom()];
+    {
+        const double dt = std::clamp((WorldTime - g_zoomLastTime) / 1000.0, 0.0, 0.1);
+        g_zoomLastTime = WorldTime;
+        g_zoomCurrent += (zoomTarget - g_zoomCurrent) * (float)std::min(1.0, dt * 10.0);
+        if (fabsf(zoomTarget - g_zoomCurrent) < 0.005f)
+            g_zoomCurrent = zoomTarget;
+    }
+    const float zoom = g_zoomCurrent;
+    const float zoomHalf = 0.5f / zoom;
+    const float zoomCu = std::clamp(Hero->Object.Position[1] / (256.f * TERRAIN_SCALE), zoomHalf, 1.f - zoomHalf);   // u = tile Y
+    const float zoomCv = std::clamp(Hero->Object.Position[0] / (256.f * TERRAIN_SCALE), zoomHalf, 1.f - zoomHalf);   // v = tile X
+    const float artU0 = zoomCu - zoomHalf, artV0 = zoomCv - zoomHalf, artSize = 1.f / zoom;
+
     // MOBA arena: our own map from the walk mask; elsewhere (Crywolf) the original art.
     const bool mobaArt = gMapManager.WorldActive == WD_200_MOBA_ARENA && UpdateBlockedTexture();
     if (mobaArt)
-        RenderBitmapRotate(-(int)g_blockedTex.id, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
+        RenderBitmapRotate(-(int)g_blockedTex.id, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, artU0, artV0, artSize, artSize);
     else
-        RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, 0.f, 0.f, 1.f, 1.f);
+        RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, artU0, artV0, artSize, artSize);
 
     // Fog of war of the match over the arena art, under every marker (no-op outside a match).
     if (mobaArt)
     {
-        const MobaFog::ArtPlacement fogArt{ CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, L.opacity };
+        const MobaFog::ArtPlacement fogArt{ CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, L.opacity, artU0, artV0, artSize, artSize };
         MobaFog::Render(fogArt, g_artClearCells, g_artClearVersion);
     }
 
@@ -624,7 +647,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     // Where the art is on screen: map-local positions (0..1, texture space) are
     // rotated by ROT around the map centre in screen px, matching how
     // RenderBitmapRotate rotated the texture.
-    const MobaMarkers::Frame frame{ CENTRE_X, CENTRE_Y, SIDE_PX, ca, sa, sx, sy, L.markers };
+    const MobaMarkers::Frame frame{ CENTRE_X, CENTRE_Y, SIDE_PX, ca, sa, sx, sy, L.markers, zoom, zoomCu, zoomCv };
     const MobaMarkers::Atlases atlases{ IMAGE_MINIMAP_MOBA_PORTRAITS, IMAGE_MINIMAP_MOBA_ICONS, m_bMobaPortraitsLoaded, m_bMobaIconsLoaded };
 
     // Plot a marker, then blit the icon (square on screen).
@@ -686,6 +709,21 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     // Back to the state the rest of the HUD expects (no blending, no alpha test, white).
     glColor4f(1.f, 1.f, 1.f, 1.f);
     DisableAlphaBlend();
+
+    // Zoom label (bottom-left of the map) while zoomed in and for a moment after a change.
+    if (zoomTarget > 1.01f || WorldTime < g_zoomLabelUntil)
+    {
+        wchar_t zoomText[16];
+        swprintf(zoomText, 16, L"x%.1f", zoomTarget);
+        DWORD backColor = g_pRenderText->GetTextColor();
+        DWORD backBg = g_pRenderText->GetBgColor();
+        g_pRenderText->SetFont(g_hFont);
+        g_pRenderText->SetBgColor(0, 0, 0, 160);
+        g_pRenderText->SetTextColor(255, 230, 150, 255);
+        g_pRenderText->RenderText((int)(CENTRE_X - SIZE / 2.f) + 3, (int)(CENTRE_Y + SIZE_Y / 2.f) - 13, zoomText, 0, 0, RT3_SORT_LEFT);
+        g_pRenderText->SetTextColor(backColor);
+        g_pRenderText->SetBgColor(backBg);
+    }
 
     // Options gear (opens the panel) and the panel itself.
     int gx, gy, gw, gh;
@@ -801,6 +839,20 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     GameConfig& cfg = GameConfig::GetInstance();
     const bool press = SEASON3B::IsPress(VK_LBUTTON);
     const bool held = press || SEASON3B::IsRepeat(VK_LBUTTON);
+
+    // Mouse wheel over the map: zoom in / out (1x, 1.6x, 2.2x). Consumed so the camera does not zoom too.
+    if (MouseWheel != 0)
+    {
+        const CornerLayout lw = ComputeCornerLayout();
+        if (MouseIn((int)(lw.cx - lw.size / 2.f), (int)(lw.cy - lw.sizeY / 2.f), (int)lw.size, (int)lw.sizeY))
+        {
+            cfg.SetMinimapZoom(cfg.GetMinimapZoom() + (MouseWheel > 0 ? 1 : -1));
+            cfg.Save();
+            g_zoomLabelUntil = WorldTime + 1500.0;
+            MouseWheel = 0;
+            return true;
+        }
+    }
 
     auto setSlider = [&](int row, int mouseX)
     {

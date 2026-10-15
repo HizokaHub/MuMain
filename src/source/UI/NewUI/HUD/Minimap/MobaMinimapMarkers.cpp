@@ -307,7 +307,8 @@ namespace
         for (const auto& d : doors)
         {
             float mx, my;
-            f.TileToRef((float)d.first, (float)d.second, mx, my);
+            if (!f.TileToRef((float)d.first, (float)d.second, mx, my))
+                continue;
             FlatSquare(f, mx, my, FLAT_JUNGLE_SIZE * f.markers);
         }
         EndRenderColor();
@@ -331,7 +332,8 @@ namespace
             if (!IsValidTotemColor(colour))
                 continue;
             float mx, my;
-            f.TileToRef((float)g_MobaTotems[k][0], (float)g_MobaTotems[k][1], mx, my);
+            if (!f.TileToRef((float)g_MobaTotems[k][0], (float)g_MobaTotems[k][1], mx, my))
+                continue;
             SetColor(COLOR_BLACK);
             FlatSquare(f, mx, my, w + FLAT_TOTEM_BORDER);
             SetColor(TOTEM_COLORS[colour]);
@@ -348,7 +350,8 @@ namespace
             if (!IsValidTotemColor(g_MobaTotems[k][2]))
                 continue;
             float mx, my;
-            f.TileToRef((float)g_MobaTotems[k][0], (float)g_MobaTotems[k][1], mx, my);
+            if (!f.TileToRef((float)g_MobaTotems[k][0], (float)g_MobaTotems[k][1], mx, my))
+                continue;
             if (fabsf((float)MouseX - mx) <= w / 2.f && fabsf((float)MouseY - my) <= h / 2.f)
                 return k;
         }
@@ -372,7 +375,8 @@ namespace
         for (int k = 0; k < MOBA_FOUNTAIN_COUNT; ++k)
         {
             float mx, my;
-            f.TileToRef((float)g_MobaFountains[k][0], (float)g_MobaFountains[k][1], mx, my);
+            if (!f.TileToRef((float)g_MobaFountains[k][0], (float)g_MobaFountains[k][1], mx, my))
+                continue;
             const BYTE owner = g_MobaFountainInfo[k].owner;
             SetColor(COLOR_WHITE);
             FlatSquare(f, mx, my, w + FLAT_FOUNTAIN_BORDER);
@@ -385,6 +389,8 @@ namespace
     // Faint circle the size of the heal area, in the owner's colour, breathing slowly.
     void DrawHealZone(const Frame& f, const AtlasGrid& icons, float mx, float my, BYTE owner)
     {
+        if (f.zoom > 1.01f)
+            return;   // a zoomed circle would overflow the minimap square (no clipping available)
         const float radius = f.TilesToRef(FOUNTAIN_HEAL_RADIUS_TILES);
         const float breath = 2.f * Wave(HEAL_ZONE_BREATH_HZ) - 1.f;
         SetColor(TeamColor(owner), HEAL_ZONE_ALPHA + HEAL_ZONE_BREATH * breath);
@@ -472,7 +478,8 @@ namespace
     void DrawFeedChampion(const Frame& f, const Atlases& a, const MobaMinimapEntry& e)
     {
         float mx, my;
-        f.TileToRef((float)e.x, (float)e.y, mx, my);
+        if (!f.TileToRef((float)e.x, (float)e.y, mx, my))
+            return;
         const float w = CHAMPION_SIZE * f.markers;
         const bool dead = e.hp == 0;
         const bool lowHpFlash = !dead && IsAlly(e) && e.hp <= LOW_HP_PERCENT && Blink(LOW_HP_BLINK_HZ);
@@ -511,7 +518,8 @@ namespace
         default: return;
         }
         float mx, my;
-        f.TileToRef((float)e.x, (float)e.y, mx, my);
+        if (!f.TileToRef((float)e.x, (float)e.y, mx, my))
+            return;
         SetColor(color);
         DrawCell(f, icons, cell, mx, my, size * f.markers);
     }
@@ -525,7 +533,8 @@ namespace
             if ((e.kind == KIND_CHAMPION) != champions)
                 continue;
             float mx, my;
-            f.TileToRef((float)e.x, (float)e.y, mx, my);
+            if (!f.TileToRef((float)e.x, (float)e.y, mx, my))
+                continue;
             SetEntryColor(e);
             FlatSquare(f, mx, my, EntrySize(e, FLAT_CHAMPION_SIZE, FLAT_STRUCTURE_SIZE, FLAT_NEXUS_SIZE, FLAT_WARD_SIZE) * f.markers);
         }
@@ -582,20 +591,23 @@ namespace
 
 void Frame::ToRef(float pu, float pv, float& mx, float& my) const
 {
-    const float lx = (pu - 0.5f) * sidePx;
-    const float ly = (0.5f - pv) * sidePx;
+    const float lx = (pu - centreU) * zoom * sidePx;
+    const float ly = (centreV - pv) * zoom * sidePx;
     mx = centreX + (lx * cosRot - ly * sinRot) / sx;
     my = centreY - (lx * sinRot + ly * cosRot) / sy;
 }
 
-void Frame::TileToRef(float tileX, float tileY, float& mx, float& my) const
+bool Frame::TileToRef(float tileX, float tileY, float& mx, float& my) const
 {
-    ToRef(tileY / MAP_TILES, tileX / MAP_TILES, mx, my);
+    const float pu = tileY / MAP_TILES, pv = tileX / MAP_TILES;
+    ToRef(pu, pv, mx, my);
+    const float half = 0.5f * sidePx;
+    return fabsf((pu - centreU) * zoom * sidePx) <= half && fabsf((centreV - pv) * zoom * sidePx) <= half;
 }
 
 float Frame::TilesToRef(float tiles) const
 {
-    return tiles / MAP_TILES * sidePx / sx;
+    return tiles / MAP_TILES * sidePx * zoom / sx;
 }
 
 void RenderJungleEntrances(const Frame& frame, const Atlases& atlases, const std::vector<std::pair<int, int>>& doors)
@@ -612,7 +624,8 @@ void RenderJungleEntrances(const Frame& frame, const Atlases& atlases, const std
     for (const auto& d : doors)
     {
         float mx, my;
-        frame.TileToRef((float)d.first, (float)d.second, mx, my);
+        if (!frame.TileToRef((float)d.first, (float)d.second, mx, my))
+            continue;
         SetColor(COLOR_WHITE, JUNGLE_ALPHA_DISTANT + (JUNGLE_ALPHA_CLOSE - JUNGLE_ALPHA_DISTANT) * HeroCloseness(d.first, d.second));
         DrawCell(frame, icons, ICON_JUNGLE_ARCH, mx, my, w);
     }
@@ -638,7 +651,8 @@ int RenderTotems(const Frame& frame, const Atlases& atlases)
         if (!IsValidTotemColor(colour))
             continue;
         float mx, my;
-        frame.TileToRef((float)g_MobaTotems[k][0], (float)g_MobaTotems[k][1], mx, my);
+        if (!frame.TileToRef((float)g_MobaTotems[k][0], (float)g_MobaTotems[k][1], mx, my))
+            continue;
         const float flicker = TotemFlicker(k);
         SetColor(Whiten(TOTEM_COLORS[colour], TOTEM_GLOW_WHITEN), TOTEM_GLOW_ALPHA * flicker);
         DrawCell(frame, icons, ICON_GLOW, mx, my, w * TOTEM_GLOW_SCALE * (1.f - TOTEM_FLICKER_SIZE * (1.f - flicker)));
@@ -654,7 +668,8 @@ void RenderTotemTooltip(const Frame& frame, int totem)
         return;
 
     float mx, my;
-    frame.TileToRef((float)g_MobaTotems[totem][0], (float)g_MobaTotems[totem][1], mx, my);
+    if (!frame.TileToRef((float)g_MobaTotems[totem][0], (float)g_MobaTotems[totem][1], mx, my))
+        return;
     const float half = TOTEM_SIZE * frame.markers / 2.f;
     const int y = (int)(my - TOOLTIP_HALF_HEIGHT);
     const wchar_t* name = TOTEM_NAMES[g_MobaTotems[totem][2]];
@@ -688,7 +703,8 @@ void RenderFountains(const Frame& frame, const Atlases& atlases)
     {
         const MobaFountainInfo& info = g_MobaFountainInfo[k];
         float mx, my;
-        frame.TileToRef((float)g_MobaFountains[k][0], (float)g_MobaFountains[k][1], mx, my);
+        if (!frame.TileToRef((float)g_MobaFountains[k][0], (float)g_MobaFountains[k][1], mx, my))
+            continue;
         if (IsTeam(info.owner))
             DrawHealZone(frame, icons, mx, my, info.owner);
         SetColor(COLOR_WHITE);

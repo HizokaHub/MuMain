@@ -94,6 +94,8 @@ public:
     void SetMinimapDoors(bool v) { m_minimapDoors = v; }
     bool GetMinimapTotems() const { return m_minimapTotems; }   // jungle totems on the minimap
     void SetMinimapTotems(bool v) { m_minimapTotems = v; }
+    int GetMinimapZoom() const { return m_minimapZoom; }         // zoom level 0..2 (mouse wheel over the minimap)
+    void SetMinimapZoom(int v) { m_minimapZoom = v < 0 ? 0 : (v > 2 ? 2 : v); }
     void ResetMinimap();
 
     // Helpers
@@ -140,6 +142,7 @@ private:
     int m_minimapCorner;
     bool m_minimapDoors;
     bool m_minimapTotems;
+    int m_minimapZoom;
 
     int ReadInt(const wchar_t* section, const wchar_t* key, int defaultValue);
     void WriteInt(const wchar_t* section, const wchar_t* key, int value);

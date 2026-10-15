@@ -109,7 +109,7 @@ void Render(const ArtPlacement& art, const unsigned char* clearCells, unsigned i
     // Plain alpha blending without the alpha test, which would drop the light fog (alpha under its ref).
     EnableAlphaBlend3();
     glColor4f(1.f, 1.f, 1.f, art.opacity);
-    RenderBitmapRotate(-(int)s_texture.id, art.centreX, art.centreY, art.width, art.height, art.rotation, 0.f, 0.f, 1.f, 1.f);
+    RenderBitmapRotate(-(int)s_texture.id, art.centreX, art.centreY, art.width, art.height, art.rotation, art.u0, art.v0, art.uw, art.vh);
 }
 
 }

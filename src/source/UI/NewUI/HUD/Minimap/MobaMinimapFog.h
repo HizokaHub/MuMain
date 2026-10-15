@@ -12,6 +12,8 @@ namespace UI::Minimap::MobaFog
         float width, height;
         float rotation;
         float opacity;
+        // Window of the texture the art showed (zoom): u0, v0 and size, 0..1.
+        float u0 = 0.f, v0 = 0.f, uw = 1.f, vh = 1.f;
     };
 
     // clearCells: 256 * 256 flags in TERRAIN_INDEX order (y * 256 + x), set where the art is transparent (the

@@ -21,11 +21,15 @@ namespace UI::Minimap::MobaMarkers
         float cosRot, sinRot;     // rotation the art was drawn with
         float sx, sy;             // reference -> screen px
         float markers;            // marker size factor from the options panel
+        float zoom = 1.f;         // 1 = the whole map; above 1 only a window of 1/zoom of it, around (centreU, centreV)
+        float centreU = 0.5f;     // window centre in texture space (u = tile Y / 256)
+        float centreV = 0.5f;     // (v = tile X / 256)
 
         // Map-local position (0..1, texture space) to reference px, rotated like the art.
         void ToRef(float pu, float pv, float& mx, float& my) const;
-        // Map tile to reference px (the art's (u, v) are (tile Y, tile X)).
-        void TileToRef(float tileX, float tileY, float& mx, float& my) const;
+        // Map tile to reference px (the art's (u, v) are (tile Y, tile X)). Returns false when the tile is
+        // outside the zoom window (the marker must then not be drawn).
+        bool TileToRef(float tileX, float tileY, float& mx, float& my) const;
         // A distance in map tiles, as reference px along X.
         float TilesToRef(float tiles) const;
     };
