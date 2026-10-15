@@ -4110,6 +4110,16 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         so->AnimationFrame = 0;
     }
 
+    // MOBA: the shield of Defense (skill 18) is shown as a short amber bubble around its caster (3 s, like the shield).
+    if (g_MobaLevel > 0 && MagicNumber == AT_SKILL_BLOCKING && so->Type == MODEL_PLAYER)
+    {
+        DeleteEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, so, 8);
+        vec3_t bubbleAngle, bubbleLight;
+        Vector(0.f, 0.f, 0.f, bubbleAngle);
+        Vector(1.f, 0.72f, 0.25f, bubbleLight);
+        CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, so->Position, bubbleAngle, bubbleLight, 8, so);
+    }
+
     switch (MagicNumber)
     {
     case AT_SKILL_MONSTER_SUMMON:

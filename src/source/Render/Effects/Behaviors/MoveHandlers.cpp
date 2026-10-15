@@ -4733,6 +4733,32 @@ namespace Render::Effects::Behaviors
             return true;
         }
 
+        if (o->SubType == 8)
+        {
+            // MOBA Defense (skill 18): an amber bubble for the 3 s of its shield: it swells in, holds and fades out.
+            constexpr float TotalTicks = 75.f, FadeInTicks = 6.f, FadeOutTicks = 18.f, MaxAlpha = 0.55f;
+            o->Timer += FPS_ANIMATION_FACTOR;
+            if (o->Timer >= TotalTicks)
+            {
+                o->Live = false;
+                return true;
+            }
+            o->LifeTime = 999999;
+            const float in = std::min(1.f, o->Timer / FadeInTicks);
+            const float out = std::min(1.f, (TotalTicks - o->Timer) / FadeOutTicks);
+            const float k = std::min(in, out);
+            o->Alpha = MaxAlpha * k;
+            o->Scale = 1.45f + 0.15f * in;
+            VectorCopy(o->Owner->Position, o->Position);
+            o->Position[2] += 90.f;
+            o->Angle[2] = fmodf(o->Angle[2] + 2.5f * FPS_ANIMATION_FACTOR, 360.f);
+            Vector(1.f * k, 0.72f * k, 0.25f * k, o->Light);
+            BMD* bubble = &Models[o->Type];
+            bubble->SetBodyLight(o->Light);
+            bubble->PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, 0.2f, o->Position, o->Angle);
+            return true;
+        }
+
         if (o->SubType == 7)
         {
             // MOBA: white sphere while the owner's SD is at 0 (created / removed by ReceiveMobaTeamStatus).

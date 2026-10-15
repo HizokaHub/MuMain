@@ -664,7 +664,14 @@ void Draw_RenderObject(OBJECT* o, bool Translate, int Select, int ExtraMon)
             }
             else if (o->Type == MODEL_CURSEDTEMPLE_PRODECTION_SKILL)
             {
-                Vector(0.3f, 0.3f, 1.0f, b->BodyLight);
+                if (o->SubType == 8)
+                {
+                    VectorCopy(o->Light, b->BodyLight);   // MOBA Defense bubble: tinted by its own light
+                }
+                else
+                {
+                    Vector(0.3f, 0.3f, 1.0f, b->BodyLight);
+                }
                 VectorCopy(o->Angle, b->BodyAngle);
                 b->RenderMesh(0, RENDER_TEXTURE, o->Alpha, 0, o->BlendMeshLight, o->BlendMeshTexCoordU, -WorldTime * 0.0004f);
             }
