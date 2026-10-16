@@ -296,14 +296,38 @@ namespace
         float markers;      // 0.5 .. 2
     };
 
-    // Collapse of the corner minimap: 0 = full size, 1 = shrunk to its button in the screen corner. Eased every frame
-    // (RenderCornerMinimap) toward the configured state, so the map glides in and out of the corner.
-    constexpr float COLLAPSE_BUTTON = 13.f;      // ref px, the toggle button (the whole map when collapsed)
-    constexpr float COLLAPSE_SECONDS = 0.4f;
-    float g_collapse = 0.f;
-    double g_collapseLastTime = 0.0;
+    // Size of the corner minimap, in ref px wide. The config keeps it as the scale option (0 = hidden, 1..130 ->
+    // 32..264 ref px, 50 = 120 ref px = 256 px at 1365 wide); the corner handle drags it continuously, so the live
+    // value is a float that follows the mouse and is synced back to the option (rounded) when the drag ends.
+    constexpr float HANDLE = 13.f;               // ref px, the drag handle at the map's far corner
+    constexpr float MAP_MAX_SIZE = 30.f + 1.8f * 130.f;
+    constexpr float HIDDEN_BELOW = 16.f;         // below this only the handle is drawn
+    constexpr float SMALL_BELOW = 40.f;          // below this the gear and the zoom are off
+    float g_sizeRef = 0.f;
+    int g_sizeCfgScale = -1;
+    bool g_dragging = false;
+    bool g_dragMoved = false;
+    int g_dragStartX = 0, g_dragStartY = 0;
+    int g_restoreScale = 50;                     // size to come back to when a click on the handle reopens a hidden map
 
-    float CollapseEase() { return g_collapse * g_collapse * (3.f - 2.f * g_collapse); }
+    float SizeFromScale(int scale) { return scale >= 1 ? 30.f + 1.8f * (float)scale : 0.f; }
+
+    int ScaleFromSize(float size)
+    {
+        if (size < HIDDEN_BELOW) return 0;
+        return std::clamp((int)lroundf((size - 30.f) / 1.8f), 1, 130);
+    }
+
+    float CurrentSize()
+    {
+        const int scale = GameConfig::GetInstance().GetMinimapScale();
+        if (scale != g_sizeCfgScale)
+        {
+            g_sizeCfgScale = scale;
+            g_sizeRef = SizeFromScale(scale);
+        }
+        return g_sizeRef;
+    }
 
     CornerLayout ComputeCornerLayout()
     {
@@ -311,14 +335,11 @@ namespace
         CornerLayout l;
         l.sx = ConvertX(1.f);
         l.sy = ConvertY(1.f);
-        // Scale 1..130 -> 32..264 ref px wide (50 = 120 ref px = 256 px at 1365 wide), shrunk toward the corner by the collapse.
-        const float full = 30.f + 1.8f * (float)cfg.GetMinimapScale();
-        const float open = 1.f - CollapseEase();
-        l.size = COLLAPSE_BUTTON + (full - COLLAPSE_BUTTON) * open;
+        l.size = CurrentSize();
         l.sizeY = l.size * l.sx / l.sy;
         l.sidePx = l.size * l.sx;
         l.opacity = cfg.GetMinimapOpacity() / 100.f;
-        l.markers = cfg.GetMinimapMarkers() / 100.f * open;
+        l.markers = cfg.GetMinimapMarkers() / 100.f * std::clamp(l.size / 60.f, 0.f, 1.f);
 
         const float MARGIN = 0.f;     // flush with the screen edge
         const float HUD_BAR = 50.f;   // HUD bar height (its top edge is at y = 430 ref px)
@@ -361,16 +382,18 @@ namespace
         y = (corner == 2) ? (int)(l.cy - l.sizeY / 2.f) : (int)(l.cy + l.sizeY / 2.f) - h;
     }
 
-    // Toggle button: the map's corner opposite the screen corner it hangs from (the whole shrunk map when collapsed).
+    // Drag handle: the map's corner opposite the screen corner it hangs from (at the screen corner itself when hidden).
     void ToggleRect(const CornerLayout& l, int& x, int& y, int& w, int& h)
     {
-        w = (int)COLLAPSE_BUTTON;
-        h = (int)(COLLAPSE_BUTTON * l.sx / l.sy + 0.5f);
+        w = (int)HANDLE;
+        h = (int)(HANDLE * l.sx / l.sy + 0.5f);
         const int corner = GameConfig::GetInstance().GetMinimapCorner();
         const bool right = corner != 1;
         const bool bottom = corner != 2;
-        x = right ? (int)(l.cx - l.size / 2.f) : (int)(l.cx + l.size / 2.f) - w;
-        y = bottom ? (int)(l.cy - l.sizeY / 2.f) : (int)(l.cy + l.sizeY / 2.f) - h;
+        const float width = std::max(l.size, HANDLE);
+        const float height = std::max(l.sizeY, (float)h);
+        x = right ? (int)(l.cx + l.size / 2.f - width) : (int)(l.cx - l.size / 2.f);
+        y = bottom ? (int)(l.cy + l.sizeY / 2.f - height) : (int)(l.cy - l.sizeY / 2.f);
     }
 
     // A triangle pointing at the screen corner while the map is open (click to shrink) and away from it while collapsed.
@@ -385,7 +408,7 @@ namespace
         const int corner = GameConfig::GetInstance().GetMinimapCorner();
         const float towardX = (corner != 1) ? 1.f : -1.f;
         const float towardY = (corner != 2) ? 1.f : -1.f;
-        const bool collapsed = GameConfig::GetInstance().GetMinimapCollapsed();
+        const bool collapsed = l.size < HIDDEN_BELOW;
         const float dirX = collapsed ? -towardX : towardX;
         const float dirY = collapsed ? -towardY : towardY;
         const int rows = 7;
@@ -646,22 +669,14 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     // square. Draw the map as a true square on screen (size ref px wide,
     // size * sx/sy tall) and place markers in screen px, converting back to
     // reference px.
-    // Glide toward the configured state (open / collapsed).
-    {
-        const double dt = std::clamp((WorldTime - g_collapseLastTime) / 1000.0, 0.0, 0.1);
-        g_collapseLastTime = WorldTime;
-        const float target = GameConfig::GetInstance().GetMinimapCollapsed() ? 1.f : 0.f;
-        const float step = (float)(dt / COLLAPSE_SECONDS);
-        g_collapse = (target > g_collapse) ? std::min(target, g_collapse + step) : std::max(target, g_collapse - step);
-    }
-    const bool shrunk = g_collapse > 0.01f;
+    const CornerLayout L = ComputeCornerLayout();
+    const bool hidden = L.size < HIDDEN_BELOW;
+    const bool shrunk = L.size < SMALL_BELOW;
     if (shrunk)
         m_bOptionsOpen = false;
-
-    const CornerLayout L = ComputeCornerLayout();
-    if (g_collapse >= 0.98f)
+    if (hidden)
     {
-        // Only the button is left in the corner.
+        // Only the handle is left in the corner.
         RenderToggleButton(L);
         glColor4f(1.f, 1.f, 1.f, 1.f);
         return;
@@ -817,6 +832,23 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     }
     RenderToggleButton(L);
 
+    if (g_dragging)
+    {
+        // Size while dragging, on a 1 (largest, handle at the far corner) .. 100 (hidden) scale.
+        wchar_t sizeText[24];
+        swprintf(sizeText, 24, L"%d", 1 + (int)lroundf((1.f - std::clamp(L.size / MAP_MAX_SIZE, 0.f, 1.f)) * 99.f));
+        int hx, hy, hw, hh;
+        ToggleRect(L, hx, hy, hw, hh);
+        DWORD backColor = g_pRenderText->GetTextColor();
+        DWORD backBg = g_pRenderText->GetBgColor();
+        g_pRenderText->SetFont(g_hFont);
+        g_pRenderText->SetBgColor(0, 0, 0, 160);
+        g_pRenderText->SetTextColor(255, 230, 150, 255);
+        g_pRenderText->RenderText(hx + hw + 3, hy, sizeText, 0, 0, RT3_SORT_LEFT);
+        g_pRenderText->SetTextColor(backColor);
+        g_pRenderText->SetBgColor(backBg);
+    }
+
     if (m_bOptionsOpen)
         RenderCornerOptions();
 }
@@ -922,10 +954,10 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     const bool held = press || SEASON3B::IsRepeat(VK_LBUTTON);
 
     // Mouse wheel over the map: zoom in / out (1x, 1.6x, 2.2x). Consumed so the camera does not zoom too.
-    if (MouseWheel != 0 && g_collapse < 0.01f)
+    if (MouseWheel != 0 && !g_dragging)
     {
         const CornerLayout lw = ComputeCornerLayout();
-        if (MouseIn((int)(lw.cx - lw.size / 2.f), (int)(lw.cy - lw.sizeY / 2.f), (int)lw.size, (int)lw.sizeY))
+        if (lw.size >= SMALL_BELOW && MouseIn((int)(lw.cx - lw.size / 2.f), (int)(lw.cy - lw.sizeY / 2.f), (int)lw.size, (int)lw.sizeY))
         {
             cfg.SetMinimapZoom(cfg.GetMinimapZoom() + (MouseWheel > 0 ? 1 : -1));
             cfg.Save();
@@ -933,6 +965,44 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
             MouseWheel = 0;
             return true;
         }
+    }
+
+    // Dragging the corner handle: the map's far corner follows the mouse, continuously (1 = largest, 100 = hidden).
+    if (g_dragging)
+    {
+        if (held)
+        {
+            const CornerLayout ld = ComputeCornerLayout();
+            const int corner = cfg.GetMinimapCorner();
+            constexpr float HUD_BAR_REF = 50.f, TOP_MARGIN_REF = 8.f;
+            const float fromX = (corner != 1) ? (float)(REFERENCE_WIDTH - MouseX) : (float)MouseX;
+            const float fromY = (corner != 2) ? (float)(REFERENCE_HEIGHT - HUD_BAR_REF - MouseY) : (float)MouseY - TOP_MARGIN_REF;
+            const float sizeFromY = fromY * ld.sy / ld.sx;
+            g_sizeRef = std::clamp(0.5f * (fromX + sizeFromY), 0.f, MAP_MAX_SIZE);
+            if (abs(MouseX - g_dragStartX) + abs(MouseY - g_dragStartY) > 3)
+                g_dragMoved = true;
+            return true;
+        }
+
+        g_dragging = false;
+        if (!g_dragMoved)
+        {
+            // A click without dragging hides the map or brings it back to its last size.
+            if (cfg.GetMinimapScale() > 0)
+            {
+                g_restoreScale = cfg.GetMinimapScale();
+                g_sizeRef = 0.f;
+            }
+            else
+            {
+                g_sizeRef = SizeFromScale(g_restoreScale);
+            }
+        }
+        const int scale = ScaleFromSize(g_sizeRef);
+        cfg.SetMinimapScale(scale);
+        g_sizeCfgScale = scale;      // the float size stays as dragged; only a change from the options panel resyncs it
+        cfg.Save();
+        return true;
     }
 
     auto setSlider = [&](int row, int mouseX)
@@ -968,22 +1038,22 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     const CornerLayout L = ComputeCornerLayout();
     int tx, ty, tw, th;
     ToggleRect(L, tx, ty, tw, th);
-    if (MouseIn(tx, ty, tw, th))
+    if (MouseIn(tx, ty, tw, th) && press)
     {
-        if (press)
-        {
-            cfg.SetMinimapCollapsed(!cfg.GetMinimapCollapsed());
-            cfg.Save();
-            m_bOptionsOpen = false;
-            m_bSwallowHold = true;
-            PlayBuffer(SOUND_CLICK01);
-        }
+        g_dragging = true;
+        g_dragMoved = false;
+        g_dragStartX = MouseX;
+        g_dragStartY = MouseY;
+        m_bOptionsOpen = false;
+        PlayBuffer(SOUND_CLICK01);
         return true;
     }
+    if (MouseIn(tx, ty, tw, th))
+        return true;
 
     int gx, gy, gw, gh;
     GearRect(L, gx, gy, gw, gh);
-    if (g_collapse < 0.01f && MouseIn(gx, gy, gw, gh))
+    if (L.size >= SMALL_BELOW && MouseIn(gx, gy, gw, gh))
     {
         if (press)
         {

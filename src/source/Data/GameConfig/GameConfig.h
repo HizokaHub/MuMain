@@ -82,7 +82,7 @@ public:
     void SetZoom(int zoom);
 
     // Corner minimap (MOBA). Values are clamped on read and on write.
-    int GetMinimapScale() const   { return m_minimapScale; }    // 1..130
+    int GetMinimapScale() const   { return m_minimapScale; }    // 0 (hidden) .. 130
     int GetMinimapOpacity() const { return m_minimapOpacity; }  // 20..100
     int GetMinimapMarkers() const { return m_minimapMarkers; }  // 50..200
     int GetMinimapCorner() const  { return m_minimapCorner; }   // 0..2
@@ -96,8 +96,6 @@ public:
     void SetMinimapTotems(bool v) { m_minimapTotems = v; }
     int GetMinimapZoom() const { return m_minimapZoom; }         // zoom level 0..2 (mouse wheel over the minimap)
     void SetMinimapZoom(int v) { m_minimapZoom = v < 0 ? 0 : (v > 2 ? 2 : v); }
-    bool GetMinimapCollapsed() const { return m_minimapCollapsed; }  // shrunk to its button in the screen corner
-    void SetMinimapCollapsed(bool v) { m_minimapCollapsed = v; }
     void ResetMinimap();
 
     // Helpers
@@ -145,7 +143,6 @@ private:
     bool m_minimapDoors;
     bool m_minimapTotems;
     int m_minimapZoom;
-    bool m_minimapCollapsed = false;
 
     int ReadInt(const wchar_t* section, const wchar_t* key, int defaultValue);
     void WriteInt(const wchar_t* section, const wchar_t* key, int value);

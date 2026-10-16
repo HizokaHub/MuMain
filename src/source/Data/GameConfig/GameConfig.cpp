@@ -86,7 +86,6 @@ void GameConfig::Load()
     m_minimapDoors = ReadBool(CfgSectionMinimap, CfgKeyMinimapDoors, CfgDefaultMinimapDoors);
     m_minimapTotems = ReadBool(CfgSectionMinimap, CfgKeyMinimapTotems, CfgDefaultMinimapTotems);
     SetMinimapZoom(ReadInt(CfgSectionMinimap, CfgKeyMinimapZoom, CfgDefaultMinimapZoom));
-    m_minimapCollapsed = ReadBool(CfgSectionMinimap, CfgKeyMinimapCollapsed, false);
 
     // Strip keys/sections we used to write but no longer use, so user config
     // files don't accumulate orphans. Append one line per retired key — no
@@ -138,7 +137,6 @@ void GameConfig::Save()
     WriteBool(CfgSectionMinimap, CfgKeyMinimapDoors, m_minimapDoors);
     WriteBool(CfgSectionMinimap, CfgKeyMinimapTotems, m_minimapTotems);
     WriteInt(CfgSectionMinimap, CfgKeyMinimapZoom, m_minimapZoom);
-    WriteBool(CfgSectionMinimap, CfgKeyMinimapCollapsed, m_minimapCollapsed);
 }
 
 std::vector<std::wstring> GameConfig::ReadStringList(const wchar_t* section, const wchar_t* keyPrefix)
@@ -189,7 +187,7 @@ void GameConfig::SetWindowMode(bool windowed)
     m_windowMode = windowed;
 }
 
-void GameConfig::SetMinimapScale(int v)   { m_minimapScale = std::clamp(v, 1, 130); }
+void GameConfig::SetMinimapScale(int v)   { m_minimapScale = std::clamp(v, 0, 130); }
 void GameConfig::SetMinimapOpacity(int v) { m_minimapOpacity = std::clamp(v, 20, 100); }
 void GameConfig::SetMinimapMarkers(int v) { m_minimapMarkers = std::clamp(v, 50, 200); }
 void GameConfig::SetMinimapCorner(int v)  { m_minimapCorner = std::clamp(v, 0, 2); }
@@ -203,7 +201,6 @@ void GameConfig::ResetMinimap()
     SetMinimapCorner(CfgDefaultMinimapCorner);
     m_minimapDoors = CfgDefaultMinimapDoors;
     m_minimapTotems = CfgDefaultMinimapTotems;
-    m_minimapCollapsed = false;
 }
 
 void GameConfig::SetSoundVolume(int level)
