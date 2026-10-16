@@ -19,7 +19,7 @@ namespace
 
     // LoL-style look: tiles in full fog get a dark navy shade, tiles in sight a faint light wash so the
     // lit circles stand out. Alphas are before the map opacity option.
-    constexpr float FULL_FOG_ALPHA = 0.43f;
+    constexpr float FULL_FOG_ALPHA = 0.23f;
     constexpr float SEEN_LIGHT_ALPHA = 0.07f;
     constexpr float FOG_R = 10.f, FOG_G = 16.f, FOG_B = 34.f;          // navy shade
     constexpr float SEEN_R = 255.f, SEEN_G = 245.f, SEEN_B = 220.f;   // warm light
