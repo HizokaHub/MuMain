@@ -68,6 +68,9 @@ public:
     // Current focus - hero offset on the ground plane, for debug / UI overlays.
     void GetFocusOffset(vec3_t out) const;
 
+    // Glides the view to a world point (minimap click). Edge panning or the recenter key take over again.
+    void FocusOn(float worldX, float worldY);
+
 private:
     // Recenter binding. 'Y' keeps clear of the hotkey bar (Space) and movement
     // keys. Tap = snap focus onto the Hero; hold = keep it pinned (follow).
@@ -112,6 +115,8 @@ private:
     CameraConfig m_Config;    // widened far/cull ranges for zoomed-out views
 
     vec3_t m_FocusWorld;       // world point the camera looks at (Z ignored)
+    vec3_t m_GoalWorld;        // where a minimap click asked the view to glide to
+    bool   m_HasGoal = false;
     bool   m_FocusInitialized; // false until the first frame anchors it to Hero
     float  m_ZoomScale;        // wheel zoom multiplier, ZOOM_MIN..ZOOM_MAX
     double m_LastWorldTime;    // for frame-time-independent panning

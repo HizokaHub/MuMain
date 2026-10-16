@@ -263,6 +263,13 @@ static void UpdateMobaFountainKey()
             if (dx * dx + dy * dy <= 6.5f * 6.5f)   // the server needs 5.5 tiles
                 inReach = true;
         }
+        for (int k = 0; k < MOBA_TOTEM_COUNT; ++k)
+        {
+            const float dx = (float)Hero->PositionX - (float)g_MobaTotems[k][0];
+            const float dy = (float)Hero->PositionY - (float)g_MobaTotems[k][1];
+            if (dx * dx + dy * dy <= 6.5f * 6.5f)
+                inReach = true;
+        }
     }
 
     // The window is an SDL one, so g_hWnd is not reliable: ask whether the foreground window belongs to this process.
@@ -323,6 +330,35 @@ static void RenderMobaFountainHint()
         g_pRenderText->SetTextColor(220, 220, 220, 255);
         mu_swprintf(line, L"Azul %d%%   Rojo %d%%", (int)f.bluePct, (int)f.redPct);
         g_pRenderText->RenderText((int)(REFERENCE_WIDTH * 0.5f), 314, line, 0, 0, RT3_SORT_CENTER);
+        break;
+    }
+
+    // The jungle totems: same capture, 5 s, and they give vision only.
+    for (int k = 0; k < MOBA_TOTEM_COUNT; ++k)
+    {
+        const float dx = (float)Hero->PositionX - (float)g_MobaTotems[k][0];
+        const float dy = (float)Hero->PositionY - (float)g_MobaTotems[k][1];
+        if (dx * dx + dy * dy > 8.f * 8.f)
+            continue;
+
+        static const wchar_t* const colourNames[4] = { L"azul", L"verde", L"rojo", L"amarillo" };
+        const MobaFountainInfo& f = g_MobaFountainInfo[MOBA_FOUNTAIN_COUNT + k];
+        wchar_t title[64];
+        mu_swprintf(title, L"T\u00f3tem %ls (%ls)", colourNames[k], f.owner == 1 ? L"equipo azul" : f.owner == 2 ? L"equipo rojo" : L"neutral");
+        g_pRenderText->SetFont(g_hFontBold);
+        g_pRenderText->SetBgColor(0, 0, 0, 0);
+        g_pRenderText->SetTextColor(f.owner == 1 ? 140 : f.owner == 2 ? 255 : 220, f.owner == 1 ? 190 : f.owner == 2 ? 130 : 220, f.owner == 1 ? 255 : f.owner == 2 ? 120 : 220, 255);
+        g_pRenderText->RenderText((int)(REFERENCE_WIDTH * 0.5f), 286, title, 0, 0, RT3_SORT_CENTER);
+
+        wchar_t line[96];
+        g_pRenderText->SetTextColor(255, 230, 120, 255);
+        if (f.owner == g_MyMobaTeam && f.owner != 0)
+            mu_swprintf(line, L"Tu equipo ve alrededor del t\u00f3tem");
+        else if (f.contested)
+            mu_swprintf(line, L"En disputa: nadie avanza");
+        else
+            mu_swprintf(line, L"Mant\u00e9n F para capturarlo (5 s): da visi\u00f3n");
+        g_pRenderText->RenderText((int)(REFERENCE_WIDTH * 0.5f), 300, line, 0, 0, RT3_SORT_CENTER);
         break;
     }
 }

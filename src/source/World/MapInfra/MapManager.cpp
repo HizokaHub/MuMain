@@ -1247,6 +1247,21 @@ namespace
     // Everything else (walls, roofs, poles, gates, bridges, shadows...) is hidden in the arena.
     bool MobaIsGrass(int t) { return t >= 15 && t <= 18; }
     bool MobaIsTree(int t) { return t == 24 || t == 25 || t == 26 || t == 27 || t == 28 || t == 35; }
+    // The native trees are huge from the MOBA camera (up to 5.7x for the dead branches): they hide the fight below them.
+    // Their scale is capped so the ground under them stays readable.
+    float MobaTreeScaleCap(int t)
+    {
+        switch (t)
+        {
+        case 24: return 0.6f;
+        case 25: return 0.3f;
+        case 27: return 0.6f;
+        case 28: return 0.35f;
+        case 35: return 1.0f;
+        default: return 1e9f;
+        }
+    }
+
     bool MobaIsStone(int t)
     {
         switch (t)
@@ -1576,6 +1591,8 @@ namespace
                     const bool wallCell = (TerrainWall[cy * N + cx] & TW_NOMOVE) && !s_decor[cy * N + cx];
                     if (!wallCell) { o->Live = false; continue; }
                 }
+                if (MobaIsTree(o->Type))
+                    o->Scale = std::min(o->Scale, MobaTreeScaleCap(o->Type));
                 o->Position[2] += BackTerrainHeight[cy * N + cx] - s_old[cy * N + cx];
             }
         }
@@ -1616,7 +1633,8 @@ namespace
                 static const int TREE_TYPES[5] = { 24, 35, 27, 25, 28 };
                 static const int ROCK_TYPES[4] = { 33, 21, 19, 22 };
                 const int type = rock ? ROCK_TYPES[(x * 3 + y) & 3] : TREE_TYPES[(x + y * 2) % 5];
-                if (CreateObject(type, pos, ang, scale) != NULL)
+                const float cappedScale = rock ? scale : std::min(scale, MobaTreeScaleCap(type));
+                if (CreateObject(type, pos, ang, cappedScale) != NULL)
                 {
                     if (rock) ++rocks; else ++trees;
                 }

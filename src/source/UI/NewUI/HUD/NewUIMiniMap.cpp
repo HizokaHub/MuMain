@@ -19,6 +19,9 @@
 #include "World/MapInfra/MapManager.h"
 #include "Render/Terrain/ZzzLodTerrain.h" // TerrainWall (MOBA wall overlay)
 #include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
+#include "Engine/Object/ZzzInterface.h" // MobaMinimapWalkTo / MobaMinimapAttack
+#include "Camera/CameraManager.h"       // glide the MOBA camera to a minimap click
+#include "Engine/Object/ZzzCharacter.h" // CharactersClient
 #include "Data/GameConfig/GameConfig.h" // corner minimap options
 #include <algorithm>
 #include <vector>
@@ -486,6 +489,38 @@ namespace
             RenderColor(xx, yy, width, rowH, 0.f);
         }
         EndRenderColor();
+    }
+
+    // The map tile under the mouse on the corner minimap (inverse of Frame::ToRef with the current zoom window). Returns false
+    // outside the visible art. tilesPerRef: how many tiles one reference px along X covers there (for marker hit tests).
+    bool MouseToMapTile(const CornerLayout& l, float& tileX, float& tileY, float& tilesPerRef)
+    {
+        if (Hero == NULL || l.size < SMALL_BELOW)
+            return false;
+        if (MouseX < l.artL || MouseX >= l.artR || MouseY < l.artT || MouseY >= l.artB)
+            return false;
+
+        const float zoom = g_zoomCurrent;
+        const float half = 0.5f / zoom;
+        const float cu = std::clamp(Hero->Object.Position[1] / (256.f * TERRAIN_SCALE), half, 1.f - half);   // u = tile Y
+        const float cv = std::clamp(Hero->Object.Position[0] / (256.f * TERRAIN_SCALE), half, 1.f - half);   // v = tile X
+        const float rad = 90.f * 3.14159265f / 180.f;
+        const float c = cosf(rad), s = sinf(rad);
+        const float ax = ((float)MouseX - l.cx) * l.sx;
+        const float ay = -((float)MouseY - l.cy) * l.sy;
+        const float lx = ax * c + ay * s;
+        const float ly = -ax * s + ay * c;
+        const float scale = zoom * l.sidePx;
+        const float pu = cu + lx / scale;
+        const float pv = cv - ly / scale;
+        if (pu < 0.f || pu >= 1.f || pv < 0.f || pv >= 1.f)
+            return false;
+        tileX = pv * 256.f;
+        tileY = pu * 256.f;
+        if (g_artClearCells[(int)tileY * ART_TILES + (int)tileX])
+            return false;   // the transparent rock around the arena
+        tilesPerRef = 256.f * l.sx / scale;
+        return true;
     }
 
     // MOBA arena minimap: walkable ground keeps the original Crywolf art, walls
@@ -1125,6 +1160,74 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
             PlayBuffer(SOUND_CLICK01);
         }
         return true;
+    }
+
+    // Clicks on the map itself: the walk button walks there (or goes after an enemy marker), the other button points the
+    // camera at that spot.
+    if (!m_bOptionsOpen)
+    {
+        float tileX, tileY, tilesPerRef;
+        if (MouseToMapTile(L, tileX, tileY, tilesPerRef))
+        {
+            if (press)
+            {
+                // An enemy marker (champion, turret, nexus) under the click is a target, not a destination.
+                const float reach = std::max(3.f, 5.f * tilesPerRef);
+                const MobaMinimapEntry* enemy = nullptr;
+                float best = reach * reach;
+                for (int m = 0; m < g_MobaMinimapCount; ++m)
+                {
+                    const MobaMinimapEntry& e = g_MobaMinimap[m];
+                    if (e.team == 0 || e.team == g_MyMobaTeam || e.kind < 1 || e.kind > 3)
+                        continue;
+                    const float dx = (float)e.x + 0.5f - tileX, dy = (float)e.y + 0.5f - tileY;
+                    if (dx * dx + dy * dy <= best)
+                    {
+                        best = dx * dx + dy * dy;
+                        enemy = &e;
+                    }
+                }
+
+                int targetIdx = -1;
+                if (enemy != nullptr && CharactersClient != nullptr)
+                {
+                    float bestChar = 9.f;
+                    for (int i = 0; i < MAX_CHARACTERS_CLIENT; ++i)
+                    {
+                        const CHARACTER& ch = CharactersClient[i];
+                        if (!ch.Object.Live || ch.Dead > 0 || &ch == Hero || ch.MobaTeam == g_MyMobaTeam)
+                            continue;
+                        const float dx = ch.Object.Position[0] / TERRAIN_SCALE - ((float)enemy->x + 0.5f);
+                        const float dy = ch.Object.Position[1] / TERRAIN_SCALE - ((float)enemy->y + 0.5f);
+                        if (dx * dx + dy * dy < bestChar)
+                        {
+                            bestChar = dx * dx + dy * dy;
+                            targetIdx = i;
+                        }
+                    }
+                }
+
+                if (targetIdx >= 0)
+                    MobaMinimapAttack(targetIdx);
+                else if (enemy != nullptr)
+                    MobaMinimapWalkTo((int)enemy->x, (int)enemy->y);   // seen on the minimap only: go toward it
+                else
+                    MobaMinimapWalkTo((int)tileX, (int)tileY);
+                m_bSwallowHold = true;
+                PlayBuffer(SOUND_CLICK01);
+                return true;
+            }
+
+            if (SEASON3B::IsPress(VK_RBUTTON))
+            {
+                CameraManager::Instance().FocusMobaCameraOn((tileX) * TERRAIN_SCALE, (tileY) * TERRAIN_SCALE);
+                MouseRButtonPush = false;
+                MouseRButton = false;
+                return true;
+            }
+
+            return true;   // the map swallows the mouse so nothing happens in the world behind it
+        }
     }
 
     if (!m_bOptionsOpen || !MouseIn(OPT_X, OPT_Y, OPT_W, OPT_H))

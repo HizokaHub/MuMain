@@ -71,6 +71,7 @@ void MobaCamera::Reset()
 void MobaCamera::ResetView()
 {
     // F11: recenter on the Hero and drop back to the default zoom.
+    m_HasGoal = false;
     AnchorFocusToHero();
     m_ZoomScale = ZOOM_DEFAULT;
     m_pDefaultCamera->ResetView();
@@ -163,13 +164,45 @@ void MobaCamera::AnchorFocusToHero()
     m_FocusInitialized = true;
 }
 
+void MobaCamera::FocusOn(float worldX, float worldY)
+{
+    if (!m_FocusInitialized)
+        return;
+
+    m_GoalWorld[0] = worldX;
+    m_GoalWorld[1] = worldY;
+    m_GoalWorld[2] = 0.0f;
+    m_HasGoal = true;
+}
+
 void MobaCamera::UpdateFocusWorld(double frameSeconds, const vec3_t heroPos)
 {
     // Recenter key: snap straight onto the Hero and stay pinned while held.
     // One tap fully centres the view; holding it keeps following the Hero.
     if (Core::Input::IsKeyDown(RECENTER_KEY))
     {
+        m_HasGoal = false;
         VectorCopy(heroPos, m_FocusWorld);
+        return;
+    }
+
+    if (m_HasGoal)
+    {
+        // Glide to the point a minimap click asked for (exponential ease, about a third of a second).
+        const float dx = m_GoalWorld[0] - m_FocusWorld[0];
+        const float dy = m_GoalWorld[1] - m_FocusWorld[1];
+        if (dx * dx + dy * dy < 25.0f * 25.0f)
+        {
+            m_FocusWorld[0] = m_GoalWorld[0];
+            m_FocusWorld[1] = m_GoalWorld[1];
+            m_HasGoal = false;
+        }
+        else
+        {
+            const float k = 1.0f - std::exp(-9.0f * static_cast<float>(frameSeconds));
+            m_FocusWorld[0] += dx * k;
+            m_FocusWorld[1] += dy * k;
+        }
         return;
     }
 

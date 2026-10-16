@@ -63,6 +63,7 @@
 #include "Camera/CameraMode.h"
 #include "Scenes/SceneCommon.h"
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MyMobaTeam (MOBA auto-target)
+#include "World/Moba/MobaFog.h"    // IsTileHidden (a minimap-targeted enemy leaving sight)
 
 extern CUITextInputBox* g_pSingleTextInputBox;
 extern CUITextInputBox* g_pSinglePasswdInputBox;
@@ -2730,7 +2731,10 @@ void Attack(CHARACTER* c)
         const OBJECT& tgt = CharactersClient[SelectedCharacter].Object;
         const int adx = abs(c->PositionX - (int)(tgt.Position[0] / TERRAIN_SCALE));
         const int ady = abs(c->PositionY - (int)(tgt.Position[1] / TERRAIN_SCALE));
-        if ((adx > ady ? adx : ady) > MOBA_CHASE_REQUEST_MIN_TILES)
+        // Chase as soon as the target is out of the skill's own range (not only far past it): clicking a turret that is in
+        // sight but a few tiles too far used to do nothing.
+        const int chaseFrom = std::min(MOBA_CHASE_REQUEST_MIN_TILES, std::max(1, (int)ceilf(Distance)));
+        if ((adx > ady ? adx : ady) > chaseFrom)
         {
             g_MobaChaseRequestTarget = SelectedCharacter;
             return;
@@ -3077,6 +3081,32 @@ namespace
         s_MobaChaseNextTime = WorldTime;
     }
 
+    // The enemy a minimap click asked to attack: followed until it dies or leaves the team's sight, then the hero stops.
+    int s_MobaMinimapTargetIdx = -1;
+
+    void TickMobaMinimapTarget(CHARACTER* c)
+    {
+        if (s_MobaMinimapTargetIdx < 0)
+            return;
+
+        const int idx = s_MobaMinimapTargetIdx;
+        bool lost = idx >= MAX_CHARACTERS_CLIENT || CharactersClient[idx].Object.Live == 0 || CharactersClient[idx].Dead > 0;
+        if (!lost)
+        {
+            const OBJECT& t = CharactersClient[idx].Object;
+            lost = World::Moba::Fog::IsTileHidden((int)(t.Position[0] / TERRAIN_SCALE), (int)(t.Position[1] / TERRAIN_SCALE));
+        }
+        if (!lost)
+            return;
+
+        s_MobaMinimapTargetIdx = -1;
+        CancelMobaChase();
+        if (Attacking == 1 && ActionTarget == idx)
+            Attacking = -1;
+        SetPlayerStop(c);
+        c->Movement = false;
+    }
+
     void TickMobaChase(CHARACTER* c, OBJECT* o)
     {
         if (!s_MobaChaseActive || !IsMobaCameraActive())
@@ -3136,6 +3166,67 @@ namespace
         c->MovementType = MOVEMENT_MOVE;
         SendMove(c, o);
     }
+}
+
+// Minimap click on the ground: walk there by the shortest route around the walls (the path finder), in as many
+// segments as it takes.
+void MobaMinimapWalkTo(int tileX, int tileY)
+{
+    CHARACTER* c = Hero;
+    if (c == nullptr || c->Dead > 0)
+        return;
+    OBJECT* o = &c->Object;
+
+    // A wall under the click: the nearest open tile around it.
+    auto blocked = [](int x, int y) { return x < 0 || y < 0 || x > 255 || y > 255 || (TerrainWall[y * 256 + x] & TW_NOMOVE) != 0; };
+    if (blocked(tileX, tileY))
+    {
+        bool found = false;
+        for (int r = 1; r <= 6 && !found; ++r)
+        {
+            for (int dy = -r; dy <= r && !found; ++dy)
+            {
+                for (int dx = -r; dx <= r && !found; ++dx)
+                {
+                    if ((abs(dx) == r || abs(dy) == r) && !blocked(tileX + dx, tileY + dy))
+                    {
+                        tileX += dx;
+                        tileY += dy;
+                        found = true;
+                    }
+                }
+            }
+        }
+        if (!found)
+            return;
+    }
+
+    CancelMobaChase();
+    CancelMobaAutoWalk();
+    s_MobaMinimapTargetIdx = -1;
+    Attacking = -1;
+    TargetX = tileX;
+    TargetY = tileY;
+    if (PathFinding2(c->PositionX, c->PositionY, TargetX, TargetY, &c->Path))
+    {
+        c->MovementType = MOVEMENT_MOVE;
+        SendMove(c, o);
+        StartMobaAutoWalk(TargetX, TargetY);
+    }
+}
+
+// Minimap click on an enemy: chase and attack it; the hero stops when it dies or leaves the team's sight.
+void MobaMinimapAttack(int charIndex)
+{
+    CHARACTER* c = Hero;
+    if (c == nullptr || c->Dead > 0 || charIndex < 0 || charIndex >= MAX_CHARACTERS_CLIENT)
+        return;
+
+    CancelMobaAutoWalk();
+    SetPlayerStop(c);
+    c->Movement = false;
+    s_MobaMinimapTargetIdx = charIndex;
+    StartMobaChase(charIndex);
 }
 
 void MoveHero()
@@ -3677,6 +3768,7 @@ void MoveHero()
         g_MobaChaseRequestTarget = -1;
     }
     TickMobaChase(c, o);
+    TickMobaMinimapTarget(c);
 
     int Index = ((int)Hero->Object.Position[1] / (int)TERRAIN_SCALE) * 256 + ((int)Hero->Object.Position[0] / (int)TERRAIN_SCALE);
     if (Index < 0) Index = 0;

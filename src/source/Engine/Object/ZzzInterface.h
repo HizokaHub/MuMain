@@ -60,6 +60,9 @@ void SendRequestAction(OBJECT& obj, BYTE action);
 
 bool PressKey(int Key);
 void MoveHero();
+// Minimap clicks (MOBA): walk to a tile by the shortest route, or chase an enemy character (see ZzzInterface.cpp).
+void MobaMinimapWalkTo(int tileX, int tileY);
+void MobaMinimapAttack(int charIndex);
 
 void ClearInput(BOOL bClearWhisperTarget = TRUE);
 void RenderSwichState();

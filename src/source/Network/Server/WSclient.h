@@ -137,7 +137,12 @@ void ReceiveMobaMinimap(const BYTE* ReceiveBuffer);
 // The two fountain centres are fixed (tile x, y) and mirror the server (MobaFountains.Positions); defined in MapManager.cpp.
 struct MobaFountainInfo { BYTE owner; BYTE bluePct; BYTE redPct; BYTE contested; };
 constexpr int MOBA_FOUNTAIN_COUNT = 2;
-extern MobaFountainInfo g_MobaFountainInfo[MOBA_FOUNTAIN_COUNT];
+// The same packet also carries the four jungle totems after the fountains (index MOBA_FOUNTAIN_COUNT + k, k = totem colour - 1):
+// holding F next to one for 5 s captures it, and an owned totem gives its team vision around it.
+constexpr int MOBA_TOTEM_COUNT = 4;
+constexpr int MOBA_CAPTURE_COUNT = MOBA_FOUNTAIN_COUNT + MOBA_TOTEM_COUNT;
+extern const int g_MobaTotems[MOBA_TOTEM_COUNT][3];   // tile x, tile y, colour (1 blue, 2 green, 3 red, 4 yellow); MapManager.cpp
+extern MobaFountainInfo g_MobaFountainInfo[MOBA_CAPTURE_COUNT];
 extern const int g_MobaFountains[MOBA_FOUNTAIN_COUNT][2];
 void ReceiveMobaFountain(const BYTE* ReceiveBuffer);
 // The capture key (F) of the fountains: C1 05 D5 0F on (repeated while held).

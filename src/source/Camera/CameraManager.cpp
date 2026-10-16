@@ -297,3 +297,9 @@ extern "C" void GetActiveCameraConfig(float* outFOV, float* outNearPlane, float*
         if (outTerrainCullRange) *outTerrainCullRange = config.terrainCullRange;
     }
 }
+
+void CameraManager::FocusMobaCameraOn(float worldX, float worldY)
+{
+    if (m_CurrentMode == CameraMode::Moba && m_pMobaCamera)
+        static_cast<MobaCamera*>(m_pMobaCamera.get())->FocusOn(worldX, worldY);
+}

@@ -102,15 +102,8 @@ void CreateFireColored(OBJECT* o, float z, float r, float g, float b)
     Position[2] += Random::RangeFloat(-8, 7);
     const float Luminosity = Random::RangeFloat(6, 11) * 0.1f;
     Vector(Luminosity * r, Luminosity * g, Luminosity * b, Light);
-    if (b > r || g > r)
-    {
-        // Cool colours (blue, green): the fire sprite is orange, so tinted blue it turns pink. A tinted glow instead.
-        CreateSprite(BITMAP_LIGHT, Position, Random::RangeFloat(1.4f, 2.2f), Light, o);
-    }
-    else if (rand_fps_check(2))
-    {
+    if (rand_fps_check(2))
         CreateParticle(BITMAP_FIRE, Position, o->Angle, Light, Random::RangeInt(0, 3));
-    }
     AddTerrainLight(Position[0], Position[1], Light, 4, PrimaryTerrainLight);
 }
 

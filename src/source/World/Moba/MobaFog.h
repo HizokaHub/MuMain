@@ -19,6 +19,8 @@ namespace World::Moba::Fog
     // Sight radii in tiles (MobaVision.UnitRadius / StructureRadius / WardRadius on the server).
     inline constexpr float UnitSightTiles = 14.f;
     inline constexpr float StructureSightTiles = 17.f;
+    inline constexpr float NexusSightTiles = StructureSightTiles * 3.f;   // the nexus sees 200 % more than a turret (MobaVision.NexusRadius)
+    inline constexpr float TotemSightTiles = 14.f;   // an owned jungle totem (MobaFountains.TotemRadius)
     inline constexpr float WardSightTiles = 12.f;
     inline constexpr float FountainSightTiles = 18.f;   // an owned fountain, same as the server (MobaVision.FountainRadius)
 
@@ -35,6 +37,9 @@ namespace World::Moba::Fog
 
     // Whether the fog is shown this frame.
     bool IsActive();
+
+    // Whether the tile is (almost) fully hidden from the team right now; false while the fog is off.
+    bool IsTileHidden(int tileX, int tileY);
 
     // Eased fog of every cell, 0 (seen) .. 1 (hidden); GridSize * GridSize cells.
     const float* Cells();

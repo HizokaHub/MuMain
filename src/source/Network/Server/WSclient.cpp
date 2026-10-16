@@ -13723,14 +13723,14 @@ void ReceiveMobaTeamStatus(const BYTE* ReceiveBuffer)
 MobaScoreRow g_MobaScoreboard[MOBA_MAX_SCORE_ROWS] = {};
 int          g_MobaScoreboardCount = 0;
 
-MobaFountainInfo g_MobaFountainInfo[MOBA_FOUNTAIN_COUNT] = {};
+MobaFountainInfo g_MobaFountainInfo[MOBA_CAPTURE_COUNT] = {};
 
 // Handles packet C1 D5 11: [4]=count, then count * (owner bluePct redPct flags).
 void ReceiveMobaFountain(const BYTE* ReceiveBuffer)
 {
     int count = ReceiveBuffer[4];
-    if (count > MOBA_FOUNTAIN_COUNT)
-        count = MOBA_FOUNTAIN_COUNT;
+    if (count > MOBA_CAPTURE_COUNT)
+        count = MOBA_CAPTURE_COUNT;
     if (ReceiveBuffer[1] < 5 + count * 4)
         return;
     for (int i = 0; i < count; ++i)

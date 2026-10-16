@@ -430,6 +430,23 @@ void Draw_RenderObject(OBJECT* o, bool Translate, int Select, int ExtraMon)
         b->RenderBody(RENDER_TEXTURE | RENDER_BRIGHT, 0.8f, -1, 1.f, 0.f, 0.f, -1);
         return;
     }
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && (o->Type == 100 || o->Type == 102) && o->SubType >= 1 && o->SubType <= 4)
+    {
+        // MOBA totem obelisks: the stone itself takes the totem colour (blue, green, red, yellow), not only its fire.
+        static const float tint[5][3] = { { 1.f, 1.f, 1.f }, { 0.3f, 0.5f, 1.f }, { 0.35f, 1.f, 0.4f }, { 1.f, 0.28f, 0.22f }, { 1.f, 0.88f, 0.28f } };
+        const float* c = tint[o->SubType];
+        // The ground light under it (fog of war, the hero's lamp) still dims or brightens the stone.
+        const int tx = std::clamp((int)(o->Position[0] / TERRAIN_SCALE), 0, TERRAIN_SIZE - 1);
+        const int ty = std::clamp((int)(o->Position[1] / TERRAIN_SCALE), 0, TERRAIN_SIZE - 1);
+        const float* ground = PrimaryTerrainLight[TERRAIN_INDEX(tx, ty)];
+        const float lum = std::clamp((ground[0] + ground[1] + ground[2]) / 3.f, 0.f, 1.f);
+        const float k = 0.3f + 0.7f * lum;
+        Vector((0.25f + 0.75f * c[0]) * k, (0.25f + 0.75f * c[1]) * k, (0.25f + 0.75f * c[2]) * k, b->BodyLight);
+        b->RenderBody(RENDER_TEXTURE, o->Alpha, o->BlendMesh, o->BlendMeshLight, o->BlendMeshTexCoordU, o->BlendMeshTexCoordV, o->HiddenMesh);
+        Vector(c[0] * 0.45f * k, c[1] * 0.45f * k, c[2] * 0.45f * k, b->BodyLight);
+        b->RenderBody(RENDER_TEXTURE | RENDER_BRIGHT, o->Alpha, o->BlendMesh, o->BlendMeshLight, o->BlendMeshTexCoordU, o->BlendMeshTexCoordV, o->HiddenMesh);
+        return;
+    }
     bool View = true;
 
     if ((EditFlag != EDIT_NONE) || (EditFlag == EDIT_NONE && o->HiddenMesh != -2))
@@ -3894,6 +3911,24 @@ void MoveObject(OBJECT* o)
             o->BlendMeshLight = 1.f;
             break;
         }
+        }
+    }
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && (o->Type == 100 || o->Type == 102) && o->SubType >= 1 && o->SubType <= 4)
+    {
+        // An owned totem lights the ground around its foot in the colour of the owning team.
+        const BYTE owner = g_MobaFountainInfo[MOBA_FOUNTAIN_COUNT + o->SubType - 1].owner;
+        if (owner == 1 || owner == 2)
+        {
+            vec3_t teamLight;
+            if (owner == 1)
+            {
+                Vector(0.25f, 0.45f, 1.f, teamLight);
+            }
+            else
+            {
+                Vector(1.f, 0.3f, 0.25f, teamLight);
+            }
+            AddTerrainLight(o->Position[0], o->Position[1], teamLight, 5, PrimaryTerrainLight);
         }
     }
     if (gMapManager.WorldActive == WD_200_MOBA_ARENA && (o->Type == 100 || o->Type == 102))

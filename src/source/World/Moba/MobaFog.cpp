@@ -193,8 +193,9 @@ namespace
         case FEED_CHAMPION:
             return e.hp > 0 ? UnitSightTiles : 0.f;   // a dead ally (hp 0) sees nothing
         case FEED_TURRET:
-        case FEED_NEXUS:
             return StructureSightTiles;
+        case FEED_NEXUS:
+            return NexusSightTiles;
         case FEED_WARD:
             return WardSightTiles;
         default:
@@ -255,12 +256,23 @@ namespace
         }
     }
 
+    // A jungle totem a team owns gives that team vision around it (server: MobaFountains.TotemRadius).
+    void AddTotemSight()
+    {
+        for (int k = 0; k < MOBA_TOTEM_COUNT; ++k)
+        {
+            if (g_MobaFountainInfo[MOBA_FOUNTAIN_COUNT + k].owner == g_MyMobaTeam)
+                RevealDisc((float)g_MobaTotems[k][0] + TILE_CENTRE, (float)g_MobaTotems[k][1] + TILE_CENTRE, TotemSightTiles);
+        }
+    }
+
     void RebuildSight()
     {
         std::fill(s_targetFog, s_targetFog + CELL_COUNT, FOG_HIDDEN);
         AddHeroSight();
         AddFeedSight();
         AddFountainSight();
+        AddTotemSight();
         AddScopeSight();
         s_settled = false;
     }
@@ -384,6 +396,13 @@ void ApplyToTerrainLight()
 bool IsActive()
 {
     return s_active;
+}
+
+bool IsTileHidden(int tileX, int tileY)
+{
+    if (!s_active || tileX < 0 || tileY < 0 || tileX >= GridSize || tileY >= GridSize)
+        return false;
+    return s_fog[tileY * GridSize + tileX] > 0.85f;
 }
 
 const float* Cells()
