@@ -71,6 +71,14 @@ const unsigned char* MobaRoadCoverageForRouting();   // MapManager.cpp: the draw
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MyMobaTeam (MOBA auto-target)
 #include "World/Moba/MobaFog.h"    // IsTileHidden (a minimap-targeted enemy leaving sight)
 
+// Navigation diagnostics of the MOBA clicks (minimap walk, chase of a clicked target), written to MuError.log.
+static void MobaNavLog(const wchar_t* text, int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
+{
+    g_ErrorReport.Write(L"[MOBA-NAV] ");
+    g_ErrorReport.Write(text, a, b, c, d, e, f);
+    g_ErrorReport.Write(L"\r\n");
+}
+
 extern CUITextInputBox* g_pSingleTextInputBox;
 extern CUITextInputBox* g_pSinglePasswdInputBox;
 extern int g_iChatInputType;
@@ -2740,6 +2748,7 @@ void Attack(CHARACTER* c)
         // Chase as soon as the target is out of the skill's own range (not only far past it): clicking a turret that is in
         // sight but a few tiles too far used to do nothing.
         const int chaseFrom = std::min(MOBA_CHASE_REQUEST_MIN_TILES, std::max(1, (int)ceilf(Distance)));
+        MobaNavLog(L"click on char %d: tile distance %d, skill range %d, chase from %d", SelectedCharacter, adx > ady ? adx : ady, (int)Distance, chaseFrom);
         if ((adx > ady ? adx : ady) > chaseFrom)
         {
             g_MobaChaseRequestTarget = SelectedCharacter;
@@ -3039,7 +3048,10 @@ namespace
         }
 
         if (!closed[goal])
+        {
+            MobaNavLog(L"route (%d,%d) -> (%d,%d): no route on the grid", sx, sy, tx, ty);
             return false;
+        }
 
         std::vector<int> cells;
         for (int cur = goal; cur != -1; cur = cameFrom[cur])
@@ -3051,6 +3063,8 @@ namespace
             s_MobaRoute.emplace_back(cells[i] % N, cells[i] / N);
         s_MobaRoute.emplace_back(tx, ty);
         s_MobaRouteIdx = 0;
+        MobaNavLog(L"route (%d,%d) -> (%d,%d)", sx, sy, tx, ty);
+        MobaNavLog(L"route cells %d, waypoints %d", (int)cells.size(), (int)s_MobaRoute.size());
         return true;
     }
 
@@ -3113,6 +3127,7 @@ namespace
         if (c->MovementType != MOVEMENT_MOVE
             || s_MobaAutoWalkSegments >= (s_MobaRouteActive ? MOBA_ROUTE_MAX_SEGMENTS : MOBA_AUTOWALK_MAX_SEGMENTS))
         {
+            MobaNavLog(L"walk cancelled: movement type %d (want %d) segments %d", (int)c->MovementType, (int)MOVEMENT_MOVE, s_MobaAutoWalkSegments);
             CancelMobaAutoWalk();
             return;
         }
@@ -3128,6 +3143,7 @@ namespace
             }
             if (s_MobaRouteIdx >= s_MobaRoute.size())
             {
+                MobaNavLog(L"walk arrived at (%d,%d) after %d segments", c->PositionX, c->PositionY, s_MobaAutoWalkSegments);
                 CancelMobaAutoWalk();
                 return;
             }
@@ -3143,6 +3159,7 @@ namespace
         // No forward progress since the last segment -> stuck against geometry.
         if (c->PositionX == s_MobaAutoWalkLastX && c->PositionY == s_MobaAutoWalkLastY)
         {
+            MobaNavLog(L"walk cancelled: no progress at (%d,%d), waypoint %d of %d", c->PositionX, c->PositionY, (int)s_MobaRouteIdx, (int)s_MobaRoute.size());
             CancelMobaAutoWalk();
             return;
         }
@@ -3152,6 +3169,7 @@ namespace
 
         if (!PathFinding2(c->PositionX, c->PositionY, s_MobaAutoWalkDestX, s_MobaAutoWalkDestY, &c->Path))
         {
+            MobaNavLog(L"walk cancelled: path finder found no way from (%d,%d) to waypoint (%d,%d)", c->PositionX, c->PositionY, s_MobaAutoWalkDestX, s_MobaAutoWalkDestY);
             CancelMobaAutoWalk();
             return;
         }
@@ -3160,6 +3178,7 @@ namespace
         s_MobaAutoWalkLastY = c->PositionY;
         s_MobaAutoWalkSegments++;
         s_MobaAutoWalkNextSegmentTime = WorldTime + MOBA_AUTOWALK_SEGMENT_PAUSE_MS;
+        MobaNavLog(L"walk segment %d: (%d,%d) -> (%d,%d)", s_MobaAutoWalkSegments, c->PositionX, c->PositionY, s_MobaAutoWalkDestX, s_MobaAutoWalkDestY);
 
         c->MovementType = MOVEMENT_MOVE;
         SendMove(c, o);
@@ -3217,7 +3236,9 @@ namespace
         TargetX = (int)(t.Position[0] / TERRAIN_SCALE);
         TargetY = (int)(t.Position[1] / TERRAIN_SCALE);
 
-        if (PathFinding2(c->PositionX, c->PositionY, TargetX, TargetY, &c->Path, MobaApproachRange()))
+        const bool pathOk = PathFinding2(c->PositionX, c->PositionY, TargetX, TargetY, &c->Path, MobaApproachRange());
+        MobaNavLog(L"attack approach from (%d,%d) to (%d,%d): path %d", c->PositionX, c->PositionY, TargetX, TargetY, pathOk ? 1 : 0);
+        if (pathOk)
             SendMove(c, o);
         else
             Action(c, o, true);
@@ -3314,6 +3335,7 @@ namespace
 
         if (!PathFinding2(c->PositionX, c->PositionY, tx, ty, &c->Path, MobaApproachRange()))
         {
+            MobaNavLog(L"chase cancelled: no path from (%d,%d) to target tile (%d,%d)", c->PositionX, c->PositionY, tx, ty);
             CancelMobaChase();
             return;
         }
@@ -3361,6 +3383,7 @@ void MobaMinimapWalkTo(int tileX, int tileY)
             return;
     }
 
+    MobaNavLog(L"minimap walk requested: from (%d,%d) to (%d,%d)", c->PositionX, c->PositionY, tileX, tileY);
     CancelMobaChase();
     CancelMobaAutoWalk();
     s_MobaMinimapTargetIdx = -1;
@@ -3387,6 +3410,7 @@ void MobaMinimapAttack(int charIndex)
     if (c == nullptr || c->Dead > 0 || charIndex < 0 || charIndex >= MAX_CHARACTERS_CLIENT)
         return;
 
+    MobaNavLog(L"minimap attack requested on char %d", charIndex);
     CancelMobaAutoWalk();
     SetPlayerStop(c);
     c->Movement = false;
