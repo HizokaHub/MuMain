@@ -3290,8 +3290,12 @@ namespace
 
     void TickMobaChase(CHARACTER* c, OBJECT* o)
     {
-        if (!s_MobaChaseActive || !IsMobaCameraActive())
+        if (!s_MobaChaseActive)
+            return;
+
+        if (!IsMobaCameraActive())
         {
+            MobaNavLog(L"chase cancelled: the camera is not the MOBA one");
             CancelMobaChase();
             return;
         }
@@ -3299,6 +3303,7 @@ namespace
         if (s_MobaChaseTargetIdx < 0 || s_MobaChaseTargetIdx >= MAX_CHARACTERS_CLIENT
             || CharactersClient[s_MobaChaseTargetIdx].Object.Live == 0)
         {
+            MobaNavLog(L"chase cancelled: target %d is gone", s_MobaChaseTargetIdx);
             CancelMobaChase();
             return;
         }
@@ -3332,6 +3337,7 @@ namespace
         if (s_MobaChaseSegments >= MOBA_AUTOWALK_MAX_SEGMENTS
             || (c->PositionX == s_MobaChaseLastX && c->PositionY == s_MobaChaseLastY))
         {
+            MobaNavLog(L"chase cancelled: no progress at (%d,%d), segments %d, target tile (%d,%d)", c->PositionX, c->PositionY, s_MobaChaseSegments, tx, ty);
             CancelMobaChase();
             return;
         }
@@ -3350,6 +3356,7 @@ namespace
         s_MobaChaseLastY = c->PositionY;
         s_MobaChaseSegments++;
         s_MobaChaseNextTime = WorldTime + MOBA_AUTOWALK_SEGMENT_PAUSE_MS;
+        MobaNavLog(L"chase segment %d: from (%d,%d) to the ring around (%d,%d), range %d", s_MobaChaseSegments, c->PositionX, c->PositionY, tx, ty, (int)chaseRange);
 
         c->MovementType = MOVEMENT_MOVE;
         SendMove(c, o);
@@ -3945,6 +3952,7 @@ void MoveHero()
     {
         // Redirect: cut the auto-walk short and go after this enemy instead.
         const int targetIdx = SelectedCharacter;
+        MobaNavLog(L"mid-travel redirect to char %d", targetIdx);
         CancelMobaAutoWalk();
         SetPlayerStop(c);
         c->Movement = false;
@@ -3963,7 +3971,10 @@ void MoveHero()
         // Holding the button on the target repeats the request every frame: only a new target (re)starts the chase,
         // otherwise the segment pause would restart every frame and the hero would be re-sent over and over.
         if (!(s_MobaChaseActive && s_MobaChaseTargetIdx == g_MobaChaseRequestTarget))
+        {
+            MobaNavLog(L"chase started on char %d", g_MobaChaseRequestTarget);
             StartMobaChase(g_MobaChaseRequestTarget);
+        }
         g_MobaChaseRequestTarget = -1;
     }
     TickMobaChase(c, o);
