@@ -50,6 +50,7 @@ namespace CfgKeys
     inline constexpr wchar_t CfgKeyMinimapDoors[]   = L"JungleDoors";
     inline constexpr wchar_t CfgKeyMinimapTotems[]  = L"Totems";
     inline constexpr wchar_t CfgKeyMinimapZoom[]    = L"Zoom";
+    inline constexpr wchar_t CfgKeyMinimapCollapsed[] = L"Collapsed";
 
     // Render
     // DXP-08: Core Profile GL context flip. 0 = compatibility (rollback), 1 = core.

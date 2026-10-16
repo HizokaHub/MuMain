@@ -296,18 +296,29 @@ namespace
         float markers;      // 0.5 .. 2
     };
 
+    // Collapse of the corner minimap: 0 = full size, 1 = shrunk to its button in the screen corner. Eased every frame
+    // (RenderCornerMinimap) toward the configured state, so the map glides in and out of the corner.
+    constexpr float COLLAPSE_BUTTON = 13.f;      // ref px, the toggle button (the whole map when collapsed)
+    constexpr float COLLAPSE_SECONDS = 0.4f;
+    float g_collapse = 0.f;
+    double g_collapseLastTime = 0.0;
+
+    float CollapseEase() { return g_collapse * g_collapse * (3.f - 2.f * g_collapse); }
+
     CornerLayout ComputeCornerLayout()
     {
         const GameConfig& cfg = GameConfig::GetInstance();
         CornerLayout l;
         l.sx = ConvertX(1.f);
         l.sy = ConvertY(1.f);
-        // Scale 1..100 -> 32..210 ref px wide (50 = 120 ref px = 256 px at 1365 wide).
-        l.size = 30.f + 1.8f * (float)cfg.GetMinimapScale();
+        // Scale 1..130 -> 32..264 ref px wide (50 = 120 ref px = 256 px at 1365 wide), shrunk toward the corner by the collapse.
+        const float full = 30.f + 1.8f * (float)cfg.GetMinimapScale();
+        const float open = 1.f - CollapseEase();
+        l.size = COLLAPSE_BUTTON + (full - COLLAPSE_BUTTON) * open;
         l.sizeY = l.size * l.sx / l.sy;
         l.sidePx = l.size * l.sx;
         l.opacity = cfg.GetMinimapOpacity() / 100.f;
-        l.markers = cfg.GetMinimapMarkers() / 100.f;
+        l.markers = cfg.GetMinimapMarkers() / 100.f * open;
 
         const float MARGIN = 0.f;     // flush with the screen edge
         const float HUD_BAR = 50.f;   // HUD bar height (its top edge is at y = 430 ref px)
@@ -348,6 +359,45 @@ namespace
         const int corner = GameConfig::GetInstance().GetMinimapCorner();
         x = (corner == 1) ? 0 : (REFERENCE_WIDTH - w);
         y = (corner == 2) ? (int)(l.cy - l.sizeY / 2.f) : (int)(l.cy + l.sizeY / 2.f) - h;
+    }
+
+    // Toggle button: the map's corner opposite the screen corner it hangs from (the whole shrunk map when collapsed).
+    void ToggleRect(const CornerLayout& l, int& x, int& y, int& w, int& h)
+    {
+        w = (int)COLLAPSE_BUTTON;
+        h = (int)(COLLAPSE_BUTTON * l.sx / l.sy + 0.5f);
+        const int corner = GameConfig::GetInstance().GetMinimapCorner();
+        const bool right = corner != 1;
+        const bool bottom = corner != 2;
+        x = right ? (int)(l.cx - l.size / 2.f) : (int)(l.cx + l.size / 2.f) - w;
+        y = bottom ? (int)(l.cy - l.sizeY / 2.f) : (int)(l.cy + l.sizeY / 2.f) - h;
+    }
+
+    // A triangle pointing at the screen corner while the map is open (click to shrink) and away from it while collapsed.
+    void RenderToggleButton(const CornerLayout& l)
+    {
+        int bx, by, bw, bh;
+        ToggleRect(l, bx, by, bw, bh);
+        const bool hot = MouseIn(bx, by, bw, bh);
+        glColor4f(0.f, 0.f, 0.f, hot ? 0.85f : 0.6f);
+        RenderColor((float)bx, (float)by, (float)bw, (float)bh, 0.f);
+        glColor4f(1.f, 0.9f, 0.5f, hot ? 1.f : 0.8f);
+        const int corner = GameConfig::GetInstance().GetMinimapCorner();
+        const float towardX = (corner != 1) ? 1.f : -1.f;
+        const float towardY = (corner != 2) ? 1.f : -1.f;
+        const bool collapsed = GameConfig::GetInstance().GetMinimapCollapsed();
+        const float dirX = collapsed ? -towardX : towardX;
+        const float dirY = collapsed ? -towardY : towardY;
+        const int rows = 7;
+        const float rowH = (float)(bh - 4) / (float)rows;
+        for (int k = 0; k < rows; ++k)
+        {
+            const float width = (float)(bw - 4) * (float)(rows - k) / (float)rows;
+            const float yy = (dirY > 0.f) ? (float)(by + bh - 2) - (k + 1) * rowH : (float)(by + 2) + k * rowH;
+            const float xx = (dirX > 0.f) ? (float)(bx + bw - 2) - width : (float)(bx + 2);
+            RenderColor(xx, yy, width, rowH, 0.f);
+        }
+        EndRenderColor();
     }
 
     // MOBA arena minimap: walkable ground keeps the original Crywolf art, walls
@@ -596,7 +646,26 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     // square. Draw the map as a true square on screen (size ref px wide,
     // size * sx/sy tall) and place markers in screen px, converting back to
     // reference px.
+    // Glide toward the configured state (open / collapsed).
+    {
+        const double dt = std::clamp((WorldTime - g_collapseLastTime) / 1000.0, 0.0, 0.1);
+        g_collapseLastTime = WorldTime;
+        const float target = GameConfig::GetInstance().GetMinimapCollapsed() ? 1.f : 0.f;
+        const float step = (float)(dt / COLLAPSE_SECONDS);
+        g_collapse = (target > g_collapse) ? std::min(target, g_collapse + step) : std::max(target, g_collapse - step);
+    }
+    const bool shrunk = g_collapse > 0.01f;
+    if (shrunk)
+        m_bOptionsOpen = false;
+
     const CornerLayout L = ComputeCornerLayout();
+    if (g_collapse >= 0.98f)
+    {
+        // Only the button is left in the corner.
+        RenderToggleButton(L);
+        glColor4f(1.f, 1.f, 1.f, 1.f);
+        return;
+    }
     const float sx = L.sx;
     const float sy = L.sy;
     const float SIZE = L.size;
@@ -719,7 +788,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     DisableAlphaBlend();
 
     // Zoom label (bottom-left of the map) while zoomed in and for a moment after a change.
-    if (zoomTarget > 1.01f || WorldTime < g_zoomLabelUntil)
+    if (!shrunk && (zoomTarget > 1.01f || WorldTime < g_zoomLabelUntil))
     {
         wchar_t zoomText[16];
         swprintf(zoomText, 16, L"x%.1f", zoomTarget);
@@ -734,15 +803,19 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     }
 
     // Options gear (opens the panel) and the panel itself.
-    int gx, gy, gw, gh;
-    GearRect(L, gx, gy, gw, gh);
-    const bool gearHot = MouseIn(gx, gy, gw, gh);
-    glColor4f(0.f, 0.f, 0.f, gearHot || m_bOptionsOpen ? 0.85f : 0.55f);
-    RenderColor((float)gx, (float)gy, (float)gw, (float)gh, 0.f);
-    glColor4f(1.f, 1.f, 1.f, gearHot || m_bOptionsOpen ? 1.f : 0.75f);
-    for (int k = 0; k < 3; ++k)
-        RenderColor((float)gx + 2.f, (float)gy + 2.f + k * (gh - 5) / 2.f, (float)gw - 4.f, 1.f, 0.f);
-    EndRenderColor();
+    if (!shrunk)
+    {
+        int gx, gy, gw, gh;
+        GearRect(L, gx, gy, gw, gh);
+        const bool gearHot = MouseIn(gx, gy, gw, gh);
+        glColor4f(0.f, 0.f, 0.f, gearHot || m_bOptionsOpen ? 0.85f : 0.55f);
+        RenderColor((float)gx, (float)gy, (float)gw, (float)gh, 0.f);
+        glColor4f(1.f, 1.f, 1.f, gearHot || m_bOptionsOpen ? 1.f : 0.75f);
+        for (int k = 0; k < 3; ++k)
+            RenderColor((float)gx + 2.f, (float)gy + 2.f + k * (gh - 5) / 2.f, (float)gw - 4.f, 1.f, 0.f);
+        EndRenderColor();
+    }
+    RenderToggleButton(L);
 
     if (m_bOptionsOpen)
         RenderCornerOptions();
@@ -762,7 +835,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
 
     struct Row { const wchar_t* label; int value; int minV, maxV; const wchar_t* unit; };
     const Row rows[3] = {
-        { L"Tama\u00f1o",     cfg.GetMinimapScale(),   1,  100, L"" },
+        { L"Tama\u00f1o",     cfg.GetMinimapScale(),   1,  130, L"" },
         { L"Opacidad",        cfg.GetMinimapOpacity(), 20, 100, L"%" },
         { L"Marcadores",      cfg.GetMinimapMarkers(), 50, 200, L"%" },
     };
@@ -849,7 +922,7 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     const bool held = press || SEASON3B::IsRepeat(VK_LBUTTON);
 
     // Mouse wheel over the map: zoom in / out (1x, 1.6x, 2.2x). Consumed so the camera does not zoom too.
-    if (MouseWheel != 0)
+    if (MouseWheel != 0 && g_collapse < 0.01f)
     {
         const CornerLayout lw = ComputeCornerLayout();
         if (MouseIn((int)(lw.cx - lw.size / 2.f), (int)(lw.cy - lw.sizeY / 2.f), (int)lw.size, (int)lw.sizeY))
@@ -866,7 +939,7 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     {
         float t = (float)(mouseX - (OPT_X + OPT_BAR_X)) / (float)OPT_BAR_W;
         t = std::clamp(t, 0.f, 1.f);
-        if (row == 0) cfg.SetMinimapScale(1 + (int)(t * 99.f + 0.5f));
+        if (row == 0) cfg.SetMinimapScale(1 + (int)(t * 129.f + 0.5f));
         else if (row == 1) cfg.SetMinimapOpacity(20 + (int)(t * 80.f + 0.5f));
         else cfg.SetMinimapMarkers(50 + (int)(t * 150.f + 0.5f));
     };
@@ -893,9 +966,24 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     }
 
     const CornerLayout L = ComputeCornerLayout();
+    int tx, ty, tw, th;
+    ToggleRect(L, tx, ty, tw, th);
+    if (MouseIn(tx, ty, tw, th))
+    {
+        if (press)
+        {
+            cfg.SetMinimapCollapsed(!cfg.GetMinimapCollapsed());
+            cfg.Save();
+            m_bOptionsOpen = false;
+            m_bSwallowHold = true;
+            PlayBuffer(SOUND_CLICK01);
+        }
+        return true;
+    }
+
     int gx, gy, gw, gh;
     GearRect(L, gx, gy, gw, gh);
-    if (MouseIn(gx, gy, gw, gh))
+    if (g_collapse < 0.01f && MouseIn(gx, gy, gw, gh))
     {
         if (press)
         {
