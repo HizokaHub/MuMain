@@ -3310,18 +3310,24 @@ namespace
         const int ady = abs(c->PositionY - ty);
         const int dist = (adx > ady) ? adx : ady;
 
-        // Within a path segment of the target: hand back to the vanilla
-        // walk-up-and-attack logic and stop chasing.
-        if (dist <= MOBA_CHASE_HANDOFF_TILES)
+        // The walk ends on the ring at the skill's range around the target (PathFinding2 below), so once the hero stands
+        // still within that range it casts the skill it was told to use: no walking up to the target any further.
+        if (c->Movement)
+            return;
+
+        const auto chaseSkill = CharacterAttribute->Skill[Hero->CurrentSkill];
+        const float chaseRange = gSkillManager.GetSkillDistance(chaseSkill, Hero);
+        const float fdx = (float)(c->PositionX - tx), fdy = (float)(c->PositionY - ty);
+        if (sqrtf(fdx * fdx + fdy * fdy) <= chaseRange - 0.5f)
         {
             const int targetIdx = s_MobaChaseTargetIdx;
             CancelMobaChase();
-            BeginMobaTargetAttack(c, o, targetIdx);
+            SelectedCharacter = targetIdx;
+            ActionTarget = targetIdx;
+            MobaNavLog(L"chase in range: cast skill %d at distance %d (range %d)", (int)chaseSkill, (int)sqrtf(fdx * fdx + fdy * fdy), (int)chaseRange);
+            GameLogic::Combat::ExecuteSkill(c, chaseSkill, chaseRange);
             return;
         }
-
-        if (c->Movement)
-            return;
 
         if (s_MobaChaseSegments >= MOBA_AUTOWALK_MAX_SEGMENTS
             || (c->PositionX == s_MobaChaseLastX && c->PositionY == s_MobaChaseLastY))
