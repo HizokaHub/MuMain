@@ -56,8 +56,8 @@ namespace
     // The hero's own light: the terrain around the hero is fully lit (light 1.0) up to HERO_LIGHT_FULL_TILES, then falls
     // off smoothly to the normal light at HERO_LIGHT_FULL_TILES + HERO_LIGHT_FADE_TILES (about the edge of the screen).
     // It is laid under the fog, so what the team cannot see still stays dark.
-    constexpr float HERO_LIGHT_FULL_TILES = 5.f;
-    constexpr float HERO_LIGHT_FADE_TILES = 17.f;
+    constexpr float HERO_LIGHT_FULL_TILES = 40.f;
+    constexpr float HERO_LIGHT_FADE_TILES = 10.f;
 
     // The kind byte of the minimap feed (MobaMinimapEntry::kind).
     constexpr BYTE FEED_CHAMPION = 1;

@@ -294,7 +294,61 @@ namespace
         float cx, cy;       // map centre, ref px
         float opacity;      // 0.2 .. 1
         float markers;      // 0.5 .. 2
+        float artL, artT, artR, artB;   // where the visible art is, ref px (the square has transparent margins)
     };
+
+    // Cells the arena art leaves transparent (the rock outside the arena, TERRAIN_INDEX order), which the
+    // fog of war layer keeps clear; the version changes on every rebuild of the art.
+    constexpr int ART_TILES = 256;   // one cell per terrain tile (the N of UpdateBlockedTexture)
+    unsigned char g_artClearCells[ART_TILES * ART_TILES];
+    unsigned int g_artClearVersion = 0;
+
+    // The square of the minimap has transparent margins around the arena (uneven ones, the art is rotated a quarter
+    // turn). The visible art is what must touch the screen edge: its bounds relative to the square's centre, per
+    // ref px of map width, rebuilt whenever the art is (before the art exists the whole square counts).
+    struct ArtBounds { float minX, maxX, minY, maxY; };
+
+    const ArtBounds& UnitArtBounds()
+    {
+        static ArtBounds bounds{ -0.5f, 0.5f, -0.5f, 0.5f };
+        static unsigned int builtFor = 0;
+        if (g_artClearVersion == builtFor || g_artClearVersion == 0)
+            return bounds;
+        builtFor = g_artClearVersion;
+
+        int x0 = ART_TILES, x1 = -1, y0 = ART_TILES, y1 = -1;
+        for (int y = 0; y < ART_TILES; ++y)
+        {
+            for (int x = 0; x < ART_TILES; ++x)
+            {
+                if (g_artClearCells[y * ART_TILES + x])
+                    continue;
+                x0 = std::min(x0, x); x1 = std::max(x1, x);
+                y0 = std::min(y0, y); y1 = std::max(y1, y);
+            }
+        }
+        if (x1 < x0 || y1 < y0)
+            return bounds;
+
+        // Same rotation as the art (ROT = 90 degrees in RenderCornerMinimap), unit width, centred on the origin.
+        const float rad = 90.f * 3.14159265f / 180.f;
+        const float sxUnit = ConvertX(1.f), syUnit = ConvertY(1.f);
+        const MobaMarkers::Frame f{ 0.f, 0.f, 1.f * sxUnit, cosf(rad), sinf(rad), sxUnit, syUnit, 1.f, 1.f, 0.5f, 0.5f };
+        bounds = { 1e9f, -1e9f, 1e9f, -1e9f };
+        const float tilesU[2] = { (float)y0 / ART_TILES, (float)(y1 + 1) / ART_TILES };   // u = tile Y
+        const float tilesV[2] = { (float)x0 / ART_TILES, (float)(x1 + 1) / ART_TILES };   // v = tile X
+        for (float pu : tilesU)
+        {
+            for (float pv : tilesV)
+            {
+                float mx, my;
+                f.ToRef(pu, pv, mx, my);
+                bounds.minX = std::min(bounds.minX, mx); bounds.maxX = std::max(bounds.maxX, mx);
+                bounds.minY = std::min(bounds.minY, my); bounds.maxY = std::max(bounds.maxY, my);
+            }
+        }
+        return bounds;
+    }
 
     // Size of the corner minimap, in ref px wide. The config keeps it as the scale option (0 = hidden, 1..130 ->
     // 32..264 ref px, 50 = 120 ref px = 256 px at 1365 wide); the corner handle drags it continuously, so the live
@@ -348,6 +402,17 @@ namespace
         l.cx = (corner == 1) ? (MARGIN + l.size / 2.f) : (REFERENCE_WIDTH - l.size / 2.f - MARGIN);
         // Bottom corners clear the top of the HUD bar (no overlap).
         l.cy = (corner == 2) ? (TOP_MARGIN + l.sizeY / 2.f) : (REFERENCE_HEIGHT - HUD_BAR - l.sizeY / 2.f);
+
+        // The visible art, not its square, is what sits against the screen edge: slide the square over the edge by
+        // its transparent margin (the square then overhangs the screen, which is only transparent texture).
+        const ArtBounds& a = UnitArtBounds();
+        float artMinX = l.cx + a.minX * l.size, artMaxX = l.cx + a.maxX * l.size;
+        float artMinY = l.cy + a.minY * l.size, artMaxY = l.cy + a.maxY * l.size;
+        const float dx = (corner == 1) ? (MARGIN - artMinX) : ((float)REFERENCE_WIDTH - MARGIN - artMaxX);
+        const float dy = (corner == 2) ? (TOP_MARGIN - artMinY) : ((float)REFERENCE_HEIGHT - HUD_BAR - artMaxY);
+        l.cx += dx; l.cy += dy;
+        l.artL = artMinX + dx; l.artR = artMaxX + dx;
+        l.artT = artMinY + dy; l.artB = artMaxY + dy;
         return l;
     }
 
@@ -379,7 +444,7 @@ namespace
         // edge (just above the HUD bar) for the bottom corners, upper edge for the top one.
         const int corner = GameConfig::GetInstance().GetMinimapCorner();
         x = (corner == 1) ? 0 : (REFERENCE_WIDTH - w);
-        y = (corner == 2) ? (int)(l.cy - l.sizeY / 2.f) : (int)(l.cy + l.sizeY / 2.f) - h;
+        y = (corner == 2) ? (int)l.artT : (int)l.artB - h;
     }
 
     // Drag handle: the map's corner opposite the screen corner it hangs from (at the screen corner itself when hidden).
@@ -390,10 +455,10 @@ namespace
         const int corner = GameConfig::GetInstance().GetMinimapCorner();
         const bool right = corner != 1;
         const bool bottom = corner != 2;
-        const float width = std::max(l.size, HANDLE);
-        const float height = std::max(l.sizeY, (float)h);
-        x = right ? (int)(l.cx + l.size / 2.f - width) : (int)(l.cx - l.size / 2.f);
-        y = bottom ? (int)(l.cy + l.sizeY / 2.f - height) : (int)(l.cy - l.sizeY / 2.f);
+        const float width = std::max(l.artR - l.artL, HANDLE);
+        const float height = std::max(l.artB - l.artT, (float)h);
+        x = right ? (int)(l.artR - width) : (int)l.artL;
+        y = bottom ? (int)(l.artB - height) : (int)l.artT;
     }
 
     // A triangle pointing at the screen corner while the map is open (click to shrink) and away from it while collapsed.
@@ -433,12 +498,6 @@ namespace
     // change (cheap hash checked on every frame).
     RHI::TextureHandle g_blockedTex{};
     unsigned int g_blockedHash = 0;
-
-    // Cells the arena art leaves transparent (the rock outside the arena, TERRAIN_INDEX order), which the
-    // fog of war layer keeps clear; the version changes on every rebuild of the art.
-    constexpr int ART_TILES = 256;   // one cell per terrain tile (the N of UpdateBlockedTexture)
-    unsigned char g_artClearCells[ART_TILES * ART_TILES];
-    unsigned int g_artClearVersion = 0;
 
     bool UpdateBlockedTexture()
     {
@@ -812,7 +871,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
         g_pRenderText->SetFont(g_hFont);
         g_pRenderText->SetBgColor(0, 0, 0, 160);
         g_pRenderText->SetTextColor(255, 230, 150, 255);
-        g_pRenderText->RenderText((int)(CENTRE_X - SIZE / 2.f) + 3, (int)(CENTRE_Y + SIZE_Y / 2.f) - 13, zoomText, 0, 0, RT3_SORT_LEFT);
+        g_pRenderText->RenderText((int)L.artL + 3, (int)L.artB - 13, zoomText, 0, 0, RT3_SORT_LEFT);
         g_pRenderText->SetTextColor(backColor);
         g_pRenderText->SetBgColor(backBg);
     }
@@ -977,8 +1036,12 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
             constexpr float HUD_BAR_REF = 50.f, TOP_MARGIN_REF = 8.f;
             const float fromX = (corner != 1) ? (float)(REFERENCE_WIDTH - MouseX) : (float)MouseX;
             const float fromY = (corner != 2) ? (float)(REFERENCE_HEIGHT - HUD_BAR_REF - MouseY) : (float)MouseY - TOP_MARGIN_REF;
-            const float sizeFromY = fromY * ld.sy / ld.sx;
-            g_sizeRef = std::clamp(0.5f * (fromX + sizeFromY), 0.f, MAP_MAX_SIZE);
+            // The handle sits on the corner of the visible art: its distance to the screen corner is the art's size.
+            const ArtBounds& ab = UnitArtBounds();
+            const float sizeFromX = fromX / (ab.maxX - ab.minX);
+            const float sizeFromY = fromY / (ab.maxY - ab.minY);
+            (void)ld;
+            g_sizeRef = std::clamp(0.5f * (sizeFromX + sizeFromY), 0.f, MAP_MAX_SIZE);
             if (abs(MouseX - g_dragStartX) + abs(MouseY - g_dragStartY) > 3)
                 g_dragMoved = true;
             return true;
