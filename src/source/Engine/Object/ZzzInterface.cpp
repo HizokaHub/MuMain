@@ -6,6 +6,8 @@
 #include <functional>
 #include <queue>
 #include <vector>
+
+const unsigned char* MobaRoadCoverageForRouting();   // MapManager.cpp: the drawn roads, 0..255 per tile
 #include "Core/Input/KeyState.h"
 #include "Core/Platform/Imm.h"
 #include "UI/Legacy/UIManager.h"
@@ -2961,7 +2963,6 @@ namespace
         if (blocked(tx, ty))
             return false;
 
-        extern const unsigned char* MobaRoadCoverageForRouting();
         const unsigned char* roads = MobaRoadCoverageForRouting();
 
         static float gScore[N * N];
