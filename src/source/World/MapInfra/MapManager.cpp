@@ -1291,6 +1291,47 @@ namespace
         }
     }
 
+
+    // Ground of the open cells: one earthy base (Ground01 with soft patches of Grass01) and, over it, the roads of the
+    // arena minimap (Data\World200\MobaRoads.bin, written by tools/make_minimap_art.py: 256x256 coverage bytes, index
+    // y * 256 + x) in the sandy Rock04 tile, blended by the coverage. The old Crywolf paths are gone with the base.
+    // Without the file the ground stays as it was.
+    void ApplyMobaRoads(const unsigned char* walls)
+    {
+        constexpr int N = TERRAIN_SIZE;
+        constexpr unsigned char TILE_GROUND = 2;    // TileGround01
+        constexpr unsigned char TILE_GRASS = 0;     // TileGrass01
+        constexpr unsigned char TILE_ROAD = 10;     // TileRock04 (sandy stones)
+        constexpr float GRASS_MAX = 0.45f;
+        static unsigned char s_roads[N * N];
+        FILE* rf = nullptr;
+        if (_wfopen_s(&rf, L"Data\\World200\\MobaRoads.bin", L"rb") != 0 || rf == nullptr)
+            return;
+        const bool read = fread(s_roads, 1, sizeof(s_roads), rf) == sizeof(s_roads);
+        fclose(rf);
+        if (!read)
+            return;
+
+        for (int i = 0; i < N * N; ++i)
+        {
+            if (walls[i])
+                continue;
+            const int x = i % N, y = i / N;
+            const float coverage = s_roads[i] / 255.f;
+            TerrainMappingLayer1[i] = TILE_GROUND;
+            if (coverage > 0.02f)
+            {
+                TerrainMappingLayer2[i] = TILE_ROAD;
+                TerrainMappingAlpha[i] = coverage;
+            }
+            else
+            {
+                TerrainMappingLayer2[i] = TILE_GRASS;
+                TerrainMappingAlpha[i] = GRASS_MAX * MobaNoise(x * 0.11f, y * 0.11f);
+            }
+        }
+    }
+
     void ApplyMobaRelief()
     {
         constexpr int N = TERRAIN_SIZE;
@@ -1450,6 +1491,8 @@ namespace
             TerrainMappingLayer2[i] = TerrainMappingLayer1[i];
             TerrainMappingAlpha[i] = 0.f;
         }
+
+        ApplyMobaRoads(s_wall);
 
         // Keep map decoration attached to the ground: shift each object by the height change under it.
         for (int bi = 0; bi < 256; ++bi)

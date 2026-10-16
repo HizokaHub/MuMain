@@ -4737,6 +4737,9 @@ namespace Render::Effects::Behaviors
         {
             // MOBA Defense (skill 18): an amber bubble for the 3 s of its shield: it swells in, holds and fades out.
             constexpr float TotalTicks = 75.f, FadeInTicks = 6.f, FadeOutTicks = 18.f, MaxAlpha = 0.55f;
+            // A fresh effect (the registry gives it a huge lifetime) starts its clock at 0: slots are reused and keep the old Timer.
+            if (o->LifeTime > 9000000.f)
+                o->Timer = 0.f;
             o->Timer += FPS_ANIMATION_FACTOR;
             if (o->Timer >= TotalTicks)
             {
