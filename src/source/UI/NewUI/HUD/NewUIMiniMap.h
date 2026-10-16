@@ -21,6 +21,8 @@ namespace SEASON3B
             // MOBA corner-minimap atlases (Data\Interface\MobaPortraits.OZT, MobaMinimapIcons.OZT).
             IMAGE_MINIMAP_MOBA_PORTRAITS = IMAGE_MINIMAP_INTERFACE + 7,
             IMAGE_MINIMAP_MOBA_ICONS = IMAGE_MINIMAP_INTERFACE + 8,
+            // The arena's own ground and roads (Data\World200\MobaMinimapArt.OZT, tools/make_minimap_art.py), optional.
+            IMAGE_MINIMAP_MOBA_ART = IMAGE_MINIMAP_INTERFACE + 9,
         };
 
         enum MASTER_DATA

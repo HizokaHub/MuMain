@@ -466,7 +466,13 @@ namespace
         // The original art, as the GPU holds it (same (u, v) orientation we sample with).
         static std::vector<unsigned int> art;
         int aw = 0, ah = 0;
-        ReadBackBitmapRGBA(CNewUIMiniMap::IMAGE_MINIMAP_INTERFACE, art, aw, ah);
+        // The arena's own art (ground + the real roads) when the file exists; otherwise the Crywolf art, filtered.
+        static int ownArtState = 0;   // 0 not tried, 1 loaded, 2 missing
+        if (ownArtState == 0)
+            ownArtState = LoadBitmap(L"World200\\MobaMinimapArt.tga", CNewUIMiniMap::IMAGE_MINIMAP_MOBA_ART, GL_LINEAR, GL_CLAMP_TO_EDGE, false) ? 1 : 2;
+        const bool ownArt = ownArtState == 1 && ReadBackBitmapRGBA(CNewUIMiniMap::IMAGE_MINIMAP_MOBA_ART, art, aw, ah);
+        if (!ownArt)
+            ReadBackBitmapRGBA(CNewUIMiniMap::IMAGE_MINIMAP_INTERFACE, art, aw, ah);
 
         // RGBA bytes as little-endian uint: 0xAABBGGRR.
         auto rgba = [](unsigned r, unsigned g, unsigned b, unsigned a) { return (a << 24) | (b << 16) | (g << 8) | r; };
@@ -479,8 +485,10 @@ namespace
         // Keep an art pixel only if it is opaque, not too dark and not green;
         // anything else on walkable ground is repainted with the average colour
         // of the kept pixels, so the roads the mask opens read as roads.
-        auto artKept = [](unsigned int a)
+        auto artKept = [ownArt](unsigned int a)
         {
+            if (ownArt)
+                return true;
             const unsigned int rr = a & 255, gg = (a >> 8) & 255, bb = (a >> 16) & 255, al = a >> 24;
             const unsigned int lum = (rr * 77 + gg * 151 + bb * 28) >> 8;
             return al > 200 && lum >= 70 && gg * 100 <= rr * 112;
