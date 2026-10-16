@@ -2,6 +2,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include <algorithm>
+#include <functional>
+#include <queue>
+#include <vector>
 #include "Core/Input/KeyState.h"
 #include "Core/Platform/Imm.h"
 #include "UI/Legacy/UIManager.h"
@@ -2921,6 +2925,15 @@ namespace
     int    s_MobaAutoWalkSegments = 0;
     double s_MobaAutoWalkNextSegmentTime = 0.0;
 
+    // A whole route over the arena for the minimap clicks: the path finder only plans ~15 tiles at a time and gets stuck
+    // behind the jungle walls, so the route is planned on the whole tile grid first (A*, around every wall and solid
+    // decoration, preferring the drawn roads) and walked waypoint by waypoint (see TickMobaAutoWalk).
+    std::vector<std::pair<int, int>> s_MobaRoute;
+    size_t s_MobaRouteIdx = 0;
+    bool   s_MobaRouteActive = false;
+    constexpr int MOBA_ROUTE_WAYPOINT_STEP = 9;      // tiles between waypoints along the route
+    constexpr int MOBA_ROUTE_MAX_SEGMENTS = 200;
+
     constexpr int    MOBA_AUTOWALK_ARRIVE_TILES = 2;
     constexpr int    MOBA_AUTOWALK_MAX_SEGMENTS = 48;   // ~720 tiles, well past any map
     constexpr double MOBA_AUTOWALK_SEGMENT_PAUSE_MS = 450.0;
@@ -2933,9 +2946,128 @@ namespace
     void CancelMobaAutoWalk()
     {
         s_MobaAutoWalkActive = false;
+        s_MobaRouteActive = false;
         s_MobaAutoWalkSegments = 0;
         s_MobaAutoWalkLastX = -1;
         s_MobaAutoWalkLastY = -1;
+    }
+
+    bool BuildMobaRoute(int sx, int sy, int tx, int ty)
+    {
+        constexpr int N = 256;
+        if (sx < 0 || sy < 0 || sx >= N || sy >= N || tx < 0 || ty < 0 || tx >= N || ty >= N)
+            return false;
+        auto blocked = [](int x, int y) { return (TerrainWall[y * N + x] & TW_NOMOVE) != 0; };
+        if (blocked(tx, ty))
+            return false;
+
+        extern const unsigned char* MobaRoadCoverageForRouting();
+        const unsigned char* roads = MobaRoadCoverageForRouting();
+
+        static float gScore[N * N];
+        static int cameFrom[N * N];
+        static unsigned char closed[N * N];
+        std::fill(gScore, gScore + N * N, 1e9f);
+        std::fill(cameFrom, cameFrom + N * N, -1);
+        std::fill(closed, closed + N * N, (unsigned char)0);
+
+        auto stepCost = [&](int x, int y, float dist)
+        {
+            // Roads cost 1x, open ground 2.5x, and the cells hugging a wall a bit more (keeps the walk off the corners).
+            float mult = 2.5f;
+            if (roads != nullptr)
+                mult = 1.f + 1.5f * (1.f - roads[y * N + x] / 255.f);
+            bool nearWall = false;
+            for (int dy = -1; dy <= 1 && !nearWall; ++dy)
+            {
+                for (int dx = -1; dx <= 1 && !nearWall; ++dx)
+                {
+                    const int nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && ny >= 0 && nx < N && ny < N && blocked(nx, ny))
+                        nearWall = true;
+                }
+            }
+            if (nearWall)
+                mult += 0.6f;
+            return dist * mult;
+        };
+        auto heuristic = [&](int x, int y)
+        {
+            const float dx = (float)abs(x - tx), dy = (float)abs(y - ty);
+            return (dx > dy ? dx : dy) + 0.41f * (dx > dy ? dy : dx);
+        };
+
+        using Node = std::pair<float, int>;
+        std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open;
+        const int start = sy * N + sx, goal = ty * N + tx;
+        gScore[start] = 0.f;
+        open.push({ heuristic(sx, sy), start });
+        while (!open.empty())
+        {
+            const int cur = open.top().second;
+            open.pop();
+            if (closed[cur])
+                continue;
+            closed[cur] = 1;
+            if (cur == goal)
+                break;
+            const int cx = cur % N, cy = cur / N;
+            for (int dy = -1; dy <= 1; ++dy)
+            {
+                for (int dx = -1; dx <= 1; ++dx)
+                {
+                    if (dx == 0 && dy == 0)
+                        continue;
+                    const int nx = cx + dx, ny = cy + dy;
+                    if (nx < 0 || ny < 0 || nx >= N || ny >= N || blocked(nx, ny))
+                        continue;
+                    if (dx != 0 && dy != 0 && (blocked(cx + dx, cy) || blocked(cx, cy + dy)))
+                        continue;   // no cutting corners
+                    const int next = ny * N + nx;
+                    if (closed[next])
+                        continue;
+                    const float g = gScore[cur] + stepCost(nx, ny, (dx != 0 && dy != 0) ? 1.414f : 1.f);
+                    if (g < gScore[next])
+                    {
+                        gScore[next] = g;
+                        cameFrom[next] = cur;
+                        open.push({ g + heuristic(nx, ny), next });
+                    }
+                }
+            }
+        }
+
+        if (!closed[goal])
+            return false;
+
+        std::vector<int> cells;
+        for (int cur = goal; cur != -1; cur = cameFrom[cur])
+            cells.push_back(cur);
+        std::reverse(cells.begin(), cells.end());
+
+        s_MobaRoute.clear();
+        for (size_t i = MOBA_ROUTE_WAYPOINT_STEP; i < cells.size(); i += MOBA_ROUTE_WAYPOINT_STEP)
+            s_MobaRoute.emplace_back(cells[i] % N, cells[i] / N);
+        s_MobaRoute.emplace_back(tx, ty);
+        s_MobaRouteIdx = 0;
+        return true;
+    }
+
+    // Walks to the tile along a full route planned on the whole grid. Returns false when there is no route.
+    bool StartMobaRoutedWalk(const CHARACTER* c, int destTileX, int destTileY)
+    {
+        if (!IsMobaCameraActive() || !BuildMobaRoute(c->PositionX, c->PositionY, destTileX, destTileY))
+            return false;
+
+        s_MobaAutoWalkActive = true;
+        s_MobaRouteActive = true;
+        s_MobaAutoWalkDestX = destTileX;
+        s_MobaAutoWalkDestY = destTileY;
+        s_MobaAutoWalkLastX = -1;
+        s_MobaAutoWalkLastY = -1;
+        s_MobaAutoWalkSegments = 0;
+        s_MobaAutoWalkNextSegmentTime = WorldTime;
+        return true;
     }
 
     void StartMobaAutoWalk(int destTileX, int destTileY)
@@ -2946,6 +3078,7 @@ namespace
             return;
         }
 
+        s_MobaRouteActive = false;
         s_MobaAutoWalkActive = true;
         s_MobaAutoWalkDestX = destTileX;
         s_MobaAutoWalkDestY = destTileY;
@@ -2976,13 +3109,31 @@ namespace
         if (c->Movement)
             return;  // a segment is still playing out
 
-        if (c->MovementType != MOVEMENT_MOVE || s_MobaAutoWalkSegments >= MOBA_AUTOWALK_MAX_SEGMENTS)
+        if (c->MovementType != MOVEMENT_MOVE
+            || s_MobaAutoWalkSegments >= (s_MobaRouteActive ? MOBA_ROUTE_MAX_SEGMENTS : MOBA_AUTOWALK_MAX_SEGMENTS))
         {
             CancelMobaAutoWalk();
             return;
         }
 
-        if (MobaAutoWalkArrived(c))
+        if (s_MobaRouteActive)
+        {
+            // Next waypoint of the planned route: skip the ones already reached (or passed by a shorter walk).
+            while (s_MobaRouteIdx < s_MobaRoute.size()
+                && abs(c->PositionX - s_MobaRoute[s_MobaRouteIdx].first) <= MOBA_AUTOWALK_ARRIVE_TILES
+                && abs(c->PositionY - s_MobaRoute[s_MobaRouteIdx].second) <= MOBA_AUTOWALK_ARRIVE_TILES)
+            {
+                ++s_MobaRouteIdx;
+            }
+            if (s_MobaRouteIdx >= s_MobaRoute.size())
+            {
+                CancelMobaAutoWalk();
+                return;
+            }
+            s_MobaAutoWalkDestX = s_MobaRoute[s_MobaRouteIdx].first;
+            s_MobaAutoWalkDestY = s_MobaRoute[s_MobaRouteIdx].second;
+        }
+        else if (MobaAutoWalkArrived(c))
         {
             CancelMobaAutoWalk();
             return;
@@ -3043,6 +3194,14 @@ namespace
     // approach to weapon range and the attack. Used for the Moba chase hand-off
     // and the mid-travel interrupt. Only call this with the hero standing still,
     // so the walk it issues starts from a clean path state.
+    // How close the hero must get to cast its current skill, in tiles (a turret is solid: the walk ends at its edge).
+    float MobaApproachRange()
+    {
+        const auto skill = CharacterAttribute->Skill[Hero->CurrentSkill];
+        const float d = gSkillManager.GetSkillDistance(skill, Hero);
+        return d > 2.f ? d - 1.f : 1.f;
+    }
+
     void BeginMobaTargetAttack(CHARACTER* c, OBJECT* o, int targetIdx)
     {
         if (targetIdx < 0 || targetIdx >= MAX_CHARACTERS_CLIENT)
@@ -3057,7 +3216,7 @@ namespace
         TargetX = (int)(t.Position[0] / TERRAIN_SCALE);
         TargetY = (int)(t.Position[1] / TERRAIN_SCALE);
 
-        if (PathFinding2(c->PositionX, c->PositionY, TargetX, TargetY, &c->Path))
+        if (PathFinding2(c->PositionX, c->PositionY, TargetX, TargetY, &c->Path, MobaApproachRange()))
             SendMove(c, o);
         else
             Action(c, o, true);
@@ -3152,7 +3311,7 @@ namespace
         if (WorldTime < s_MobaChaseNextTime)
             return;
 
-        if (!PathFinding2(c->PositionX, c->PositionY, tx, ty, &c->Path))
+        if (!PathFinding2(c->PositionX, c->PositionY, tx, ty, &c->Path, MobaApproachRange()))
         {
             CancelMobaChase();
             return;
@@ -3207,9 +3366,14 @@ void MobaMinimapWalkTo(int tileX, int tileY)
     Attacking = -1;
     TargetX = tileX;
     TargetY = tileY;
+    SetPlayerStop(c);
+    c->Movement = false;
+    c->MovementType = MOVEMENT_MOVE;
+    if (StartMobaRoutedWalk(c, tileX, tileY))
+        return;   // TickMobaAutoWalk issues the segments, waypoint by waypoint
+
     if (PathFinding2(c->PositionX, c->PositionY, TargetX, TargetY, &c->Path))
     {
-        c->MovementType = MOVEMENT_MOVE;
         SendMove(c, o);
         StartMobaAutoWalk(TargetX, TargetY);
     }

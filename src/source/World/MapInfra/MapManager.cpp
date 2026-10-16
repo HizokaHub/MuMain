@@ -1750,6 +1750,9 @@ namespace
 // For the corner minimap: the solid-decoration cells (they are not drawn as walls there).
 void MobaLoadDecorCells(unsigned char* cells) { LoadMobaDecorCells(cells); }
 
+// For the minimap click router (ZzzInterface.cpp): the drawn roads, 0..255 per tile (index y * 256 + x), null when missing.
+const unsigned char* MobaRoadCoverageForRouting() { return MobaRoadCoverage(); }
+
 // MOBA fountains (capturable, see MobaFountains.cs on the server): tile x, tile y. 20 % and 80 % of the horizontal road.
 extern const int g_MobaFountains[2][2] = { { 52, 128 }, { 184, 127 } };
 
