@@ -1335,7 +1335,14 @@ namespace
                         const float bottom = raw(x0, y0 + 1) * (1.f - fx) + raw(x0 + 1, y0 + 1) * fx;
                         float v = top * (1.f - fy) + bottom * fy;
                         v *= 0.55f + 0.9f * MobaNoise(x * 0.33f + 7.f, y * 0.33f + 3.f);
-                        s_cov[y * N + x] = (unsigned char)(255.f * (v < 0.f ? 0.f : (v > 1.f ? 1.f : v)));
+                        v = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
+                        // Crumbled edge: each tile becomes road, half road or field at random, more likely road the
+                        // higher its coverage, so the edge has teeth and loose patches instead of a smooth line.
+                        if (v > 0.f)
+                        {
+                            v = MobaHash01(x, y + 5000) < powf(v, 0.8f) ? 1.f : (MobaHash01(x + 7000, y) < v * 0.7f ? 0.55f : 0.f);
+                        }
+                        s_cov[y * N + x] = (unsigned char)(255.f * v);
                     }
                 }
             }
@@ -1589,20 +1596,19 @@ namespace
         g_ErrorReport.Write(note);
     }
 
-    // Grass along the edges of the roads: mostly low tufts, now and then a tall clump (Crywolf grass objects, types 15-18).
-    // Runs after ApplyMobaRelief, which would drop tall grass standing on open ground.
+    // Small grass along the edges of the roads (Crywolf grass tufts, types 15-18, low only).
+    // Runs after ApplyMobaRelief, which drops big grass standing on open ground.
     void PlaceMobaRoadGrass()
     {
         constexpr int N = TERRAIN_SIZE;
         constexpr unsigned char EDGE_MIN = 18;      // road coverage range of an edge cell
         constexpr unsigned char EDGE_MAX = 150;
-        constexpr float TUFT_CHANCE = 0.22f;
-        constexpr float TALL_SHARE = 0.15f;
+        constexpr float TUFT_CHANCE = 0.55f;
         const unsigned char* roads = MobaRoadCoverage();
         if (roads == nullptr)
             return;
 
-        int low = 0, tall = 0;
+        int count = 0;
         for (int y = 1; y < N - 1; ++y)
         {
             for (int x = 1; x < N - 1; ++x)
@@ -1612,20 +1618,17 @@ namespace
                     continue;
                 if (MobaHash01(x * 5 + 101, y * 3 + 7) > TUFT_CHANCE)
                     continue;
-                const bool isTall = MobaHash01(x + 211, y * 9 + 5) < TALL_SHARE;
-                const float scale = isTall ? 1.3f + 0.5f * MobaHash01(x + 3, y + 313) : 0.5f + 0.4f * MobaHash01(x + 41, y + 5);
+                const float scale = 1.0f + 0.8f * MobaHash01(x + 41, y + 5);
                 vec3_t pos, ang;
                 Vector((x + 0.1f + 0.8f * MobaHash01(x + 71, y + 19)) * TERRAIN_SCALE,
                     (y + 0.1f + 0.8f * MobaHash01(x + 29, y + 83)) * TERRAIN_SCALE, BackTerrainHeight[i], pos);
                 Vector(0.f, 0.f, MobaHash01(x + 57, y + 11) * 360.f, ang);
                 if (CreateObject(15 + (x + 2 * y) % 4, pos, ang, scale) != NULL)
-                {
-                    if (isTall) ++tall; else ++low;
-                }
+                    ++count;
             }
         }
         wchar_t note[160];
-        mu_swprintf(note, L"[MOBA] road grass: %d low, %d tall\r\n", low, tall);
+        mu_swprintf(note, L"[MOBA] road grass: %d tufts\r\n", count);
         g_ErrorReport.Write(note);
     }
 
