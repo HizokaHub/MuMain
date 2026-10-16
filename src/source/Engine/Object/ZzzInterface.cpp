@@ -3940,7 +3940,8 @@ void MoveHero()
         && (MouseRButtonPush || MouseRButton)
         && !(MouseLButtonPush || MouseLButton)
         && !MouseOnWindow
-        && CheckAttack())
+        && CheckAttack()
+        && !(s_MobaChaseActive && s_MobaChaseTargetIdx == SelectedCharacter))   // holding the button on the same target must not restart the chase every frame
     {
         // Redirect: cut the auto-walk short and go after this enemy instead.
         const int targetIdx = SelectedCharacter;
@@ -3959,7 +3960,10 @@ void MoveHero()
     // Moba mode) and advance any active chase toward its target.
     if (g_MobaChaseRequestTarget >= 0)
     {
-        StartMobaChase(g_MobaChaseRequestTarget);
+        // Holding the button on the target repeats the request every frame: only a new target (re)starts the chase,
+        // otherwise the segment pause would restart every frame and the hero would be re-sent over and over.
+        if (!(s_MobaChaseActive && s_MobaChaseTargetIdx == g_MobaChaseRequestTarget))
+            StartMobaChase(g_MobaChaseRequestTarget);
         g_MobaChaseRequestTarget = -1;
     }
     TickMobaChase(c, o);
