@@ -1358,12 +1358,43 @@ namespace
         if (roads == nullptr)
             return;
 
+        // The old Crywolf roads are second-layer blends over the open ground: clear them.
+        for (int i = 0; i < N * N; ++i)
+        {
+            if (!walls[i] && TerrainMappingLayer2[i] != 255)
+            {
+                TerrainMappingLayer2[i] = 255;
+                TerrainMappingAlpha[i] = 0.f;
+            }
+        }
+
         for (int i = 0; i < N * N; ++i)
         {
             if (walls[i] || roads[i] < 6)
                 continue;
             TerrainMappingLayer2[i] = TILE_ROAD;
             TerrainMappingAlpha[i] = roads[i] / 255.f;
+        }
+
+        // A terrain quad takes its second tile from its first corner only, so every cell around a road cell needs the road
+        // tile as well (with alpha 0 it stays invisible); otherwise the road edge would end on the quad grid as hard squares.
+        for (int y = 1; y < N - 1; ++y)
+        {
+            for (int x = 1; x < N - 1; ++x)
+            {
+                const int i = y * N + x;
+                if (walls[i] || roads[i] < 6)
+                    continue;
+                for (int dy = -1; dy <= 1; ++dy)
+                {
+                    for (int dx = -1; dx <= 1; ++dx)
+                    {
+                        const int j = i + dy * N + dx;
+                        if (!walls[j] && TerrainMappingLayer2[j] == 255)
+                            TerrainMappingLayer2[j] = TILE_ROAD;
+                    }
+                }
+            }
         }
     }
 
