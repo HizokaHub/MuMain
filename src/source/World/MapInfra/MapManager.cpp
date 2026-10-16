@@ -1295,25 +1295,68 @@ namespace
     // The roads of the arena minimap (Data\World200\MobaRoads.bin, written by tools/make_minimap_art.py: 256x256
     // coverage bytes, index y * 256 + x) painted over the ground in the sandy Rock04 tile, blended by the coverage.
     // Only the road cells change; the Crywolf ground stays. Without the file nothing changes.
+    // The road coverage (0..255 per tile, index y * 256 + x) with an organic wobble: the file is sampled at a noise-shifted
+    // position and its width swells and shrinks with noise, so the road meanders and its edge is ragged instead of ruler-straight.
+    // Loaded once; null when the file is missing.
+    const unsigned char* MobaRoadCoverage()
+    {
+        constexpr int N = TERRAIN_SIZE;
+        constexpr float SHIFT_TILES = 3.2f;
+        static unsigned char s_raw[N * N];
+        static unsigned char s_cov[N * N];
+        static int s_state = 0;   // 0 not tried, 1 loaded, 2 missing
+        if (s_state == 0)
+        {
+            FILE* rf = nullptr;
+            s_state = 2;
+            if (_wfopen_s(&rf, L"Data\\World200\\MobaRoads.bin", L"rb") == 0 && rf != nullptr)
+            {
+                if (fread(s_raw, 1, sizeof(s_raw), rf) == sizeof(s_raw))
+                    s_state = 1;
+                fclose(rf);
+            }
+            if (s_state == 1)
+            {
+                auto raw = [&](int x, int y) -> float
+                {
+                    x = x < 0 ? 0 : (x > N - 1 ? N - 1 : x);
+                    y = y < 0 ? 0 : (y > N - 1 ? N - 1 : y);
+                    return s_raw[y * N + x] / 255.f;
+                };
+                for (int y = 0; y < N; ++y)
+                {
+                    for (int x = 0; x < N; ++x)
+                    {
+                        const float sx = x + (MobaNoise(x * 0.13f + 17.f, y * 0.13f) - 0.5f) * SHIFT_TILES;
+                        const float sy = y + (MobaNoise(x * 0.13f, y * 0.13f + 53.f) - 0.5f) * SHIFT_TILES;
+                        const int x0 = (int)floorf(sx), y0 = (int)floorf(sy);
+                        const float fx = sx - x0, fy = sy - y0;
+                        const float top = raw(x0, y0) * (1.f - fx) + raw(x0 + 1, y0) * fx;
+                        const float bottom = raw(x0, y0 + 1) * (1.f - fx) + raw(x0 + 1, y0 + 1) * fx;
+                        float v = top * (1.f - fy) + bottom * fy;
+                        v *= 0.55f + 0.9f * MobaNoise(x * 0.33f + 7.f, y * 0.33f + 3.f);
+                        s_cov[y * N + x] = (unsigned char)(255.f * (v < 0.f ? 0.f : (v > 1.f ? 1.f : v)));
+                    }
+                }
+            }
+        }
+        return s_state == 1 ? s_cov : nullptr;
+    }
+
     void ApplyMobaRoads(const unsigned char* walls)
     {
         constexpr int N = TERRAIN_SIZE;
         constexpr unsigned char TILE_ROAD = 10;     // TileRock04 (sandy stones)
-        static unsigned char s_roads[N * N];
-        FILE* rf = nullptr;
-        if (_wfopen_s(&rf, L"Data\\World200\\MobaRoads.bin", L"rb") != 0 || rf == nullptr)
-            return;
-        const bool read = fread(s_roads, 1, sizeof(s_roads), rf) == sizeof(s_roads);
-        fclose(rf);
-        if (!read)
+        const unsigned char* roads = MobaRoadCoverage();
+        if (roads == nullptr)
             return;
 
         for (int i = 0; i < N * N; ++i)
         {
-            if (walls[i] || s_roads[i] < 6)
+            if (walls[i] || roads[i] < 6)
                 continue;
             TerrainMappingLayer2[i] = TILE_ROAD;
-            TerrainMappingAlpha[i] = s_roads[i] / 255.f;
+            TerrainMappingAlpha[i] = roads[i] / 255.f;
         }
     }
 
@@ -1543,6 +1586,46 @@ namespace
         }
         wchar_t note[160];
         mu_swprintf(note, L"[MOBA] wall decoration: %d trees, %d rocks\r\n", trees, rocks);
+        g_ErrorReport.Write(note);
+    }
+
+    // Grass along the edges of the roads: mostly low tufts, now and then a tall clump (Crywolf grass objects, types 15-18).
+    // Runs after ApplyMobaRelief, which would drop tall grass standing on open ground.
+    void PlaceMobaRoadGrass()
+    {
+        constexpr int N = TERRAIN_SIZE;
+        constexpr unsigned char EDGE_MIN = 18;      // road coverage range of an edge cell
+        constexpr unsigned char EDGE_MAX = 150;
+        constexpr float TUFT_CHANCE = 0.22f;
+        constexpr float TALL_SHARE = 0.15f;
+        const unsigned char* roads = MobaRoadCoverage();
+        if (roads == nullptr)
+            return;
+
+        int low = 0, tall = 0;
+        for (int y = 1; y < N - 1; ++y)
+        {
+            for (int x = 1; x < N - 1; ++x)
+            {
+                const int i = y * N + x;
+                if ((TerrainWall[i] & TW_NOMOVE) || roads[i] < EDGE_MIN || roads[i] > EDGE_MAX)
+                    continue;
+                if (MobaHash01(x * 5 + 101, y * 3 + 7) > TUFT_CHANCE)
+                    continue;
+                const bool isTall = MobaHash01(x + 211, y * 9 + 5) < TALL_SHARE;
+                const float scale = isTall ? 1.3f + 0.5f * MobaHash01(x + 3, y + 313) : 0.5f + 0.4f * MobaHash01(x + 41, y + 5);
+                vec3_t pos, ang;
+                Vector((x + 0.1f + 0.8f * MobaHash01(x + 71, y + 19)) * TERRAIN_SCALE,
+                    (y + 0.1f + 0.8f * MobaHash01(x + 29, y + 83)) * TERRAIN_SCALE, BackTerrainHeight[i], pos);
+                Vector(0.f, 0.f, MobaHash01(x + 57, y + 11) * 360.f, ang);
+                if (CreateObject(15 + (x + 2 * y) % 4, pos, ang, scale) != NULL)
+                {
+                    if (isTall) ++tall; else ++low;
+                }
+            }
+        }
+        wchar_t note[160];
+        mu_swprintf(note, L"[MOBA] road grass: %d low, %d tall\r\n", low, tall);
         g_ErrorReport.Write(note);
     }
 }
@@ -2053,6 +2136,7 @@ void CMapManager::LoadWorld(int Map)
 
         ApplyMobaRelief();
         PlaceMobaWallDecoration();
+        PlaceMobaRoadGrass();
         PlaceMobaTestModels();
         PlaceMobaTotems();
         PlaceMobaFountains();
