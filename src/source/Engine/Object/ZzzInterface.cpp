@@ -71,6 +71,13 @@ const unsigned char* MobaRoadCoverageForRouting();   // MapManager.cpp: the draw
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MyMobaTeam (MOBA auto-target)
 #include "World/Moba/MobaFog.h"    // IsTileHidden (a minimap-targeted enemy leaving sight)
 
+// Whether the hero is in a MOBA match: the click navigation (chase a clicked target into skill range, walk the whole way,
+// minimap clicks) works with every camera, not only with the MOBA one.
+static bool MobaMatchActive()
+{
+    return g_MobaLevel > 0 && gMapManager.WorldActive == WD_200_MOBA_ARENA;
+}
+
 // Navigation diagnostics of the MOBA clicks (minimap walk, chase of a clicked target), written to MuError.log.
 static void MobaNavLog(const wchar_t* text, int a = 0, int b = 0, int c = 0, int d = 0, int e = 0, int f = 0)
 {
@@ -2738,7 +2745,7 @@ void Attack(CHARACTER* c)
     // Moba camera: a right-click on an enemy far past the path-segment limit
     // would otherwise just do nothing. Defer to a chase (started in MoveHero's
     // tail) that walks the hero into range and then casts.
-    if (CameraManager::Instance().GetCurrentMode() == CameraMode::Moba
+    if ((MobaMatchActive() || CameraManager::Instance().GetCurrentMode() == CameraMode::Moba)
         && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT
         && CharactersClient[SelectedCharacter].Object.Live)
     {
@@ -2951,7 +2958,7 @@ namespace
 
     bool IsMobaCameraActive()
     {
-        return CameraManager::Instance().GetCurrentMode() == CameraMode::Moba;
+        return MobaMatchActive() || CameraManager::Instance().GetCurrentMode() == CameraMode::Moba;
     }
 
     void CancelMobaAutoWalk()
