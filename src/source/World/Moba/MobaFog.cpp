@@ -53,6 +53,12 @@ namespace
     // InitTerrainLight rewrites the light up to FrustrumBoundMax + 3 on each axis.
     constexpr int TERRAIN_BAND_EXTRA = 3;
 
+    // The hero's own light: the terrain around the hero is fully lit (light 1.0) up to HERO_LIGHT_FULL_TILES, then falls
+    // off smoothly to the normal light at HERO_LIGHT_FULL_TILES + HERO_LIGHT_FADE_TILES (about the edge of the screen).
+    // It is laid under the fog, so what the team cannot see still stays dark.
+    constexpr float HERO_LIGHT_FULL_TILES = 5.f;
+    constexpr float HERO_LIGHT_FADE_TILES = 17.f;
+
     // The kind byte of the minimap feed (MobaMinimapEntry::kind).
     constexpr BYTE FEED_CHAMPION = 1;
     constexpr BYTE FEED_TURRET = 2;
@@ -346,11 +352,28 @@ void ApplyToTerrainLight()
     const int lastX = std::min(FrustrumBoundMaxX + TERRAIN_BAND_EXTRA, GridSize - 1);
     const int lastY = std::min(FrustrumBoundMaxY + TERRAIN_BAND_EXTRA, GridSize - 1);
 
+    const float heroX = Hero != nullptr ? Hero->Object.Position[0] / TERRAIN_SCALE : -1000.f;
+    const float heroY = Hero != nullptr ? Hero->Object.Position[1] / TERRAIN_SCALE : -1000.f;
+    constexpr float lampEnd = HERO_LIGHT_FULL_TILES + HERO_LIGHT_FADE_TILES;
+
     for (int y = firstY; y <= lastY; ++y)
     {
         for (int x = firstX; x <= lastX; ++x)
         {
             const int index = TERRAIN_INDEX(x, y);
+
+            const float lampDx = (float)x + TILE_CENTRE - heroX;
+            const float lampDy = (float)y + TILE_CENTRE - heroY;
+            const float lampDistance = sqrtf(lampDx * lampDx + lampDy * lampDy);
+            if (lampDistance < lampEnd)
+            {
+                float t = (lampDistance <= HERO_LIGHT_FULL_TILES) ? 1.f : 1.f - (lampDistance - HERO_LIGHT_FULL_TILES) / HERO_LIGHT_FADE_TILES;
+                t = t * t * (3.f - 2.f * t);
+                float* light = &PrimaryTerrainLight[index][0];
+                for (int c = 0; c < 3; ++c)
+                    light[c] += (1.f - light[c]) * t;
+            }
+
             const float amount = s_fog[index] * TERRAIN_FOG_STRENGTH;
             if (amount > 0.f)
                 FogTerrainVertex(&PrimaryTerrainLight[index][0], amount);
