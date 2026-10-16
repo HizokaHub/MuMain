@@ -1628,6 +1628,68 @@ namespace
         mu_swprintf(note, L"[MOBA] road grass: %d low, %d tall\r\n", low, tall);
         g_ErrorReport.Write(note);
     }
+
+    // The baked light of Crywolf (TerrainLight) has bright strips along its old roads and river banks that show through
+    // on the arena's ground as ghost paths. On the open ground it is replaced by a wide local average (walls stay as
+    // they are, and never take part in the average), so only broad shading is left. Run right after the light is loaded.
+    void FlattenMobaBakedLight()
+    {
+        constexpr int N = TERRAIN_SIZE;
+        constexpr int RADIUS = 7;
+        constexpr float KEEP = 0.12f;    // share of the original light that stays
+        static float s_sum[3][N * N];
+        static float s_weight[N * N];
+        static float s_tmpSum[3][N * N];
+        static float s_tmpWeight[N * N];
+        static unsigned char s_decor[N * N];
+        LoadMobaDecorCells(s_decor);
+        for (int i = 0; i < N * N; ++i)
+        {
+            const bool open = !((TerrainWall[i] & TW_NOMOVE) && !s_decor[i]);
+            s_weight[i] = open ? 1.f : 0.f;
+            for (int c = 0; c < 3; ++c)
+                s_sum[c][i] = open ? TerrainLight[i][c] : 0.f;
+        }
+        // Two separable box passes (a masked average: sums and weights are blurred the same way).
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            for (int dir = 0; dir < 2; ++dir)
+            {
+                for (int y = 0; y < N; ++y)
+                {
+                    for (int x = 0; x < N; ++x)
+                    {
+                        float w = 0.f, s0 = 0.f, s1 = 0.f, s2 = 0.f;
+                        for (int k = -RADIUS; k <= RADIUS; ++k)
+                        {
+                            const int xx = dir == 0 ? x + k : x;
+                            const int yy = dir == 0 ? y : y + k;
+                            if (xx < 0 || yy < 0 || xx >= N || yy >= N) continue;
+                            const int j = yy * N + xx;
+                            w += s_weight[j]; s0 += s_sum[0][j]; s1 += s_sum[1][j]; s2 += s_sum[2][j];
+                        }
+                        const int i = y * N + x;
+                        s_tmpWeight[i] = w; s_tmpSum[0][i] = s0; s_tmpSum[1][i] = s1; s_tmpSum[2][i] = s2;
+                    }
+                }
+                // Normalise back to a mean so the next pass averages means (weights stay as 0/1 of the open mask).
+                for (int i = 0; i < N * N; ++i)
+                {
+                    const bool open = !((TerrainWall[i] & TW_NOMOVE) && !s_decor[i]);
+                    s_weight[i] = open ? 1.f : 0.f;
+                    for (int c = 0; c < 3; ++c)
+                        s_sum[c][i] = (open && s_tmpWeight[i] > 0.f) ? s_tmpSum[c][i] / s_tmpWeight[i] : 0.f;
+                }
+            }
+        }
+        for (int i = 0; i < N * N; ++i)
+        {
+            if (s_weight[i] <= 0.f) continue;
+            const float n = 0.94f + 0.12f * MobaNoise((i % N) * 0.21f, (i / N) * 0.21f);
+            for (int c = 0; c < 3; ++c)
+                TerrainLight[i][c] = std::min(1.f, (TerrainLight[i][c] * KEEP + s_sum[c][i] * (1.f - KEEP)) * n);
+        }
+    }
 }
 
 // MOBA jungle totems: tile x, tile y, colour (1 blue, 2 green, 3 red, 4 yellow). Players call them out by colour
@@ -2177,6 +2239,11 @@ void CMapManager::LoadWorld(int Map)
         }
 
     OpenTerrainLight(FileName);
+    if (this->WorldActive == WD_200_MOBA_ARENA)
+    {
+        FlattenMobaBakedLight();
+        CreateTerrainLight();
+    }
 
     if (CreateWaterTerrain(this->WorldActive) == false)
     {
