@@ -1415,6 +1415,26 @@ namespace
         }
     }
 
+    // A thin wall: a wall cell with few wall cells around it (5x5), i.e. the walls of the jungle camps and not the mass of the
+    // mountains. The 3x3 blur of the relief flattens them to a third of their height, so they read as low bumps.
+    bool MobaIsThinWall(int x, int y, const unsigned char* wall)
+    {
+        constexpr int N = TERRAIN_SIZE;
+        if (!wall[y * N + x])
+            return false;
+        int count = 0;
+        for (int dy = -2; dy <= 2; ++dy)
+        {
+            for (int dx = -2; dx <= 2; ++dx)
+            {
+                const int nx = x + dx, ny = y + dy;
+                if (nx >= 0 && ny >= 0 && nx < N && ny < N && wall[ny * N + nx])
+                    ++count;
+            }
+        }
+        return count <= 12;
+    }
+
     void ApplyMobaRelief()
     {
         constexpr int N = TERRAIN_SIZE;
@@ -1536,6 +1556,20 @@ namespace
                     }
                 }
                 BackTerrainHeight[y * N + x] = acc / c;
+            }
+        }
+
+        // The thin walls keep most of their height (the blur above would leave them as low bumps the hero seems to be able to cross).
+        for (int y = 0; y < N; ++y)
+        {
+            for (int x = 0; x < N; ++x)
+            {
+                const int i = y * N + x;
+                if (!MobaIsThinWall(x, y, s_wall))
+                    continue;
+                const float thinHeight = base + 0.85f * MOBA_RELIEF_HEIGHT * (0.85f + 0.3f * MobaNoise(x * 0.3f, y * 0.3f));
+                if (BackTerrainHeight[i] < thinHeight)
+                    BackTerrainHeight[i] = thinHeight;
             }
         }
 
@@ -1680,6 +1714,67 @@ namespace
         }
         wchar_t note[160];
         mu_swprintf(note, L"[MOBA] road grass: %d tufts\r\n", count);
+        g_ErrorReport.Write(note);
+    }
+
+    // Trees on the thin walls (the jungle camp walls) so they read as barriers, except around the camp entrances.
+    void PlaceMobaThinWallTrees()
+    {
+        constexpr int N = TERRAIN_SIZE;
+        constexpr float TREE_CHANCE = 0.5f;
+        constexpr float DOOR_CLEAR_TILES = 4.5f;
+        static unsigned char s_wall[N * N];
+        static unsigned char s_decorCells[N * N];
+        LoadMobaDecorCells(s_decorCells);
+        for (int i = 0; i < N * N; ++i)
+            s_wall[i] = ((TerrainWall[i] & TW_NOMOVE) && !s_decorCells[i]) ? 1 : 0;
+
+        std::vector<std::pair<int, int>> doors;
+        FILE* df = nullptr;
+        if (_wfopen_s(&df, L"Data\\World200\\MobaJungleDoors.txt", L"r") == 0 && df != nullptr)
+        {
+            char line[64];
+            while (fgets(line, sizeof(line), df))
+            {
+                int dx = 0, dy = 0;
+                if (line[0] != '#' && sscanf_s(line, "%d %d", &dx, &dy) == 2)
+                    doors.emplace_back(dx, dy);
+            }
+            fclose(df);
+        }
+
+        static const int TREE_TYPES[4] = { 24, 27, 28, 25 };
+        int placed = 0;
+        for (int y = 2; y < N - 2; ++y)
+        {
+            for (int x = 2; x < N - 2; ++x)
+            {
+                if (!MobaIsThinWall(x, y, s_wall) || MobaHash01(x * 13 + 7, y * 17 + 3) > TREE_CHANCE)
+                    continue;
+                bool nearDoor = false;
+                for (const auto& d : doors)
+                {
+                    const float ddx = (float)(x - d.first), ddy = (float)(y - d.second);
+                    if (ddx * ddx + ddy * ddy <= DOOR_CLEAR_TILES * DOOR_CLEAR_TILES)
+                    {
+                        nearDoor = true;
+                        break;
+                    }
+                }
+                if (nearDoor)
+                    continue;
+                const int type = TREE_TYPES[(x + 3 * y) & 3];
+                const float scale = std::min(0.9f + 0.5f * MobaHash01(x + 41, y + 59), MobaTreeScaleCap(type));
+                vec3_t pos, ang;
+                Vector((x + 0.15f + 0.7f * MobaHash01(x + 5, y + 61)) * TERRAIN_SCALE,
+                    (y + 0.15f + 0.7f * MobaHash01(x + 67, y + 9)) * TERRAIN_SCALE, BackTerrainHeight[y * N + x], pos);
+                Vector(0.f, 0.f, MobaHash01(x + 23, y + 31) * 360.f, ang);
+                if (CreateObject(type, pos, ang, scale) != NULL)
+                    ++placed;
+            }
+        }
+        wchar_t note[160];
+        mu_swprintf(note, L"[MOBA] thin wall trees: %d\r\n", placed);
         g_ErrorReport.Write(note);
     }
 
@@ -2256,6 +2351,7 @@ void CMapManager::LoadWorld(int Map)
         ApplyMobaRelief();
         PlaceMobaWallDecoration();
         PlaceMobaRoadGrass();
+        PlaceMobaThinWallTrees();
         PlaceMobaTestModels();
         PlaceMobaTotems();
         PlaceMobaFountains();
