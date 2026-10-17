@@ -1251,6 +1251,40 @@ void SetPlayerAttack(CHARACTER* c)
         {
             bool Success = true;
 
+            // MOBA: skills of the God of Darkness (monster skill packet 0x69): 29 darkness = ATTACK3, 30 flame = ATTACK4, 31 fury = APEAR.
+            if (c->MonsterIndex == MONSTER_GOD_OF_DARKNESS && c->MonsterSkill >= 29 && c->MonsterSkill <= 31)
+            {
+                vec3_t vLight, vPos;
+                if (c->MonsterSkill == 29)
+                {
+                    SetAction(o, MONSTER01_ATTACK3);
+                    Vector(0.45f, 0.1f, 0.8f, vLight);
+                    CreateEffect(BITMAP_SHOCK_WAVE, o->Position, o->Angle, vLight, 12, NULL, -1, 0, 0, 0, 0.5f);
+                    CreateEffect(BITMAP_SHOCK_WAVE, o->Position, o->Angle, vLight, 12, NULL, -1, 0, 0, 0, 0.9f);
+                }
+                else if (c->MonsterSkill == 30)
+                {
+                    SetAction(o, MONSTER01_ATTACK4);
+                    Vector(0.8f, 0.5f, 0.1f, vLight);
+                    for (int i = 0; i < 6; ++i)
+                    {
+                        vPos[0] = o->Position[0] + (float)(rand() % 400 - 200);
+                        vPos[1] = o->Position[1] + (float)(rand() % 400 - 200);
+                        vPos[2] = o->Position[2];
+                        CreateEffect(MODEL_FIRE, vPos, o->Angle, vLight, 7, NULL, 0);
+                    }
+                    CreateEffect(BITMAP_FLAME, o->Position, o->Angle, vLight, 1, o);
+                }
+                else
+                {
+                    SetAction(o, MONSTER01_APEAR);
+                    Vector(1.f, 0.3f, 0.1f, vLight);
+                    CreateEffect(BITMAP_MAGIC + 1, o->Position, o->Angle, vLight, 13, o, -1, 0, 0, 0, 8.f);
+                }
+                c->MonsterSkill = -1;
+                Success = false;
+            }
+
             if (SetCurrentAction_HellasMonster(c, o) == true) Success = false;
             if (battleCastle::SetCurrentAction_BattleCastleMonster(c, o) == true) Success = false;
             if (M31HuntingGround::SetCurrentActionHuntingGroundMonster(c, o) == true) Success = false;
@@ -15152,6 +15186,35 @@ BOOL PlayMonsterSoundGlobal(OBJECT* pObject)
 
     switch (pObject->Type)
     {
+    case MODEL_GOD_OF_DARKNESS:
+    {
+        // MOBA: sounds of the God of Darkness (IGC Swamp of Darkness), loaded on first use.
+        static bool s_godSoundsLoaded = false;
+        if (!s_godSoundsLoaded)
+        {
+            static const wchar_t* const files[] = { L"DarknessKing_attack1", L"DarknessKing_attack2", L"DarknessKing_darkness", L"DarknessKing_death", L"DarknessKing_flame", L"DarknessKing_hit", L"DarknessKing_move" };
+            for (int i = 0; i < 7; ++i)
+            {
+                wchar_t path[96];
+                mu_swprintf(path, L"Data\\Sound\\MobaMonsters\\%ls.wav", files[i]);
+                LoadWaveFile((ESound)(SOUND_MOBA_GOD_ATTACK1 + i), path, 1);
+            }
+            s_godSoundsLoaded = true;
+        }
+        switch (pObject->CurrentAction)
+        {
+        case MONSTER01_WALK: PlayBuffer(SOUND_MOBA_GOD_MOVE); break;
+        case MONSTER01_ATTACK1: PlayBuffer(SOUND_MOBA_GOD_ATTACK1); break;
+        case MONSTER01_ATTACK2: PlayBuffer(SOUND_MOBA_GOD_ATTACK2); break;
+        case MONSTER01_ATTACK3: PlayBuffer(SOUND_MOBA_GOD_DARKNESS); break;
+        case MONSTER01_ATTACK4: PlayBuffer(SOUND_MOBA_GOD_FLAME); break;
+        case MONSTER01_APEAR: PlayBuffer(SOUND_MOBA_GOD_DARKNESS); break;
+        case MONSTER01_SHOCK: PlayBuffer(SOUND_MOBA_GOD_HIT); break;
+        case MONSTER01_DIE: PlayBuffer(SOUND_MOBA_GOD_DEATH); break;
+        default: break;
+        }
+        return TRUE;
+    }
     case MODEL_CURSED_SANTA:
         if (pObject->CurrentAction == MONSTER01_STOP1)
         {

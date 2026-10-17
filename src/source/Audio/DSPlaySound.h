@@ -1003,6 +1003,13 @@ enum ESound
     SOUND_MOBA_SD7,
     SOUND_MOBA_SD8,
     SOUND_MOBA_AEGIS,									// MobaSD\aegis.wav (Rune Wizard RunicSphere.wav)
+    SOUND_MOBA_GOD_ATTACK1,								// MobaMonsters\DarknessKing_*.wav (IGC Swamp of Darkness), same order as the file list in ZzzCharacter.cpp
+    SOUND_MOBA_GOD_ATTACK2,
+    SOUND_MOBA_GOD_DARKNESS,
+    SOUND_MOBA_GOD_DEATH,
+    SOUND_MOBA_GOD_FLAME,
+    SOUND_MOBA_GOD_HIT,
+    SOUND_MOBA_GOD_MOVE,
 
     MAX_BUFFER
 };
