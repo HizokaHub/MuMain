@@ -1559,20 +1559,6 @@ namespace
             }
         }
 
-        // The thin walls keep most of their height (the blur above would leave them as low bumps the hero seems to be able to cross).
-        for (int y = 0; y < N; ++y)
-        {
-            for (int x = 0; x < N; ++x)
-            {
-                const int i = y * N + x;
-                if (!MobaIsThinWall(x, y, s_wall))
-                    continue;
-                const float thinHeight = base + 0.85f * MOBA_RELIEF_HEIGHT * (0.85f + 0.3f * MobaNoise(x * 0.3f, y * 0.3f));
-                if (BackTerrainHeight[i] < thinHeight)
-                    BackTerrainHeight[i] = thinHeight;
-            }
-        }
-
         // Ground tiles: spread the nearest non-ridge open tile into open cells that used to be ridge.
         int qh = 0, qt = 0;
         for (int i = 0; i < N * N; ++i)
