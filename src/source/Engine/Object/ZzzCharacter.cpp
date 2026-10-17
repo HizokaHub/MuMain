@@ -114,6 +114,7 @@ namespace
 #include "GameLogic/Pets/GIPetManager.h"
 #include "GameLogic/Pets/w_PetProcess.h"
 #include "Character/CSParts.h"
+#include "World/Moba/MobaFog.h"
 #include "Render/Models/BoneManager.h"
 #include "GameLogic/Events/Cinematic/CDirection.h"
 #include "Core/Input/Input.h"
@@ -11453,6 +11454,15 @@ void RenderCharactersClient()
     {
         CHARACTER* c = &CharactersClient[i];
         OBJECT* o = &c->Object;
+
+        // MOBA fog of war: what the team does not see is not drawn (the server sends everything on the arena, see Player.InfoRange).
+        if (c != Hero && o->Live && gMapManager.WorldActive == WD_200_MOBA_ARENA
+            && World::Moba::Fog::HidesCharacter(c->MobaTeam, (int)(o->Position[0] / TERRAIN_SCALE), (int)(o->Position[1] / TERRAIN_SCALE)))
+        {
+            if (Hero->TargetCharacter == c->Key)
+                Hero->TargetCharacter = -1;
+            continue;
+        }
 
         if (c != Hero && battleCastle::IsBattleCastleStart() == true && g_isCharacterBuff(o, eBuff_Cloaking))
         {

@@ -377,10 +377,20 @@ void ApplyToTerrainLight()
             const float lampDx = (float)x + TILE_CENTRE - heroX;
             const float lampDy = (float)y + TILE_CENTRE - heroY;
             const float lampDistance = sqrtf(lampDx * lampDx + lampDy * lampDy);
+
+            // The hero's lamp, and the lamp of the whole team: what any ally, turret or ward sees is lit like what the hero sees
+            // (the camera can look at an ally's surroundings, which have to look as they do for him).
+            float t = 0.f;
             if (lampDistance < lampEnd)
             {
-                float t = (lampDistance <= HERO_LIGHT_FULL_TILES) ? 1.f : 1.f - (lampDistance - HERO_LIGHT_FULL_TILES) / HERO_LIGHT_FADE_TILES;
+                t = (lampDistance <= HERO_LIGHT_FULL_TILES) ? 1.f : 1.f - (lampDistance - HERO_LIGHT_FULL_TILES) / HERO_LIGHT_FADE_TILES;
                 t = t * t * (3.f - 2.f * t);
+            }
+            const float seen = 1.f - s_fog[index];
+            if (seen > t)
+                t = seen;
+            if (t > 0.f)
+            {
                 float* light = &PrimaryTerrainLight[index][0];
                 for (int c = 0; c < 3; ++c)
                     light[c] += (1.f - light[c]) * t;
@@ -403,6 +413,21 @@ bool IsTileHidden(int tileX, int tileY)
     if (!s_active || tileX < 0 || tileY < 0 || tileX >= GridSize || tileY >= GridSize)
         return false;
     return s_fog[tileY * GridSize + tileX] > 0.85f;
+}
+
+bool HidesCharacter(int team, int tileX, int tileY)
+{
+    if (!s_active || team == g_MyMobaTeam || !IsTileHidden(tileX, tileY))
+        return false;
+
+    // A structure the team has been told about (the minimap feed lists turrets and nexuses of both teams) is not hidden.
+    for (int m = 0; m < g_MobaMinimapCount; ++m)
+    {
+        const MobaMinimapEntry& e = g_MobaMinimap[m];
+        if ((e.kind == FEED_TURRET || e.kind == FEED_NEXUS) && std::abs((int)e.x - tileX) <= 2 && std::abs((int)e.y - tileY) <= 2)
+            return false;
+    }
+    return true;
 }
 
 const float* Cells()

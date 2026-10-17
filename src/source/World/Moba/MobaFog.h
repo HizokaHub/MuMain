@@ -41,6 +41,11 @@ namespace World::Moba::Fog
     // Whether the tile is (almost) fully hidden from the team right now; false while the fog is off.
     bool IsTileHidden(int tileX, int tileY);
 
+    // Whether a character that is not the hero is hidden by the fog: it is not an ally, it stands on a hidden tile and it is
+    // not a structure (turrets and the nexus stay visible once the server told us where they are). tileX / tileY are the
+    // character's tile, team its MobaTeam (0 neutral, 1 blue, 2 red). False while the fog is off.
+    bool HidesCharacter(int team, int tileX, int tileY);
+
     // Eased fog of every cell, 0 (seen) .. 1 (hidden); GridSize * GridSize cells.
     const float* Cells();
 
