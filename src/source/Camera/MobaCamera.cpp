@@ -166,9 +166,7 @@ void MobaCamera::AnchorFocusToHero()
 
 void MobaCamera::FocusOn(float worldX, float worldY)
 {
-    if (!m_FocusInitialized)
-        return;
-
+    // (Before the first frame of the camera the focus is not anchored yet: the goal waits and the glide starts from the hero.)
     m_GoalWorld[0] = worldX;
     m_GoalWorld[1] = worldY;
     m_GoalWorld[2] = 0.0f;

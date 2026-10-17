@@ -72,7 +72,7 @@ public:
      * @brief Resets the active camera's user-facing view (F11 key).
      */
     /**
-     * @brief Glides the MOBA camera to a world point (no-op in other modes).
+     * @brief Glides the MOBA camera to a world point, switching to it from any other camera.
      */
     void FocusMobaCameraOn(float worldX, float worldY);
 

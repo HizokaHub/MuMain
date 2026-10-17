@@ -300,6 +300,10 @@ extern "C" void GetActiveCameraConfig(float* outFOV, float* outNearPlane, float*
 
 void CameraManager::FocusMobaCameraOn(float worldX, float worldY)
 {
+    // Any other camera is locked to the hero: a minimap right-click switches to the free MOBA camera first.
+    if (m_CurrentMode != CameraMode::Moba)
+        SetCameraMode(CameraMode::Moba);
+
     if (m_CurrentMode == CameraMode::Moba && m_pMobaCamera)
         static_cast<MobaCamera*>(m_pMobaCamera.get())->FocusOn(worldX, worldY);
 }
