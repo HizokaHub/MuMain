@@ -1279,6 +1279,8 @@ namespace
     bool MobaKeepObject(int type, int cx, int cy, const unsigned char* decor)
     {
         if (MobaIsGrass(type)) return true;
+        // Types 34 and 38 are the giant mossy mounds with hanging vines (scale 13 to 16 in Crywolf): they bury the camera.
+        if (type == 34 || type == 38) return false;
         if (!MobaIsTree(type) && !MobaIsStone(type)) return false;
         for (int dy = -2; dy <= 2; ++dy)
         {
