@@ -19,6 +19,12 @@ using namespace SEASON4A;
 extern int g_iLimitAttackTime;
 extern float IntensityTransform[MAX_MESH][MAX_VERTICES];
 
+// MOBA arena: Selupan, the spider eggs and the other Raklion monsters of the jungle event are drawn and animated with the Raklion code too.
+static bool IsIceCityMonsterMap()
+{
+    return IsIceCity() || gMapManager.WorldActive == WD_200_MOBA_ARENA;
+}
+
 CGM_RaklionPtr CGM_Raklion::Make()
 {
     CGM_RaklionPtr raklion(new CGM_Raklion);
@@ -270,7 +276,7 @@ bool CGM_Raklion::MoveObject(OBJECT* o)
 
 bool CGM_Raklion::MoveMonsterVisual(OBJECT* o, BMD* b)
 {
-    if (IsIceCity() == false)
+    if (IsIceCityMonsterMap() == false)
         return false;
 
     switch (o->Type)
@@ -1068,7 +1074,7 @@ void CGM_Raklion::MoveBlurEffect(CHARACTER* c, OBJECT* o, BMD* b)
 
 bool CGM_Raklion::RenderObjectMesh(OBJECT* o, BMD* b, bool ExtraMon)
 {
-    if (IsIceCity() == false)
+    if (IsIceCityMonsterMap() == false)
         return false;
 
     if (o->Type >= 6 && o->Type <= 12)
@@ -2252,7 +2258,7 @@ bool IsIceCity()
 
 bool CGM_Raklion::SetCurrentActionMonster(CHARACTER* c, OBJECT* o)
 {
-    if (IsIceCity() == false)
+    if (IsIceCityMonsterMap() == false)
         return false;
 
     switch (c->MonsterIndex)
@@ -2489,7 +2495,7 @@ bool CGM_Raklion::AttackEffectMonster(CHARACTER* c, OBJECT* o, BMD* b)
 
 bool CGM_Raklion::PlayMonsterSound(OBJECT* o)
 {
-    if (IsIceCity() == false)
+    if (IsIceCityMonsterMap() == false)
         return false;
 
     float fDis_x, fDis_y;

@@ -34,6 +34,12 @@ bool GMSwampOfQuiet::IsCurrentMap()
     return (gMapManager.WorldActive == WD_56MAP_SWAMP_OF_QUIET);
 }
 
+// MOBA arena: Medusa (jungle) is drawn, animated and sounded with the Swamp of Quiet monster code too.
+static bool IsMonsterMap()
+{
+    return gMapManager.WorldActive == WD_56MAP_SWAMP_OF_QUIET || gMapManager.WorldActive == WD_200_MOBA_ARENA;
+}
+
 void GMSwampOfQuiet::RenderBaseSmoke()
 {
     if (!IsCurrentMap())
@@ -416,7 +422,7 @@ CHARACTER* GMSwampOfQuiet::CreateSwampOfQuietMonster(int iType, int PosX, int Po
 
 bool GMSwampOfQuiet::MoveMonsterVisual(OBJECT* pObject, BMD* pModel)
 {
-    if (!IsCurrentMap())
+    if (!IsMonsterMap())
         return false;
 
     switch (pObject->Type)
@@ -799,7 +805,7 @@ void GMSwampOfQuiet::MoveBlurEffect(CHARACTER* pCharacter, OBJECT* pObject, BMD*
 
 bool GMSwampOfQuiet::RenderMonsterVisual(CHARACTER* pCharacter, OBJECT* pObject, BMD* pModel)
 {
-    if (!IsCurrentMap())
+    if (!IsMonsterMap())
         return false;
 
     vec3_t vPos, vRelative, vLight;
@@ -1234,7 +1240,7 @@ bool GMSwampOfQuiet::RenderMonsterVisual(CHARACTER* pCharacter, OBJECT* pObject,
 
 bool GMSwampOfQuiet::PlayMonsterSound(OBJECT* pObject)
 {
-    if (!IsCurrentMap())
+    if (!IsMonsterMap())
         return false;
 
     float fDis_x, fDis_y;
@@ -1415,7 +1421,7 @@ bool GMSwampOfQuiet::PlayMonsterSound(OBJECT* pObject)
 
 bool GMSwampOfQuiet::AttackEffectMonster(CHARACTER* pCharacter, OBJECT* pObject, BMD* pModel)
 {
-    if (!IsCurrentMap())
+    if (!IsMonsterMap())
         return false;
 
     return false;
@@ -1423,7 +1429,7 @@ bool GMSwampOfQuiet::AttackEffectMonster(CHARACTER* pCharacter, OBJECT* pObject,
 
 bool GMSwampOfQuiet::SetCurrentActionMonster(CHARACTER* pCharacter, OBJECT* pObject)
 {
-    if (!IsCurrentMap())
+    if (!IsMonsterMap())
         return false;
 
     switch (pObject->Type)
