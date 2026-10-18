@@ -3,6 +3,7 @@
 
 #include "Engine/Object/ZzzCharacter.h"     // Hero, CharactersClient
 #include "Network/Server/WSclient.h"        // minimap feed, g_MyMobaTeam, g_MobaLevel
+#include "Audio/DSPlaySound.h"             // MAX_BUFFER
 #include "Render/Terrain/ZzzLodTerrain.h"   // PrimaryTerrainLight, TERRAIN_INDEX, TerrainWall
 #include "World/MapInfra/MapManager.h"      // gMapManager, WD_200_MOBA_ARENA
 
@@ -413,6 +414,28 @@ bool IsTileHidden(int tileX, int tileY)
     if (!s_active || tileX < 0 || tileY < 0 || tileX >= GridSize || tileY >= GridSize)
         return false;
     return s_fog[tileY * GridSize + tileX] > 0.85f;
+}
+
+bool IsSoundAudible(int bufferId, const float* position)
+{
+    if (!s_active || Hero == nullptr || position == nullptr || bufferId < 0 || bufferId >= MAX_BUFFER)
+        return true;
+
+    // The sounds of the hero itself are always heard.
+    if (position == Hero->Object.Position)
+        return true;
+
+    const float dx = (position[0] - Hero->Object.Position[0]) / TERRAIN_SCALE;
+    const float dy = (position[1] - Hero->Object.Position[1]) / TERRAIN_SCALE;
+    if (dx * dx + dy * dy > HearingTiles * HearingTiles)
+        return false;
+
+    static double s_lastPlayed[MAX_BUFFER] = {};
+    const double now = WorldTime;
+    if (now >= s_lastPlayed[bufferId] && now - s_lastPlayed[bufferId] < SoundIntervalMs)
+        return false;
+    s_lastPlayed[bufferId] = now;
+    return true;
 }
 
 bool HidesCharacter(int team, int tileX, int tileY)
