@@ -7,6 +7,8 @@
 #include "Core/Math/ZzzMathLib.h"
 #include "Engine/Object/ZzzCharacter.h"
 #include "Render/Terrain/ZzzLodTerrain.h"   // TerrainWall, TERRAIN_INDEX, TW_NOMOVE
+#include "Camera/CameraProjection.h"        // ScreenToWorldRay
+#include "Render/Textures/ZzzOpenglUtil.h"  // MousePosition (origin of the last ray)
 #include "World/MapInfra/MapManager.h"      // gMapManager, WD_200_MOBA_ARENA
 #include <algorithm>
 #include <cmath>
@@ -373,20 +375,42 @@ void MobaCamera::UpdateFocusWorld(double frameSeconds, const vec3_t heroPos)
 
 void MobaCamera::EdgePanFocus(double frameSeconds, const vec3_t /*heroPos*/)
 {
-    float horizontal = 0.0f;
-    if (MouseX <= EDGE_MARGIN_REF_PX)
-        horizontal = -1.0f;
-    else if (MouseX >= REFERENCE_WIDTH - EDGE_MARGIN_REF_PX)
-        horizontal = 1.0f;
-
-    float forward = 0.0f;
-    if (MouseY <= EDGE_MARGIN_REF_PX)
-        forward = 1.0f;          // cursor at the top edge -> pan away from viewer
-    else if (MouseY >= REFERENCE_HEIGHT - BOTTOM_EDGE_REF_PX)
-        forward = -1.0f;         // cursor jammed against the very bottom -> pan toward viewer
-
-    if (horizontal == 0.0f && forward == 0.0f)
+    const bool atLeft = MouseX <= EDGE_MARGIN_REF_PX;
+    const bool atRight = MouseX >= REFERENCE_WIDTH - EDGE_MARGIN_REF_PX;
+    const bool atTop = MouseY <= EDGE_MARGIN_REF_PX;
+    const bool atBottom = MouseY >= REFERENCE_HEIGHT - BOTTOM_EDGE_REF_PX;
+    if (!atLeft && !atRight && !atTop && !atBottom)
         return;
+
+    // 2026-10-18: the direction depends on WHERE along the edge the mouse is (the middle of the right edge pans straight to the right,
+    // the upper part of it up and to the right...), on the screen axes: the screen position of the cursor, from the centre of the screen,
+    // is the direction, with the component of the touched edge at full strength and a small dead zone so the middle of an edge is exact.
+    float horizontal = (static_cast<float>(MouseX) - REFERENCE_WIDTH * 0.5f) / (REFERENCE_WIDTH * 0.5f);
+    float forward = (REFERENCE_HEIGHT * 0.5f - static_cast<float>(MouseY)) / (REFERENCE_HEIGHT * 0.5f);   // up on the screen is positive
+    if (atLeft)
+        horizontal = -1.0f;
+    else if (atRight)
+        horizontal = 1.0f;
+    if (atTop)
+        forward = 1.0f;
+    else if (atBottom)
+        forward = -1.0f;
+
+    constexpr float DEAD_ZONE = 0.18f;
+    auto deadZone = [](float v)
+    {
+        const float a = std::fabs(v);
+        if (a <= DEAD_ZONE)
+            return 0.0f;
+        return (v < 0.0f ? -1.0f : 1.0f) * std::min(1.0f, (a - DEAD_ZONE) / (1.0f - DEAD_ZONE));
+    };
+    horizontal = deadZone(horizontal);
+    forward = deadZone(forward);
+    const float panLength = std::sqrt(horizontal * horizontal + forward * forward);
+    if (panLength < 0.001f)
+        return;
+    horizontal /= panLength;
+    forward /= panLength;
 
     vec3_t right;
     vec3_t fwd;
@@ -403,6 +427,46 @@ void MobaCamera::EdgePanFocus(double frameSeconds, const vec3_t /*heroPos*/)
 
 void MobaCamera::GroundPanAxes(vec3_t outRight, vec3_t outForward) const
 {
+    // The ground directions of the screen axes, measured: where a point a little to the right of / above the centre of the screen lands on the
+    // ground compared with the centre. The old way read them from the camera angles, which did not match what the screen shows (panning to the
+    // right also climbed).
+    {
+        const float groundZ = (Hero != nullptr) ? Hero->Object.Position[2] : 0.0f;
+        auto ground = [&](int sx, int sy, float& gx, float& gy)
+        {
+            vec3_t target;
+            CameraProjection::ScreenToWorldRay(m_State, sx, sy, target, false);
+            const float ox = MousePosition[0];
+            const float oy = MousePosition[1];
+            const float oz = MousePosition[2];
+            const float dz = target[2] - oz;
+            if (std::fabs(dz) < 0.001f)
+                return false;
+            const float t = (groundZ - oz) / dz;
+            if (t <= 0.0f)
+                return false;
+            gx = ox + (target[0] - ox) * t;
+            gy = oy + (target[1] - oy) * t;
+            return true;
+        };
+
+        const int cx = REFERENCE_WIDTH / 2;
+        const int cy = REFERENCE_HEIGHT / 2;
+        float c0x, c0y, rx, ry, ux, uy;
+        if (ground(cx, cy, c0x, c0y) && ground(cx + 100, cy, rx, ry) && ground(cx, cy - 100, ux, uy))
+        {
+            outRight[0] = rx - c0x;
+            outRight[1] = ry - c0y;
+            outRight[2] = 0.0f;
+            outForward[0] = ux - c0x;
+            outForward[1] = uy - c0y;
+            outForward[2] = 0.0f;
+            VectorNormalize(outRight);
+            VectorNormalize(outForward);
+            return;
+        }
+    }
+
     float matrix[3][4];
     AngleMatrix(m_State.Angle, matrix);
 

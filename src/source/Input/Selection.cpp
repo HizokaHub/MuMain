@@ -48,6 +48,7 @@
 #include "GameLogic/Combat/DuelMgr.h"
 #include "GameLogic/Items/ChangeRingManager.h"
 #include "UI/NewUI/HUD/NewUIGensRanking.h"
+#include "World/Moba/MobaFog.h"
 
 // File-scope state still owned by ZzzInterface.cpp (no shared header yet).
 extern int SelectedCharacter, SelectedNpc, SelectedItem, SelectedOperate;
@@ -150,6 +151,14 @@ int SelectCharacter(BYTE Kind)
             }
 
             if (c->m_bIsSelected == false)
+            {
+                continue;
+            }
+
+            // MOBA fog of war: a character the team does not see is not drawn, so it cannot be picked either (its box was never updated, which
+            // made the cursor look "over something" in empty ground).
+            if (gMapManager.WorldActive == WD_200_MOBA_ARENA
+                && World::Moba::Fog::HidesCharacter(c->MobaTeam, (int)(o->Position[0] / TERRAIN_SCALE), (int)(o->Position[1] / TERRAIN_SCALE)))
             {
                 continue;
             }
