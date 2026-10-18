@@ -32,7 +32,7 @@ namespace
     // (the blocked cells that touch the border of the grid) plus CAMERA_BEYOND_WALL_TILES past it (2026-10-18: first 15 tiles more than the
     // original, then 8 less again at the user's request). Built once from the walk mask the client already loaded.
     constexpr int ARENA_TILES = 256;
-    constexpr int CAMERA_BEYOND_WALL_TILES = 2;   // 2026-10-18: 8 tiles less than the 10 of the previous version
+    constexpr int CAMERA_BEYOND_WALL_TILES = -2;   // 2026-10-18: 8 tiles less than the 10 of the previous version
     constexpr float ARENA_CENTRE_X = 118.0f;
     constexpr float ARENA_CENTRE_Y = 128.0f;
 
@@ -81,30 +81,37 @@ namespace
             }
         }
 
-        // Allowed = within CAMERA_BEYOND_WALL_TILES of the inside of the wall (the cells that are not exterior).
-        std::vector<unsigned char> reach(ARENA_TILES * ARENA_TILES, 0);
+        // Allowed = the inside of the wall (the cells that are not exterior) grown by CAMERA_BEYOND_WALL_TILES, or, when that is negative,
+        // shrunk by that many tiles (the cells within that distance of the wall are left out).
+        const bool grow = CAMERA_BEYOND_WALL_TILES >= 0;
+        const int radius = grow ? CAMERA_BEYOND_WALL_TILES : -CAMERA_BEYOND_WALL_TILES;
+        std::vector<unsigned char> marked(ARENA_TILES * ARENA_TILES, 0);
         for (int y = 0; y < ARENA_TILES; ++y)
         {
             for (int x = 0; x < ARENA_TILES; ++x)
             {
-                if (exterior[y * ARENA_TILES + x] != 0)
+                // Growing marks the cells around the inside cells; shrinking marks the cells around the exterior (wall) cells.
+                const bool source = grow ? (exterior[y * ARENA_TILES + x] == 0) : (exterior[y * ARENA_TILES + x] != 0);
+                if (!source)
                     continue;
-                for (int dy = -CAMERA_BEYOND_WALL_TILES; dy <= CAMERA_BEYOND_WALL_TILES; ++dy)
+                for (int dy = -radius; dy <= radius; ++dy)
                 {
                     const int ny = y + dy;
                     if (ny < 0 || ny >= ARENA_TILES)
                         continue;
-                    for (int dx = -CAMERA_BEYOND_WALL_TILES; dx <= CAMERA_BEYOND_WALL_TILES; ++dx)
+                    for (int dx = -radius; dx <= radius; ++dx)
                     {
                         const int nx = x + dx;
                         if (nx >= 0 && nx < ARENA_TILES)
-                            reach[ny * ARENA_TILES + nx] = 1;
+                            marked[ny * ARENA_TILES + nx] = 1;
                     }
                 }
             }
         }
 
-        s_cameraAllowed = reach;
+        s_cameraAllowed.assign(ARENA_TILES * ARENA_TILES, 0);
+        for (int i = 0; i < ARENA_TILES * ARENA_TILES; ++i)
+            s_cameraAllowed[i] = grow ? marked[i] : (marked[i] ? 0 : 1);
     }
 
     bool CameraAllowed(float wx, float wy)

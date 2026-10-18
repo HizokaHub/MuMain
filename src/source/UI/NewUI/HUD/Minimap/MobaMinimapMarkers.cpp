@@ -768,8 +768,13 @@ void RenderCameraView(const Frame& frame)
     // A landscape rectangle like the screen it stands for (16:9): at least VIEW_BOX_ASPECT times as wide as it is tall, stretched sideways.
     constexpr float VIEW_BOX_ASPECT = 1.8f;
     const float halfH = std::max(0.5f * (maxY - minY) * VIEW_BOX_GROWTH, VIEW_BOX_MIN_SIZE * 0.5f);
-    const float halfW = std::max(0.5f * (maxX - minX) * VIEW_BOX_GROWTH, halfH * VIEW_BOX_ASPECT);
-    const float left = centreX - halfW, right = centreX + halfW, top = centreY - halfH, bottom = centreY + halfH;
+    const float halfWide = std::max(0.5f * (maxX - minX) * VIEW_BOX_GROWTH, halfH * VIEW_BOX_ASPECT);
+    // The user found it too big (2026-10-18): 40 % shorter and 10 % less tall.
+    constexpr float VIEW_BOX_LENGTH_SCALE = 0.60f;
+    constexpr float VIEW_BOX_HEIGHT_SCALE = 0.90f;
+    const float halfW = halfWide * VIEW_BOX_LENGTH_SCALE;
+    const float halfTall = halfH * VIEW_BOX_HEIGHT_SCALE;
+    const float left = centreX - halfW, right = centreX + halfW, top = centreY - halfTall, bottom = centreY + halfTall;
 
     EnableAlphaBlend3();
     SetColor(COLOR_WHITE, 0.95f);
