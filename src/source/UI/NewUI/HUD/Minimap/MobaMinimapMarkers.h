@@ -48,6 +48,8 @@ namespace UI::Minimap::MobaMarkers
     // Returns the totem under the mouse (index into g_MobaTotems), -1 = none.
     int RenderTotems(const Frame& frame, const Atlases& atlases);
     void RenderTotemTooltip(const Frame& frame, int totem);
+    // The ground the camera shows, as a white outline on the minimap (the corners of the screen cast onto the ground).
+    void RenderCameraView(const Frame& frame);
     void RenderFountains(const Frame& frame, const Atlases& atlases);
     void RenderFeed(const Frame& frame, const Atlases& atlases);
     // Returns false when the portrait atlas is missing (the caller then draws the old arrow).

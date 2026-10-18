@@ -14,6 +14,7 @@
 #include "GameLogic/Events/CSChaosCastle.h"
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "GameLogic/Events/MatchEvent.h"
+#include "World/Moba/MobaFog.h"
 #include "World/MapInfra/MapManager.h"
 #include "Camera/CameraProjection.h"
 #include "Camera/CameraState.h"
@@ -33,9 +34,9 @@ constexpr int GROUND_ITEM_LABEL_BUILD_BUDGET_PER_FRAME = 32;
 // top edge at topY. `steps` is the segment count (HP granularity); `scale`
 // horizontally compresses the bar (1.0 == original width).
 void DrawHealthBar(int centerX, int topY, float health, int steps, float scale,
-                   float fillR = 250.f / 255.f, float fillG = 10.f / 255.f, float fillB = 0.f)
+                   float fillR = 250.f / 255.f, float fillG = 10.f / 255.f, float fillB = 0.f, float thickness = 1.f)
 {
-    const float borderHeight = 2.f;                  // vertical inset (unscaled)
+    const float borderHeight = 2.f * thickness;      // vertical inset (unscaled)
     const float borderWidth = 2.f * scale;           // horizontal inset
     const float stepSeparatorWidth = 1.f * scale;    // gap between segments
     const float segmentSpan = 80.f * scale;          // total span of the segment track
@@ -49,16 +50,16 @@ void DrawHealthBar(int centerX, int topY, float health, int steps, float scale,
     // Drop shadow.
     EnableAlphaTest();
     glColor4f(0.f, 0.f, 0.f, 0.5f);
-    RenderColor((float)(x + 1), (float)(y + 1), totalWidth, 5.f);
+    RenderColor((float)(x + 1), (float)(y + 1), totalWidth, 5.f * thickness);
 
     // Dark backing + inner track, derived from the fill colour so the empty part of a
     // (e.g. blue) team bar doesn't show through as the vanilla dark red.
     EnableAlphaBlend();
     glColor3f(fillR * 0.22f, fillG * 0.22f, fillB * 0.22f);
-    RenderColor((float)x, (float)y, totalWidth, 5.f);
+    RenderColor((float)x, (float)y, totalWidth, 5.f * thickness);
 
     glColor3f(fillR * 0.35f, fillG * 0.35f, fillB * 0.35f);
-    RenderColor((float)(x + borderWidth), (float)(y + borderHeight), stepsWidth, 1.f);
+    RenderColor((float)(x + borderWidth), (float)(y + borderHeight), stepsWidth, 1.f * thickness);
 
     // HealthStatus < 0 is the "HP unknown" sentinel (server sends 0xFF -> -1, and
     // the field is initialized to -1), so render a full bar instead of an empty one.
@@ -73,7 +74,7 @@ void DrawHealthBar(int centerX, int topY, float health, int steps, float scale,
             (float)(x + borderWidth + (k * widthPerStep)),
             (float)(y + borderHeight),
             widthPerStep - stepSeparatorWidth,
-            2.f);
+            2.f * thickness);
     }
     DisableAlphaBlend();
 }
@@ -330,6 +331,10 @@ void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
         if (o->Kind != KIND_MONSTER && o->Kind != KIND_PLAYER)
             continue;
 
+        // What the fog hides is not drawn, and neither is its bar.
+        if (c != Hero && World::Moba::Fog::HidesCharacter(c->MobaTeam, (int)(o->Position[0] / TERRAIN_SCALE), (int)(o->Position[1] / TERRAIN_SCALE)))
+            continue;
+
         vec3_t Position;
         Vector(o->Position[0], o->Position[1], o->Position[2] + o->BoundingBoxMax[2] + 60.f, Position);
 
@@ -346,12 +351,18 @@ void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
             continue;
 
         const bool blue = (c->MobaTeam == 1);
-        // Champions get a wider bar than creeps so they read as the important targets.
-        const int barHalfWidth = (o->Kind == KIND_PLAYER) ? 16 : 8;
-        DrawHealthBar(ScreenX, ScreenY, c->MobaHealth, barHalfWidth, 3.f / 7.f,
-                      blue ? 0.15f : 1.00f,
-                      blue ? 0.35f : 0.15f,
-                      blue ? 1.00f : 0.15f);
+        const bool neutral = (c->MobaTeam == 3);   // jungle monsters
+        // 2026-10-17: longer and thicker bars (the user found them too small). Champions get the biggest, so they read as the important targets.
+        const bool champion = (o->Kind == KIND_PLAYER);
+        const int segments = champion ? 24 : 12;
+        const float length = champion ? 0.95f : 0.60f;
+        const float thickness = champion ? 1.8f : 1.4f;
+        const float barHeight = (champion ? 5.f : 4.f) * thickness;
+        DrawHealthBar(ScreenX, ScreenY - (int)barHeight, c->MobaHealth, segments, length,
+                      neutral ? 1.00f : (blue ? 0.15f : 1.00f),
+                      neutral ? 0.75f : (blue ? 0.35f : 0.15f),
+                      neutral ? 0.10f : (blue ? 1.00f : 0.15f),
+                      thickness);
         ++drawnCount;
     }
 

@@ -6,8 +6,11 @@
 #include "Core/Input/KeyState.h"
 #include "Core/Math/ZzzMathLib.h"
 #include "Engine/Object/ZzzCharacter.h"
+#include "Render/Terrain/ZzzLodTerrain.h"   // TerrainWall, TERRAIN_INDEX, TW_NOMOVE
+#include "World/MapInfra/MapManager.h"      // gMapManager, WD_200_MOBA_ARENA
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 // Mouse cursor position, already normalised to the 640x480 reference space
 // (see Winmain.cpp: MouseX = winX / g_fScreenRate_x, clamped to the edges).
@@ -22,6 +25,126 @@ extern double WorldTime;
 
 // The local player character.
 extern CHARACTER* Hero;
+
+namespace
+{
+    // The area the focus of the camera may reach in the MOBA arena: everything inside the outer wall that surrounds the map
+    // (the blocked cells that touch the border of the grid), minus CAMERA_WALL_MARGIN_TILES next to it. Built once from the
+    // walk mask the client already loaded.
+    constexpr int ARENA_TILES = 256;
+    constexpr int CAMERA_WALL_MARGIN_TILES = 5;
+    constexpr float ARENA_CENTRE_X = 118.0f;
+    constexpr float ARENA_CENTRE_Y = 128.0f;
+
+    std::vector<unsigned char> s_cameraAllowed;
+
+    bool BlockedCell(int x, int y)
+    {
+        return (TerrainWall[TERRAIN_INDEX(x, y)] & TW_NOMOVE) != 0;
+    }
+
+    void BuildCameraArea()
+    {
+        std::vector<unsigned char> exterior(ARENA_TILES * ARENA_TILES, 0);
+        std::vector<int> pending;
+        auto seed = [&](int x, int y)
+        {
+            if (BlockedCell(x, y) && exterior[y * ARENA_TILES + x] == 0)
+            {
+                exterior[y * ARENA_TILES + x] = 1;
+                pending.push_back(y * ARENA_TILES + x);
+            }
+        };
+        for (int i = 0; i < ARENA_TILES; ++i)
+        {
+            seed(i, 0);
+            seed(i, ARENA_TILES - 1);
+            seed(0, i);
+            seed(ARENA_TILES - 1, i);
+        }
+
+        while (!pending.empty())
+        {
+            const int cell = pending.back();
+            pending.pop_back();
+            const int cx = cell % ARENA_TILES;
+            const int cy = cell / ARENA_TILES;
+            for (int dy = -1; dy <= 1; ++dy)
+            {
+                for (int dx = -1; dx <= 1; ++dx)
+                {
+                    const int nx = cx + dx;
+                    const int ny = cy + dy;
+                    if (nx >= 0 && ny >= 0 && nx < ARENA_TILES && ny < ARENA_TILES)
+                        seed(nx, ny);
+                }
+            }
+        }
+
+        std::vector<unsigned char> blockedNear(ARENA_TILES * ARENA_TILES, 0);
+        for (int y = 0; y < ARENA_TILES; ++y)
+        {
+            for (int x = 0; x < ARENA_TILES; ++x)
+            {
+                if (exterior[y * ARENA_TILES + x] == 0)
+                    continue;
+                for (int dy = -CAMERA_WALL_MARGIN_TILES; dy <= CAMERA_WALL_MARGIN_TILES; ++dy)
+                {
+                    for (int dx = -CAMERA_WALL_MARGIN_TILES; dx <= CAMERA_WALL_MARGIN_TILES; ++dx)
+                    {
+                        const int nx = x + dx;
+                        const int ny = y + dy;
+                        if (nx >= 0 && ny >= 0 && nx < ARENA_TILES && ny < ARENA_TILES)
+                            blockedNear[ny * ARENA_TILES + nx] = 1;
+                    }
+                }
+            }
+        }
+
+        s_cameraAllowed.assign(ARENA_TILES * ARENA_TILES, 0);
+        for (int i = 0; i < ARENA_TILES * ARENA_TILES; ++i)
+            s_cameraAllowed[i] = blockedNear[i] ? 0 : 1;
+    }
+
+    // Pulls a ground point (world units) back inside the arena: while its tile is outside the allowed area it moves toward the middle of the map.
+    void ClampToArena(float& worldX, float& worldY)
+    {
+        if (gMapManager.WorldActive != WD_200_MOBA_ARENA)
+        {
+            s_cameraAllowed.clear();
+            return;
+        }
+
+        if (s_cameraAllowed.empty())
+            BuildCameraArea();
+
+        auto allowed = [&](float wx, float wy)
+        {
+            const int tx = static_cast<int>(wx / TERRAIN_SCALE);
+            const int ty = static_cast<int>(wy / TERRAIN_SCALE);
+            if (tx < 0 || ty < 0 || tx >= ARENA_TILES || ty >= ARENA_TILES)
+                return false;
+            return s_cameraAllowed[ty * ARENA_TILES + tx] != 0;
+        };
+
+        if (allowed(worldX, worldY))
+            return;
+
+        const float toX = ARENA_CENTRE_X * TERRAIN_SCALE - worldX;
+        const float toY = ARENA_CENTRE_Y * TERRAIN_SCALE - worldY;
+        const float length = std::sqrt(toX * toX + toY * toY);
+        if (length < 1.0f)
+            return;
+
+        const float stepX = toX / length * TERRAIN_SCALE * 0.5f;
+        const float stepY = toY / length * TERRAIN_SCALE * 0.5f;
+        for (int i = 0; i < 600 && !allowed(worldX, worldY); ++i)
+        {
+            worldX += stepX;
+            worldY += stepY;
+        }
+    }
+}
 
 MobaCamera::MobaCamera(CameraState& state)
     : m_State(state)
@@ -112,6 +235,7 @@ bool MobaCamera::Update()
 
     UpdateFocusWorld(frameSeconds, heroPos);
     ClampFocusToHero(heroPos);
+    ClampToArena(m_FocusWorld[0], m_FocusWorld[1]);
     ApplyFocusToState(heroPos);
 
     return false;  // never locks input
@@ -167,6 +291,7 @@ void MobaCamera::AnchorFocusToHero()
 void MobaCamera::FocusOn(float worldX, float worldY)
 {
     // (Before the first frame of the camera the focus is not anchored yet: the goal waits and the glide starts from the hero.)
+    ClampToArena(worldX, worldY);
     m_GoalWorld[0] = worldX;
     m_GoalWorld[1] = worldY;
     m_GoalWorld[2] = 0.0f;

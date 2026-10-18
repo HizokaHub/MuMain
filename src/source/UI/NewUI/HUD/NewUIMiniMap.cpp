@@ -890,6 +890,9 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
         plot(IMAGE_MINIMAP_INTERFACE + 3, (float)Hero->PositionY / 256.f, (float)Hero->PositionX / 256.f, 8.f, 0.f);
     }
 
+    if (mobaArena)
+        MobaMarkers::RenderCameraView(frame);
+
     MobaMarkers::RenderTotemTooltip(frame, hoveredTotem);
 
     // Back to the state the rest of the HUD expects (no blending, no alpha test, white).

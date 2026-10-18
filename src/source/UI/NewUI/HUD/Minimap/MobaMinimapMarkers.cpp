@@ -4,6 +4,9 @@
 #include "Character/CharacterManager.h"   // gCharacterManager (own hero's base class)
 #include "Engine/Object/ZzzCharacter.h"    // Hero
 #include "Network/Server/WSclient.h"       // minimap feed, fountains, channel bar, g_MyMobaTeam
+#include "Camera/CameraManager.h"          // g_Camera
+#include "Camera/CameraProjection.h"       // ScreenToWorldRay
+#include "Render/Textures/ZzzOpenglUtil.h" // MousePosition (the origin of the last ray), RenderColor
 #include "UI/Legacy/UIControls.h"          // g_pRenderText
 
 #include <algorithm>
@@ -710,6 +713,62 @@ void RenderFountains(const Frame& frame, const Atlases& atlases)
         SetColor(COLOR_WHITE);
         DrawCell(frame, icons, FountainCell(info.owner), mx, my, w);
         DrawCaptureRing(frame, icons, info, mx, my, w);
+    }
+    SetColor(COLOR_WHITE);
+}
+
+void RenderCameraView(const Frame& frame)
+{
+    if (Hero == nullptr)
+        return;
+
+    // The four corners of the screen, cast onto the ground at the height of the hero.
+    const int corners[4][2] = { { 0, 0 }, { REFERENCE_WIDTH, 0 }, { REFERENCE_WIDTH, REFERENCE_HEIGHT }, { 0, REFERENCE_HEIGHT } };
+    const float groundZ = Hero->Object.Position[2];
+    float tileX[4];
+    float tileY[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        vec3_t target;
+        CameraProjection::ScreenToWorldRay(g_Camera, corners[i][0], corners[i][1], target, false);
+        const float originX = MousePosition[0];
+        const float originY = MousePosition[1];
+        const float originZ = MousePosition[2];
+        const float dx = target[0] - originX;
+        const float dy = target[1] - originY;
+        const float dz = target[2] - originZ;
+        float t = 1.f;   // the far end of the ray when it does not reach the ground
+        if (fabsf(dz) > 0.001f)
+        {
+            const float hit = (groundZ - originZ) / dz;
+            if (hit > 0.f && hit < 1.f)
+                t = hit;
+        }
+        tileX[i] = (originX + dx * t) / TERRAIN_SCALE;
+        tileY[i] = (originY + dy * t) / TERRAIN_SCALE;
+    }
+
+    EnableAlphaBlend3();
+    SetColor(COLOR_WHITE, 0.9f);
+    const float dot = 1.3f;
+    for (int i = 0; i < 4; ++i)
+    {
+        const int j = (i + 1) % 4;
+        float ax, ay, bx, by;
+        frame.TileToRef(tileX[i], tileY[i], ax, ay);
+        frame.TileToRef(tileX[j], tileY[j], bx, by);
+        const float length = sqrtf((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+        const int steps = std::clamp((int)(length / 1.1f), 1, 400);
+        for (int k = 0; k <= steps; ++k)
+        {
+            const float f = (float)k / (float)steps;
+            const float px = ax + (bx - ax) * f;
+            const float py = ay + (by - ay) * f;
+            // Only the part of the outline inside the minimap square.
+            if (fabsf(px - frame.centreX) > 0.5f * frame.sidePx / frame.sx || fabsf(py - frame.centreY) > 0.5f * frame.sidePx / frame.sy)
+                continue;
+            RenderColor(px - dot / 2.f, py - dot / 2.f, dot, dot * frame.sx / frame.sy);
+        }
     }
     SetColor(COLOR_WHITE);
 }
