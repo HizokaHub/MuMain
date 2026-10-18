@@ -748,28 +748,58 @@ void RenderCameraView(const Frame& frame)
         tileY[i] = (originY + dy * t) / TERRAIN_SCALE;
     }
 
-    EnableAlphaBlend3();
-    SetColor(COLOR_WHITE, 0.9f);
-    const float dot = 1.3f;
+    // The ground the camera shows is a trapezoid, turned like the minimap art. The user wants an upright rectangle (not diagonal),
+    // bigger: the box that holds the four corners on the minimap, grown by VIEW_BOX_GROWTH.
+    float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
     for (int i = 0; i < 4; ++i)
     {
-        const int j = (i + 1) % 4;
-        float ax, ay, bx, by;
-        frame.TileToRef(tileX[i], tileY[i], ax, ay);
-        frame.TileToRef(tileX[j], tileY[j], bx, by);
-        const float length = sqrtf((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
-        const int steps = std::clamp((int)(length / 1.1f), 1, 400);
-        for (int k = 0; k <= steps; ++k)
-        {
-            const float f = (float)k / (float)steps;
-            const float px = ax + (bx - ax) * f;
-            const float py = ay + (by - ay) * f;
-            // Only the part of the outline inside the minimap square.
-            if (fabsf(px - frame.centreX) > 0.5f * frame.sidePx / frame.sx || fabsf(py - frame.centreY) > 0.5f * frame.sidePx / frame.sy)
-                continue;
-            RenderColor(px - dot / 2.f, py - dot / 2.f, dot, dot * frame.sx / frame.sy);
-        }
+        float mx, my;
+        frame.TileToRef(tileX[i], tileY[i], mx, my);
+        minX = std::min(minX, mx);
+        maxX = std::max(maxX, mx);
+        minY = std::min(minY, my);
+        maxY = std::max(maxY, my);
     }
+
+    constexpr float VIEW_BOX_GROWTH = 1.35f;
+    constexpr float VIEW_BOX_MIN_SIZE = 18.f;   // reference px
+    const float centreX = 0.5f * (minX + maxX);
+    const float centreY = 0.5f * (minY + maxY);
+    const float halfW = std::max(0.5f * (maxX - minX) * VIEW_BOX_GROWTH, VIEW_BOX_MIN_SIZE * 0.5f);
+    const float halfH = std::max(0.5f * (maxY - minY) * VIEW_BOX_GROWTH, VIEW_BOX_MIN_SIZE * 0.5f);
+    const float left = centreX - halfW, right = centreX + halfW, top = centreY - halfH, bottom = centreY + halfH;
+
+    EnableAlphaBlend3();
+    SetColor(COLOR_WHITE, 0.95f);
+    const float thick = 1.6f;                                  // reference px
+    const float thickY = thick * frame.sx / frame.sy;          // same thickness on screen vertically
+    // Only the parts of the outline that lie inside the minimap square are drawn.
+    const float limitX = 0.5f * frame.sidePx / frame.sx;
+    const float limitY = 0.5f * frame.sidePx / frame.sy;
+    auto inside = [&](float px, float py)
+    {
+        return fabsf(px - frame.centreX) <= limitX && fabsf(py - frame.centreY) <= limitY;
+    };
+    auto horizontal = [&](float y)
+    {
+        for (float x = left; x <= right; x += 1.f)
+        {
+            if (inside(x, y))
+                RenderColor(x, y - thickY / 2.f, std::min(1.2f, right - x + 0.2f), thickY);
+        }
+    };
+    auto vertical = [&](float x)
+    {
+        for (float y = top; y <= bottom; y += 1.f * frame.sx / frame.sy)
+        {
+            if (inside(x, y))
+                RenderColor(x - thick / 2.f, y, thick, std::min(1.2f * frame.sx / frame.sy, bottom - y + 0.2f));
+        }
+    };
+    horizontal(top);
+    horizontal(bottom);
+    vertical(left);
+    vertical(right);
     SetColor(COLOR_WHITE);
 }
 
