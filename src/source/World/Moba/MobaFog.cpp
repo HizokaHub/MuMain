@@ -243,7 +243,8 @@ namespace
             if (o.Kind != KIND_MONSTER && o.Kind != KIND_PLAYER)
                 continue;
 
-            RevealDisc(o.Position[0] / TERRAIN_SCALE, o.Position[1] / TERRAIN_SCALE, UnitSightTiles);
+            // Champions see 14 tiles, creeps 7 (turrets and the nexus come with their own, larger radius from the minimap feed).
+            RevealDisc(o.Position[0] / TERRAIN_SCALE, o.Position[1] / TERRAIN_SCALE, o.Kind == KIND_PLAYER ? UnitSightTiles : CreepSightTiles);
         }
     }
 

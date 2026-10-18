@@ -18,6 +18,7 @@ namespace World::Moba::Fog
 
     // Sight radii in tiles (MobaVision.UnitRadius / StructureRadius / WardRadius on the server).
     inline constexpr float UnitSightTiles = 14.f;
+    inline constexpr float CreepSightTiles = 7.f;    // an allied creep (MobaVision.CreepRadius): half of a champion
     inline constexpr float StructureSightTiles = 17.f;
     inline constexpr float NexusSightTiles = StructureSightTiles * 3.f;   // the nexus sees 200 % more than a turret (MobaVision.NexusRadius)
     inline constexpr float TotemSightTiles = 14.f;   // an owned jungle totem (MobaFountains.TotemRadius)
