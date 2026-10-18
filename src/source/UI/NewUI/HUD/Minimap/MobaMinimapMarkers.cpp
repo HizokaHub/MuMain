@@ -765,8 +765,10 @@ void RenderCameraView(const Frame& frame)
     constexpr float VIEW_BOX_MIN_SIZE = 18.f;   // reference px
     const float centreX = 0.5f * (minX + maxX);
     const float centreY = 0.5f * (minY + maxY);
-    const float halfW = std::max(0.5f * (maxX - minX) * VIEW_BOX_GROWTH, VIEW_BOX_MIN_SIZE * 0.5f);
+    // A landscape rectangle like the screen it stands for (16:9): at least VIEW_BOX_ASPECT times as wide as it is tall, stretched sideways.
+    constexpr float VIEW_BOX_ASPECT = 1.8f;
     const float halfH = std::max(0.5f * (maxY - minY) * VIEW_BOX_GROWTH, VIEW_BOX_MIN_SIZE * 0.5f);
+    const float halfW = std::max(0.5f * (maxX - minX) * VIEW_BOX_GROWTH, halfH * VIEW_BOX_ASPECT);
     const float left = centreX - halfW, right = centreX + halfW, top = centreY - halfH, bottom = centreY + halfH;
 
     EnableAlphaBlend3();

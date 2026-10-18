@@ -29,10 +29,10 @@ extern CHARACTER* Hero;
 namespace
 {
     // The area the focus of the camera may reach in the MOBA arena: everything inside the outer wall that surrounds the map
-    // (the blocked cells that touch the border of the grid) plus CAMERA_BEYOND_WALL_TILES past it (2026-10-18: the user asked for 15
-    // tiles more than the first version, which stopped 5 tiles short of the wall). Built once from the walk mask the client already loaded.
+    // (the blocked cells that touch the border of the grid) plus CAMERA_BEYOND_WALL_TILES past it (2026-10-18: first 15 tiles more than the
+    // original, then 8 less again at the user's request). Built once from the walk mask the client already loaded.
     constexpr int ARENA_TILES = 256;
-    constexpr int CAMERA_BEYOND_WALL_TILES = 10;
+    constexpr int CAMERA_BEYOND_WALL_TILES = 2;   // 2026-10-18: 8 tiles less than the 10 of the previous version
     constexpr float ARENA_CENTRE_X = 118.0f;
     constexpr float ARENA_CENTRE_Y = 128.0f;
 
