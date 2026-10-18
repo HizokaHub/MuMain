@@ -303,20 +303,31 @@ void SEASON3B::CNewUINameWindow::RenderMonsterHealthBars()
 
 void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
 {
+    // Diagnostics (every 10 s in the MuError.log): how many characters are alive, have a team, a fresh status and get a bar.
+    static double s_nextReport = 0.0;
+    int liveCount = 0, teamedCount = 0, freshCount = 0, drawnCount = 0;
+
     for (int i = 0; i < MAX_CHARACTERS_CLIENT; i++)
     {
         CHARACTER* c = &CharactersClient[i];
         OBJECT* o = &c->Object;
 
+        if (o->Live && (o->Kind == KIND_MONSTER || o->Kind == KIND_PLAYER))
+        {
+            ++liveCount;
+            if (c->MobaTeam != 0)
+                ++teamedCount;
+            if (c->MobaTeam != 0 && (WorldTime - c->MobaStatusTime) <= 3500.0)
+                ++freshCount;
+        }
+
         // Any MOBA participant with a fresh team-status update - creeps AND champion
-        // players; the F8 toggle is ignored here. (Own hero excluded: it has the HUD gauge.)
-        if (c->MobaTeam == 0 || (WorldTime - c->MobaStatusTime) > 2000.0)
+        // players, the own hero included (2026-10-17: the user wants to see its own bar over the character too); the F8 toggle is ignored here.
+        if (c->MobaTeam == 0 || (WorldTime - c->MobaStatusTime) > 3500.0)
             continue;
         if (!o->Live || !o->Visible || o->Alpha <= 0.f || c->Dead > 0)
             continue;
         if (o->Kind != KIND_MONSTER && o->Kind != KIND_PLAYER)
-            continue;
-        if (o->Kind == KIND_PLAYER && c == Hero)
             continue;
 
         vec3_t Position;
@@ -341,6 +352,14 @@ void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
                       blue ? 0.15f : 1.00f,
                       blue ? 0.35f : 0.15f,
                       blue ? 1.00f : 0.15f);
+        ++drawnCount;
+    }
+
+    if (WorldTime >= s_nextReport)
+    {
+        s_nextReport = WorldTime + 10000.0;
+        if (gMapManager.WorldActive == WD_200_MOBA_ARENA)
+            g_ErrorReport.Write(L"[MOBA-BARS] live=%d teamed=%d fresh=%d drawn=%d\r\n", liveCount, teamedCount, freshCount, drawnCount);
     }
 }
 
