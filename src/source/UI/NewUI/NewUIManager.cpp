@@ -110,8 +110,9 @@ bool SEASON3B::CNewUIManager::UpdateMouseEvent()
 {
     m_pActiveMouseUIObj = NULL;
 
-    // MOBA corner minimap: its options gear / panel take the mouse first.
-    if (g_pNewUIMiniMap && g_pNewUIMiniMap->UpdateCornerMouse())
+    // MOBA corner minimap: while its options panel is open or a drag is under way it keeps the mouse
+    // even over other windows; otherwise the windows are served first (see below).
+    if (g_pNewUIMiniMap && g_pNewUIMiniMap->CornerMouseBusy() && g_pNewUIMiniMap->UpdateCornerMouse())
     {
         // CheckMouseUse() reads this: without it the click also walks the hero.
         m_pActiveMouseUIObj = g_pNewUIMiniMap;
@@ -146,6 +147,15 @@ bool SEASON3B::CNewUIManager::UpdateMouseEvent()
                 return false;
             }
         }
+    }
+
+    // No window used the mouse: the corner minimap (map clicks, wheel zoom, gear, size handle) gets its turn.
+    // It is drawn below every window, so a window which overlaps it (e.g. the character window with its "+"
+    // buttons) must receive the click, not the map behind it.
+    if (g_pNewUIMiniMap && g_pNewUIMiniMap->UpdateCornerMouse())
+    {
+        m_pActiveMouseUIObj = g_pNewUIMiniMap;
+        return false;
     }
 
     return true;

@@ -80,6 +80,11 @@ namespace SEASON3B
         // Returns true when the mouse was used by it, so the click does not reach the world.
         bool UpdateCornerMouse();
 
+        // True while the corner minimap is in the middle of something which must keep the mouse even
+        // under other windows: the options panel is open, a slider or the size handle is being dragged,
+        // or a click was just used. Otherwise any open window is served before the minimap.
+        bool CornerMouseBusy() const;
+
         // Wraps RenderCornerMinimap with the "on the MOBA arena and the full Tab
         // map isn't open" gate. Called from the UI manager's render pass at a low
         // z so any window the player opens (stats, inventory, skill list, ...)

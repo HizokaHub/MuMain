@@ -1033,6 +1033,11 @@ void SEASON3B::CNewUIMiniMap::RenderCornerOptions()
     g_pRenderText->SetBgColor(backBg);
 }
 
+bool SEASON3B::CNewUIMiniMap::CornerMouseBusy() const
+{
+    return m_bOptionsOpen || m_iDragSlider >= 0 || m_bSwallowHold || g_dragging;
+}
+
 // Mouse handling for the corner minimap's options gear and panel. Called by
 // the UI manager before any window sees the mouse; returns true when the
 // click was used here (so it does not also walk / attack in the world).
