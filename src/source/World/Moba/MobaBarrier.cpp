@@ -30,7 +30,7 @@ namespace
 
     // The energy wall: a ring of quads, bright at the ground and fading out upward, with a slow shimmer running around it.
     constexpr int WALL_SEGMENTS = 96;
-    constexpr float WALL_HEIGHT = 300.f;
+    constexpr float WALL_HEIGHT = 600.f;
     constexpr float RIM_HEIGHT = 50.f;            // the brighter band at the foot of the wall
     constexpr float WALL_RED = 0.18f;
     constexpr float WALL_GREEN = 0.5f;
