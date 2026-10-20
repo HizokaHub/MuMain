@@ -521,6 +521,7 @@ static void RenderGameWorld(BYTE& byWaterMap, int width, int height)
         FRAME_PROFILE(Effects);
         RenderEffects();
         RenderBlurs();
+        World::Moba::Barrier::Render();
     }
     CheckSprites();
     BeginSprite();

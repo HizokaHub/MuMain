@@ -11,8 +11,12 @@ namespace World::Moba::Barrier
     // Handles the packet C1 0A D5 13.
     void Receive(const unsigned char* ReceiveBuffer);
 
-    // Once per frame: drops the barrier if it expired or the map changed, otherwise draws the energy wall.
+    // Once per frame: drops the barrier if it expired or the map changed.
     void Update();
+
+    // Draws the energy wall (a closed ring around each base, bright at the foot and fading upward) in the 3D pass,
+    // after the effects.
+    void Render();
 
     // Whether the barrier is up.
     bool IsActive();

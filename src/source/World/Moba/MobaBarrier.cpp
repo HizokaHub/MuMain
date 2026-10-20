@@ -1,10 +1,11 @@
 #include "stdafx.h"
 #include "World/Moba/MobaBarrier.h"
 
+#include "Render/Core/ImmediateRenderer.h" // IR::Begin / Vertex3fv
 #include "Render/Terrain/ZzzLodTerrain.h"   // TerrainWall, TERRAIN_INDEX, RequestTerrainHeight
-#include "Render/Effects/ZzzEffect.h"       // CreateParticle
+#include "Render/Textures/ZzzOpenglUtil.h"  // BindTexture, Enable/DisableAlphaBlend, depth mask, cull face
+#include "Engine/Object/ZzzCharacter.h"     // Hero
 #include "World/MapInfra/MapManager.h"      // gMapManager, WD_200_MOBA_ARENA
-#include "Core/Utilities/Random.h"
 
 #include <algorithm>
 #include <cmath>
@@ -27,15 +28,25 @@ namespace
     // The server refreshes the barrier every second; without news for this long it is dropped.
     constexpr double EXPIRE_MS = 3000.0;
 
-    // The energy wall: sparks per frame, height of the wall in world units, and the colour (blue-white).
-    constexpr int SPARKS_PER_FRAME = 10;
-    constexpr float WALL_HEIGHT = 260.f;
-    constexpr float SPARK_RED = 0.25f;
-    constexpr float SPARK_GREEN = 0.55f;
-    constexpr float SPARK_BLUE = 1.0f;
-    constexpr float MIN_LUMINOSITY = 0.6f;
-    constexpr float MAX_LUMINOSITY = 1.1f;
-    constexpr int SPARK_SUBTYPES = 4;
+    // The energy wall: a ring of quads, bright at the ground and fading out upward, with a slow shimmer running around it.
+    constexpr int WALL_SEGMENTS = 96;
+    constexpr float WALL_HEIGHT = 300.f;
+    constexpr float RIM_HEIGHT = 50.f;            // the brighter band at the foot of the wall
+    constexpr float WALL_RED = 0.18f;
+    constexpr float WALL_GREEN = 0.5f;
+    constexpr float WALL_BLUE = 1.0f;
+    constexpr float RIM_RED = 0.45f;
+    constexpr float RIM_GREEN = 0.85f;
+    constexpr float RIM_BLUE = 1.0f;
+    constexpr float PULSE_BASE = 0.6f;
+    constexpr float PULSE_AMOUNT = 0.4f;
+    constexpr double PULSE_SPEED = 0.003;         // radians per millisecond
+    constexpr float PULSE_PHASE = 0.25f;          // radians between neighbouring segments
+    constexpr float TEXTURE_CENTRE = 0.5f;        // the glow texture is sampled at its middle: a flat bright colour
+    constexpr float TWO_PI = 6.2831853f;
+
+    // A wall further than this from the hero is not drawn (in world units; the ring has a radius of about 1100).
+    constexpr float DRAW_RANGE = 3200.f;
 
     struct Ring
     {
@@ -107,23 +118,49 @@ namespace
         s_active = true;
     }
 
-    void SpawnSpark()
+    void WallQuad(const float bottom0[3], const float bottom1[3], float height, const float bottomColor[3], const float topColor[3])
     {
-        const int idx = s_ring.cells[Random::RangeInt(0, static_cast<int>(s_ring.cells.size()) - 1)];
-        const int x = idx % GRID_SIZE;
-        const int y = idx / GRID_SIZE;
+        const float corners[4][3] = {
+            { bottom0[0], bottom0[1], bottom0[2] },
+            { bottom1[0], bottom1[1], bottom1[2] },
+            { bottom1[0], bottom1[1], bottom1[2] + height },
+            { bottom0[0], bottom0[1], bottom0[2] + height },
+        };
+        IR::Begin(GL_QUADS);
+        for (int i = 0; i < 4; ++i)
+        {
+            IR::TexCoord2f(TEXTURE_CENTRE, TEXTURE_CENTRE);
+            IR::Color3fv(i < 2 ? bottomColor : topColor);
+            IR::Vertex3fv(corners[i]);
+        }
+        IR::End();
+    }
 
-        vec3_t position;
-        position[0] = (static_cast<float>(x) + 0.5f) * TERRAIN_SCALE + Random::RangeFloat(-30.f, 30.f);
-        position[1] = (static_cast<float>(y) + 0.5f) * TERRAIN_SCALE + Random::RangeFloat(-30.f, 30.f);
-        position[2] = RequestTerrainHeight(position[0], position[1]) + Random::RangeFloat(0.f, WALL_HEIGHT);
+    void RenderWall(int centerX, int centerY)
+    {
+        const float radius = (static_cast<float>(s_radius) + RING_THICKNESS_TILES * 0.5f) * TERRAIN_SCALE;
+        const float cx = (static_cast<float>(centerX) + 0.5f) * TERRAIN_SCALE;
+        const float cy = (static_cast<float>(centerY) + 0.5f) * TERRAIN_SCALE;
+        if (std::hypot(Hero->Object.Position[0] - cx, Hero->Object.Position[1] - cy) > DRAW_RANGE)
+            return;
 
-        const float luminosity = Random::RangeFloat(MIN_LUMINOSITY, MAX_LUMINOSITY);
-        vec3_t light;
-        Vector(luminosity * SPARK_RED, luminosity * SPARK_GREEN, luminosity * SPARK_BLUE, light);
-        vec3_t angle;
-        Vector(0.f, 0.f, 0.f, angle);
-        CreateParticle(BITMAP_FIRE, position, angle, light, Random::RangeInt(0, SPARK_SUBTYPES - 1));
+        const float dark[3] = { 0.f, 0.f, 0.f };
+        float previous[3] = {};
+        for (int i = 0; i <= WALL_SEGMENTS; ++i)
+        {
+            const float angle = TWO_PI * static_cast<float>(i) / static_cast<float>(WALL_SEGMENTS);
+            float current[3] = { cx + radius * std::cos(angle), cy + radius * std::sin(angle), 0.f };
+            current[2] = RequestTerrainHeight(current[0], current[1]);
+            if (i > 0)
+            {
+                const float pulse = PULSE_BASE + PULSE_AMOUNT * static_cast<float>(std::sin(WorldTime * PULSE_SPEED + i * PULSE_PHASE));
+                const float wall[3] = { WALL_RED * pulse, WALL_GREEN * pulse, WALL_BLUE * pulse };
+                const float rim[3] = { RIM_RED * pulse, RIM_GREEN * pulse, RIM_BLUE * pulse };
+                WallQuad(previous, current, WALL_HEIGHT, wall, dark);
+                WallQuad(previous, current, RIM_HEIGHT, rim, dark);
+            }
+            memcpy(previous, current, sizeof(previous));
+        }
     }
 }
 
@@ -159,11 +196,22 @@ void Update()
         return;
     }
 
-    if (s_ring.cells.empty())
+}
+
+void Render()
+{
+    if (!s_active || gMapManager.WorldActive != WD_200_MOBA_ARENA)
         return;
 
-    for (int i = 0; i < SPARKS_PER_FRAME; ++i)
-        SpawnSpark();
+    EnableAlphaBlend();
+    DisableCullFace();
+    DisableDepthMask();
+    BindTexture(BITMAP_LIGHT);
+    for (int i = 0; i < CENTER_COUNT; ++i)
+        RenderWall(s_centers[i][0], s_centers[i][1]);
+    EnableDepthMask();
+    EnableCullFace();
+    DisableAlphaBlend();
 }
 
 bool IsActive()

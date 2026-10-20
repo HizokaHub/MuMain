@@ -3,6 +3,7 @@
 #include "UI/NewUI/NewUISystem.h"        // g_pNewUIMiniMap (corner-minimap interleave)
 #include "UI/NewUI/HUD/NewUIMiniMap.h"
 #include "UI/Legacy/UIControls.h"  // CUITextInputBox::GetFocusedPortable (issue #447)
+#include "World/Moba/MobaBanner.h"
 
 
 using namespace SEASON3B;
@@ -248,6 +249,8 @@ bool SEASON3B::CNewUIManager::Render()
     {
         g_pNewUIMiniMap->RenderCornerOverlayIfActive();
     }
+
+    World::Moba::Banner::Render();
 
     return true;
 }
