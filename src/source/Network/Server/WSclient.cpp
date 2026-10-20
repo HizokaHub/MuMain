@@ -86,6 +86,7 @@
 #include "MUHelper/MuHelper.h"
 #include "World/Moba/MobaBarrier.h"
 #include "World/Moba/MobaBanner.h"
+#include "World/Moba/MobaReadyCheck.h"
 
 #define MAX_DEBUG_MAX 10
 
@@ -14422,6 +14423,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x14:
             World::Moba::Banner::Receive(ReceiveBuffer);
+            break;
+        case 0x15:
+            World::Moba::ReadyCheck::Receive(ReceiveBuffer);
             break;
         }
     }

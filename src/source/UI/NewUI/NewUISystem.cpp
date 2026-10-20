@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "UI/NewUI/Dialogs/NewUIMessageBox.h"
+#include "UI/NewUI/Dialogs/MobaReadyCheckWindow.h"
 
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "World/MapInfra/MapManager.h"
@@ -434,6 +435,8 @@ bool CNewUISystem::LoadMainSceneInterface()
     m_pNewMaster_Level_Interface = new CNewUIMasterLevel;
     if (m_pNewMaster_Level_Interface->Create(m_pNewUIMng) == false)
         return false;
+
+    CMobaReadyCheckWindow::Create(m_pNewUIMng);
 
     m_pNewMiniMap = new CNewUIMiniMap;
     if (m_pNewMiniMap->Create(m_pNewUIMng, 0, 0) == false)
