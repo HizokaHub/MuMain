@@ -1,0 +1,32 @@
+#pragma once
+
+// Drawing helpers shared by the MOBA queue popups (ready check, queue panel): flat rectangles, frames and centered text
+// in the 640x480 reference screen, and the mouse test against a rectangle.
+namespace UI::Moba::Draw
+{
+    struct Rect
+    {
+        int x, y, w, h;
+    };
+
+    // Whether the mouse is inside the rectangle.
+    bool MouseInRect(const Rect& r);
+
+    // Fills the rectangle with a flat color (the color state is reset by EndRenderColor, which the caller calls after a batch).
+    void FillRect(const Rect& r, float red, float green, float blue, float alpha);
+
+    // Draws a one-pixel frame around the rectangle (inside it).
+    void FrameRect(const Rect& r, float red, float green, float blue, float alpha);
+
+    // Draws a text line centered in a box of the given width; sort = centered, left or right.
+    void PutText(HFONT font, int x, int y, int width, const wchar_t* text, BYTE red, BYTE green, BYTE blue, int sort);
+
+    // Same, centered (the common case).
+    void PutTextCentered(HFONT font, int x, int y, int width, const wchar_t* text, BYTE red, BYTE green, BYTE blue);
+
+    // Same, left aligned.
+    void PutTextLeft(HFONT font, int x, int y, int width, const wchar_t* text, BYTE red, BYTE green, BYTE blue);
+
+    // A button: a filled rectangle (green when positive, red otherwise) with a gold frame and a centered label.
+    void Button(const Rect& r, const wchar_t* label, bool positive);
+}
