@@ -13,6 +13,9 @@ namespace World::Moba::QueueStatus
         Open = 1,
         Premade = 2,
         WithBots = 3,
+        Trio = 4,
+        Duel = 5,
+        Aram = 6,
     };
 
     // One step of the wait for a match with bots: after this many seconds, this many humans are enough.

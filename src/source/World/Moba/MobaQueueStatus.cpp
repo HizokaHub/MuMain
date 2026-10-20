@@ -50,7 +50,7 @@ namespace
 void Receive(const unsigned char* ReceiveBuffer)
 {
     const int length = ReceiveBuffer[1];
-    if (length < FIXED_BYTES || ReceiveBuffer[OFFSET_MODE] > static_cast<unsigned char>(Mode::WithBots))
+    if (length < FIXED_BYTES || ReceiveBuffer[OFFSET_MODE] > static_cast<unsigned char>(Mode::Aram))
         return;
 
     const int stageCount = ReceiveBuffer[OFFSET_STAGE_COUNT];

@@ -49,6 +49,9 @@ namespace
         {
         case QueueStatus::Mode::Premade: return L"Equipo de 5 · solo humanos";
         case QueueStatus::Mode::WithBots: return L"5v5 con bots (garantizada)";
+        case QueueStatus::Mode::Trio: return L"3v3 · humanos; con bots tras la espera";
+        case QueueStatus::Mode::Duel: return L"1v1 · solo humanos";
+        case QueueStatus::Mode::Aram: return L"ARAM 5v5 · carril central";
         default: return L"5v5 · solo humanos";
         }
     }
