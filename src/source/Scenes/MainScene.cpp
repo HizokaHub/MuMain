@@ -16,6 +16,7 @@
 #include "Input/Selection.h"
 #include "Render/Effects/ZzzEffect.h"
 #include "World/MapInfra/MapManager.h"
+#include "World/Moba/MobaBarrier.h"
 #include "World/Moba/MobaFog.h"
 #include "UI/Legacy/UIMng.h"
 #include "UI/NewUI/NewUISystem.h"
@@ -345,6 +346,7 @@ void MoveMainScene()
 
     // MOBA fog of war (no-op outside a match): sight from the positions just moved, then laid over this
     // frame's terrain light -- after InitTerrainLight and the effect lights, before RenderTerrain uploads it.
+    World::Moba::Barrier::Update();
     World::Moba::Fog::Update();
     World::Moba::Fog::ApplyToTerrainLight();
 
