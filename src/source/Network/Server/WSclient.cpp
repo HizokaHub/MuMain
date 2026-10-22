@@ -13463,6 +13463,16 @@ void SendMobaSummonControl(unsigned char mode)
     SocketClient->Send(buf, 5);
 }
 
+// MOBA: the right click of a Dark Horse / Dark Raven in the inventory switches the pet on or off (C1 05 D5 2A slot).
+void SendMobaPetToggle(unsigned char inventorySlot)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[5] = { 0xC1, 5, 0xD5, 0x2A, inventorySlot };
+    SocketClient->Send(buf, 5);
+}
+
 // MOBA: an order for the summon (C1 09 D5 28 kind x y keyLo keyHi).
 void SendMobaSummonOrder(unsigned char kind, unsigned char x, unsigned char y, unsigned short key)
 {

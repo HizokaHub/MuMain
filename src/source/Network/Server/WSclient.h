@@ -168,6 +168,7 @@ extern double g_MobaChannelEnd;
 // Sends the recall request (key B in a MOBA match): C1 04 D5 09.
 void SendMobaRecall();
 void SendMobaSummonControl(unsigned char mode);
+void SendMobaPetToggle(unsigned char inventorySlot);
 void SendMobaSummonOrder(unsigned char kind, unsigned char x, unsigned char y, unsigned short key);
 void SendMobaVisionAction(BYTE subCode); // 0x0D ward, 0x0E sweeper
 // Teleport scroll: while true, a left click on an allied minion sends it to the server (C1 06 D5 0B).

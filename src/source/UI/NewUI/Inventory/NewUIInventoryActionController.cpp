@@ -16,6 +16,7 @@
 #include "Character/CharacterManager.h"
 #include "Audio/DSPlaySound.h"
 #include "Engine/Object/ZzzInterface.h"
+#include "Network/Server/WSclient.h"   // g_MobaLevel, SendMobaPetToggle
 #include "UI/Legacy/UIManager.h"
 #include "GameLogic/Items/ChangeRingManager.h"
 #include "World/MapInfra/PortalMgr.h"
@@ -279,6 +280,15 @@ bool CNewUIInventoryActionController::HandleInventoryRightClickActions(CNewUIInv
     }
 
     const int iIndex = targetControl->GetIndexByItem(pItem);
+
+    // MOBA: the Dark Horse and the Dark Raven work from the inventory: the right click switches them on or off, so they do not
+    // take an equipment slot (the Dark Lord keeps its shield and its other pet).
+    if (g_MobaLevel > 0 && iIndex >= 0 && (pItem->Type == ITEM_HELPER + 4 || pItem->Type == ITEM_HELPER + 5))
+    {
+        SendMobaPetToggle(static_cast<unsigned char>(iIndex));
+        PlayBuffer(SOUND_CLICK01);
+        return true;
+    }
 
     if (iIndex >= 0 && TryConsumeItem(targetControl, pItem, iIndex))
     {
