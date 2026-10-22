@@ -4,7 +4,7 @@
 #include "UI/NewUI/NewUIManager.h"
 #include "UI/NewUI/NewUICommon.h"             // IsPress
 #include "UI/Legacy/UIControls.h"             // g_pRenderText
-#include "App/Platform/Windows/Winmain.h"     // g_hFont, g_hFontBig
+#include "App/Platform/Windows/Winmain.h"     // Draw::Body(), Draw::Title()
 #include "Render/Textures/ZzzOpenglUtil.h"    // EndRenderColor
 #include "UI/NewUI/Dialogs/MobaPopupDraw.h"
 #include "World/Moba/MobaReadyCheck.h"
@@ -96,19 +96,19 @@ namespace
     {
         using Draw::PutTextCentered;
         wchar_t line[128] = {};
-        PutTextCentered(g_hFontBig, PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, L"PARTIDA ENCONTRADA", 241, 196, 83);
+        PutTextCentered(Draw::Title(), PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, L"PARTIDA ENCONTRADA", 241, 196, 83);
 
         const int seconds = static_cast<int>(std::ceil(ReadyCheck::RemainingMs() / MS_PER_SECOND));
         swprintf(line, std::size(line), L"Acepta en %d s o saldrás de la cola", seconds);
-        PutTextCentered(g_hFont, PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, 233, 228, 212);
+        PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, 233, 228, 212);
 
         swprintf(line, std::size(line), L"%d/%d jugadores han aceptado", state.accepted, state.total);
-        PutTextCentered(g_hFont, PANEL_X, PANEL_Y + COUNT_TEXT_Y, PANEL_W, line, 170, 179, 194);
+        PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + COUNT_TEXT_Y, PANEL_W, line, 170, 179, 194);
 
         if (state.status == ReadyCheck::Status::Accepted)
-            PutTextCentered(g_hFontBold, PANEL_X, PANEL_Y + WAITING_TEXT_Y, PANEL_W, L"Aceptaste. Esperando a los demás...", 111, 211, 154);
+            PutTextCentered(Draw::Bold(), PANEL_X, PANEL_Y + WAITING_TEXT_Y, PANEL_W, L"Aceptaste. Esperando a los demás...", 111, 211, 154);
         else
-            PutTextCentered(g_hFont, PANEL_X, PANEL_Y + HINT_Y, PANEL_W, L"Intro = aceptar", 127, 138, 160);
+            PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + HINT_Y, PANEL_W, L"Intro = aceptar", 127, 138, 160);
     }
 }
 
@@ -148,12 +148,16 @@ bool CMobaReadyCheckWindow::Update()
 
 bool CMobaReadyCheckWindow::UpdateMouseEvent()
 {
+    if (Draw::HeldClickSwallowed())
+        return false;
+
     const ReadyCheck::State& state = ReadyCheck::Get();
     if (state.status == ReadyCheck::Status::Hidden || !Draw::MouseInRect(Panel()))
         return true;
 
     if (state.status == ReadyCheck::Status::Asking && IsPress(VK_LBUTTON))
     {
+        Draw::SwallowHeldClick();
         if (Draw::MouseInRect(AcceptButton()))
             ReadyCheck::Answer(true);
         else if (Draw::MouseInRect(DeclineButton()))

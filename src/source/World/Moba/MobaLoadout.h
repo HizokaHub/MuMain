@@ -27,13 +27,17 @@ namespace World::Moba::Loadout
     // Whether the skill is in the current pick.
     bool IsSelected(unsigned short skill);
 
-    // Picks or drops a skill; picking is ignored when the pick is full.
+    // The place of the skill in the pick (1 = first), or 0 when it is not picked.
+    int PlaceOf(unsigned short skill);
+
+    // Picks or drops a skill; picking when the pick is full drops the oldest pick, so the player can swap by clicking.
     void Toggle(unsigned short skill);
 
     // Whether the pick has a valid number of skills.
     bool IsComplete();
 
     // Sends the pick to the server and closes the window; ignored while the pick is not complete.
+    // (A complete pick is also sent every time it changes, so the champion has it right away.)
     void Save();
 
     // Closes the window without saving.

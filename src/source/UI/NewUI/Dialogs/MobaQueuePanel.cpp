@@ -186,12 +186,18 @@ bool CMobaQueuePanel::Update()
 
 bool CMobaQueuePanel::UpdateMouseEvent()
 {
+    if (Draw::HeldClickSwallowed())
+        return false;
+
     const QueueStatus::State& state = QueueStatus::Get();
     if (state.mode == QueueStatus::Mode::Hidden || !Draw::MouseInRect(Panel(state)))
         return true;
 
     if (IsPress(VK_LBUTTON) && Draw::MouseInRect(CancelButton(state)))
+    {
+        Draw::SwallowHeldClick();
         QueueStatus::Cancel();
+    }
 
     // The panel swallows the mouse: a click on it must not walk the hero.
     return false;

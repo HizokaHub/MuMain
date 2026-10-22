@@ -20,6 +20,13 @@ namespace
 
 void Open(State state)
 {
+    // An empty list of skills is the server closing the window (the match starts).
+    if (state.selectable.empty())
+    {
+        Close();
+        return;
+    }
+
     s_state = std::move(state);
     s_state.open = true;
 }
@@ -34,6 +41,12 @@ bool IsSelected(unsigned short skill)
     return std::find(s_state.selected.begin(), s_state.selected.end(), skill) != s_state.selected.end();
 }
 
+int PlaceOf(unsigned short skill)
+{
+    const auto picked = std::find(s_state.selected.begin(), s_state.selected.end(), skill);
+    return picked == s_state.selected.end() ? 0 : static_cast<int>(picked - s_state.selected.begin()) + 1;
+}
+
 void Toggle(unsigned short skill)
 {
     const auto picked = std::find(s_state.selected.begin(), s_state.selected.end(), skill);
@@ -43,8 +56,12 @@ void Toggle(unsigned short skill)
         return;
     }
 
-    if (PickedCount() < s_state.maxSkills)
-        s_state.selected.push_back(skill);
+    if (PickedCount() >= s_state.maxSkills)
+        s_state.selected.erase(s_state.selected.begin());
+
+    s_state.selected.push_back(skill);
+    if (IsComplete())
+        SendMobaLoadout(s_state.selected);
 }
 
 bool IsComplete()

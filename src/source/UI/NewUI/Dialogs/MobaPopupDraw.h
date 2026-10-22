@@ -9,6 +9,12 @@ namespace UI::Moba::Draw
         int x, y, w, h;
     };
 
+    // The fonts of the MOBA popups: a larger body font, its bold variant and a big title font. They follow the size of the
+    // UI fonts (so the window resolution is respected) and are rebuilt when it changes.
+    HFONT Body();
+    HFONT Bold();
+    HFONT Title();
+
     // Whether the mouse is inside the rectangle.
     bool MouseInRect(const Rect& r);
 
@@ -26,6 +32,12 @@ namespace UI::Moba::Draw
 
     // Same, left aligned.
     void PutTextLeft(HFONT font, int x, int y, int width, const wchar_t* text, BYTE red, BYTE green, BYTE blue);
+
+    // Call when a popup used a click: the popup may disappear under the cursor, and the press still held must not reach the world.
+    void SwallowHeldClick();
+
+    // Whether the press of a click used by a popup is still held (the popups return "mouse used" while it is).
+    bool HeldClickSwallowed();
 
     // A button: a filled rectangle (green when positive, red otherwise) with a gold frame and a centered label.
     void Button(const Rect& r, const wchar_t* label, bool positive);

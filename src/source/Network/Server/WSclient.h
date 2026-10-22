@@ -174,6 +174,15 @@ void SendMobaReturnToTown();
 // MOBA: the skills picked in the loadout window (C1 len D5 1A).
 void SendMobaLoadout(const std::vector<unsigned short>& skills);
 
+// MOBA: a button of the private room panel (C1 05 D5 1C action).
+void SendMobaRoomAction(unsigned char action);
+
+// MOBA: the room code typed in the menu panel (C1 len D5 1D codeLen code).
+void SendMobaJoinCode(const std::wstring& code);
+
+// MOBA: tells the server the player closed the NPC dialog without choosing an option.
+void SendMobaCloseNpcDialog();
+
 inline uint64_t ntoh64(uint64_t value)
 {
     return ((value & 0x00000000000000FFULL) << 56) |

@@ -4,7 +4,7 @@
 #include "UI/NewUI/NewUIManager.h"
 #include "UI/NewUI/NewUICommon.h"             // IsPress
 #include "UI/Legacy/UIControls.h"             // g_pRenderText
-#include "App/Platform/Windows/Winmain.h"     // g_hFont, g_hFontBold, g_hFontBig
+#include "App/Platform/Windows/Winmain.h"     // Draw::Body(), Draw::Bold(), Draw::Title()
 #include "Render/Textures/ZzzOpenglUtil.h"    // EndRenderColor
 #include "UI/NewUI/Dialogs/MobaPopupDraw.h"
 #include "World/Moba/MobaResults.h"
@@ -82,15 +82,15 @@ namespace
 
     void PutCell(const Column& column, int y, const wchar_t* text, BYTE red, BYTE green, BYTE blue)
     {
-        Draw::PutTextCentered(g_hFont, PANEL_X + column.x, y + TEXT_DY, column.w, text, red, green, blue);
+        Draw::PutTextCentered(Draw::Body(), PANEL_X + column.x, y + TEXT_DY, column.w, text, red, green, blue);
     }
 
     void RenderHeaderTexts()
     {
         const int y = PANEL_Y + HEADER_Y;
-        Draw::PutTextLeft(g_hFontBold, PANEL_X + COL_NAME.x, y + TEXT_DY, COL_NAME.w, COL_NAME.title, 170, 179, 194);
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + COL_NAME.x, y + TEXT_DY, COL_NAME.w, COL_NAME.title, 170, 179, 194);
         for (const Column* column : { &COL_CLASS, &COL_LEVEL, &COL_KDA, &COL_CREEPS, &COL_GOLD, &COL_DAMAGE, &COL_TAKEN })
-            Draw::PutTextCentered(g_hFontBold, PANEL_X + column->x, y + TEXT_DY, column->w, column->title, 170, 179, 194);
+            Draw::PutTextCentered(Draw::Bold(), PANEL_X + column->x, y + TEXT_DY, column->w, column->title, 170, 179, 194);
     }
 
     void RenderTitle(const Results::State& state)
@@ -100,13 +100,13 @@ namespace
         const wchar_t* title = !hasOwnRow ? (blueWon ? L"GANA EL EQUIPO AZUL" : L"GANA EL EQUIPO ROJO")
             : Results::IsVictory() ? L"VICTORIA" : L"DERROTA";
         const bool good = !hasOwnRow || Results::IsVictory();
-        Draw::PutTextCentered(g_hFontBig, PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, title, good ? 111 : 220, good ? 211 : 90, good ? 154 : 80);
+        Draw::PutTextCentered(Draw::Title(), PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, title, good ? 111 : 220, good ? 211 : 90, good ? 154 : 80);
 
         wchar_t line[96] = {};
         const int minutes = static_cast<int>(state.durationSeconds) / SECONDS_PER_MINUTE;
         const int seconds = static_cast<int>(state.durationSeconds) % SECONDS_PER_MINUTE;
         swprintf(line, std::size(line), L"Nexo %ls destruido  -  duración %d:%02d", blueWon ? L"rojo" : L"azul", minutes, seconds);
-        Draw::PutTextCentered(g_hFont, PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, 233, 228, 212);
+        Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, 233, 228, 212);
     }
 
     void RenderRowTexts(const Results::Row& row, int y)
@@ -116,7 +116,7 @@ namespace
         std::wstring name = row.name;
         if (row.bot)
             name += L" (bot)";
-        Draw::PutTextLeft(row.mine ? g_hFontBold : g_hFont, PANEL_X + COL_NAME.x, y + TEXT_DY, COL_NAME.w, name.c_str(), tint, tint, row.mine ? 140 : tint);
+        Draw::PutTextLeft(row.mine ? Draw::Bold() : Draw::Body(), PANEL_X + COL_NAME.x, y + TEXT_DY, COL_NAME.w, name.c_str(), tint, tint, row.mine ? 140 : tint);
 
         PutCell(COL_CLASS, y, row.baseClass < CLASS_COUNT ? CLASS_NAMES[row.baseClass] : L"?", tint, tint, tint);
         swprintf(cell, std::size(cell), L"%d", row.level);
@@ -139,7 +139,7 @@ namespace
         const bool blue = team == Results::TEAM_BLUE;
         if (!backgrounds)
         {
-            Draw::PutTextLeft(g_hFontBold, PANEL_X + COL_NAME.x, y + TEXT_DY, COL_NAME.w, blue ? L"EQUIPO AZUL" : L"EQUIPO ROJO", blue ? 110 : 235, blue ? 170 : 100, blue ? 250 : 100);
+            Draw::PutTextLeft(Draw::Bold(), PANEL_X + COL_NAME.x, y + TEXT_DY, COL_NAME.w, blue ? L"EQUIPO AZUL" : L"EQUIPO ROJO", blue ? 110 : 235, blue ? 170 : 100, blue ? 250 : 100);
         }
         else
         {
@@ -175,7 +175,7 @@ namespace
         wchar_t line[96] = {};
         const int seconds = static_cast<int>(std::ceil(Results::RemainingMs() / MS_PER_SECOND));
         swprintf(line, std::size(line), L"Volverás a Lorencia automáticamente en %d s", seconds);
-        Draw::PutTextCentered(g_hFont, PANEL_X, PANEL_Y + PANEL_H - HINT_BOTTOM_MARGIN - ROW_H + TEXT_DY, PANEL_W, line, 127, 138, 160);
+        Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + PANEL_H - HINT_BOTTOM_MARGIN - ROW_H + TEXT_DY, PANEL_W, line, 127, 138, 160);
     }
 }
 
@@ -215,11 +215,17 @@ bool CMobaResultsWindow::Update()
 
 bool CMobaResultsWindow::UpdateMouseEvent()
 {
+    if (Draw::HeldClickSwallowed())
+        return false;
+
     if (!Results::Get().visible || !Draw::MouseInRect(Panel()))
         return true;
 
     if (IsPress(VK_LBUTTON) && Draw::MouseInRect(ReturnButton()))
+    {
+        Draw::SwallowHeldClick();
         Results::ReturnToTown();
+    }
 
     // The panel swallows the mouse: a click on it must not walk the hero.
     return false;

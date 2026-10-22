@@ -90,6 +90,8 @@
 #include "World/Moba/MobaQueueStatus.h"
 #include "World/Moba/MobaResults.h"
 #include "World/Moba/MobaLoadout.h"
+#include "World/Moba/MobaRoom.h"
+#include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
 
 #define MAX_DEBUG_MAX 10
@@ -13486,6 +13488,52 @@ void SendMobaReturnToTown()
     SocketClient->Send(buf, PacketLength);
 }
 
+// MOBA: the room code typed in the menu panel (C1 len D5 1D codeLen code).
+void SendMobaJoinCode(const std::wstring& code)
+{
+    constexpr size_t HeaderLength = 5;
+    constexpr size_t MaxCodeLength = 16;
+    if (SocketClient == nullptr || !SocketClient->IsConnected() || code.empty() || code.size() > MaxCodeLength)
+        return;
+
+    BYTE buf[HeaderLength + MaxCodeLength];
+    const size_t length = HeaderLength + code.size();
+    buf[0] = 0xC1;
+    buf[1] = static_cast<BYTE>(length);
+    buf[2] = 0xD5;
+    buf[3] = 0x1D;
+    buf[4] = static_cast<BYTE>(code.size());
+    for (size_t i = 0; i < code.size(); ++i)
+        buf[HeaderLength + i] = static_cast<BYTE>(code[i]);
+
+    SocketClient->Send(buf, static_cast<DWORD>(length));
+}
+
+// MOBA: tells the server the player closed the NPC dialog without choosing an option.
+void SendMobaCloseNpcDialog()
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    SocketClient->ToGameServer()->SendCloseNpcRequest();
+}
+
+// MOBA: a button of the private room panel (C1 05 D5 1C action).
+void SendMobaRoomAction(unsigned char action)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    constexpr BYTE PacketLength = 5;
+    BYTE buf[PacketLength];
+    buf[0] = 0xC1;
+    buf[1] = PacketLength;
+    buf[2] = 0xD5;
+    buf[3] = 0x1C;
+    buf[4] = action;
+    SocketClient->Send(buf, PacketLength);
+}
+
 // MOBA: the skills picked in the loadout window (C1 len D5 1A count skill(u16 LE)...).
 void SendMobaLoadout(const std::vector<unsigned short>& skills)
 {
@@ -13601,7 +13649,7 @@ static void ReceiveMobaNpcMenu(std::span<const BYTE> packet)
         options.push_back(std::move(option));
     }
 
-    g_pNPCDialogue->OpenServerMenu(menuId, title, text, options);
+    World::Moba::Menu::Open(menuId, std::move(title), std::move(text), options);
 }
 
 // Handles packet C2 D5 0A: the MOBA-only item options for the tooltips.
@@ -13716,6 +13764,65 @@ static void ReceiveMobaResults(std::span<const BYTE> packet)
     }
 
     World::Moba::Results::Show(std::move(state), secondsToReturn);
+}
+
+// Handles packet C2 D5 1B: the private room of the player. Layout after the header: present, isHost, fillBots, teamSize,
+// codeLen code, labelLen label, blueCount (flags [0x01 host, 0x02 yours] baseClass nameLen name)*, redCount (...)*.
+static bool ReadMobaRoomTeam(MobaPacketReader& reader, std::vector<World::Moba::Room::Member>& team)
+{
+    constexpr BYTE HostFlag = 0x01;
+    constexpr BYTE YoursFlag = 0x02;
+
+    BYTE count = 0;
+    if (!reader.ReadByte(count))
+        return false;
+
+    for (int i = 0; i < count; ++i)
+    {
+        World::Moba::Room::Member member;
+        BYTE flags = 0;
+        BYTE nameLength = 0;
+        if (!reader.ReadByte(flags) || !reader.ReadByte(member.baseClass) || !reader.ReadByte(nameLength) || !reader.ReadUtf8(nameLength, member.name))
+            return false;
+
+        member.host = (flags & HostFlag) != 0;
+        member.mine = (flags & YoursFlag) != 0;
+        team.push_back(std::move(member));
+    }
+
+    return true;
+}
+
+static void ReceiveMobaRoom(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    World::Moba::Room::State state;
+    BYTE present = 0;
+    BYTE isHost = 0;
+    BYTE fillBots = 0;
+    BYTE teamSize = 0;
+    BYTE codeLength = 0;
+    BYTE labelLength = 0;
+    if (!reader.ReadByte(present))
+        return;
+
+    if (present == 0)
+    {
+        World::Moba::Room::Show(World::Moba::Room::State{});
+        return;
+    }
+
+    if (!reader.ReadByte(isHost) || !reader.ReadByte(fillBots) || !reader.ReadByte(teamSize)
+        || !reader.ReadByte(codeLength) || !reader.ReadUtf8(codeLength, state.code)
+        || !reader.ReadByte(labelLength) || !reader.ReadUtf8(labelLength, state.label)
+        || !ReadMobaRoomTeam(reader, state.blue) || !ReadMobaRoomTeam(reader, state.red))
+        return;
+
+    state.present = true;
+    state.isHost = isHost != 0;
+    state.fillBots = fillBots != 0;
+    state.teamSize = teamSize;
+    World::Moba::Room::Show(std::move(state));
 }
 
 // Handles packet C1 D5 19: opens the loadout window. Layout after the header: baseClass, min, max, selectableCount,
@@ -14568,6 +14675,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x19:
             ReceiveMobaLoadout(received_span);
+            break;
+        case 0x1B:
+            ReceiveMobaRoom(received_span);
             break;
         }
     }

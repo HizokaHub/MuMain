@@ -4,7 +4,7 @@
 #include "UI/NewUI/NewUIManager.h"
 #include "UI/NewUI/NewUICommon.h"             // IsPress
 #include "UI/Legacy/UIControls.h"             // g_pRenderText
-#include "App/Platform/Windows/Winmain.h"     // g_hFont, g_hFontBold, g_hFontBig
+#include "App/Platform/Windows/Winmain.h"     // Draw::Body(), Draw::Bold(), Draw::Title()
 #include "Render/Textures/ZzzOpenglUtil.h"    // EndRenderColor
 #include "Engine/Object/ZzzInfomation.h"      // SkillAttribute
 #include "UI/NewUI/HUD/Skills/SkillIcon.h"
@@ -41,6 +41,7 @@ namespace
     constexpr int BUTTON_GAP = 20;
     constexpr int BUTTON_BOTTOM_MARGIN = 16;
     constexpr int TEXT_DY = 2;
+    constexpr int BADGE_SIZE = 12;
 
     constexpr float LAYER_DEPTH = 10.85f;      // above the ready-check popup (10.8)
     constexpr float KEY_EVENT_ORDER = 100.0f;
@@ -77,23 +78,40 @@ namespace
         return -1;
     }
 
+    void RenderPlaceBadge(const Rect& cell, int place);
+
+    // The cell of a skill: its icon is always drawn; a picked skill gets a green background, a thick gold frame and a badge
+    // with the place it takes in the pick (the unpicked ones keep a plain dark cell).
     void RenderCell(int index, unsigned short skill, bool hovered)
     {
         const Rect cell = CellOf(index);
-        const bool picked = Loadout::IsSelected(skill);
-        Draw::FillRect(cell, picked ? 0.14f : 0.07f, picked ? 0.20f : 0.09f, picked ? 0.12f : 0.13f, 0.95f);
+        const int place = Loadout::PlaceOf(skill);
+        const bool picked = place > 0;
+        Draw::FillRect(cell, picked ? 0.14f : 0.07f, picked ? 0.26f : 0.09f, picked ? 0.12f : 0.13f, 1.f);
         if (picked)
+        {
             Draw::FrameRect(cell, 0.95f, 0.80f, 0.40f, 1.f);
+            Draw::FrameRect({ cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2 }, 0.95f, 0.80f, 0.40f, 1.f);
+        }
         else
-            Draw::FrameRect(cell, 0.23f, 0.27f, 0.35f, hovered ? 1.f : 0.7f);
+        {
+            Draw::FrameRect(cell, hovered ? 0.60f : 0.23f, hovered ? 0.64f : 0.27f, hovered ? 0.72f : 0.35f, 1.f);
+        }
         EndRenderColor();
 
         UI::Skills::Icon::Render(skill, static_cast<float>(cell.x + (cell.w - ICON_W) / 2), static_cast<float>(cell.y + (cell.h - ICON_H) / 2), ICON_W, ICON_H);
-        if (!picked)
-        {
-            Draw::FillRect(cell, 0.f, 0.f, 0.f, 0.45f);
-            EndRenderColor();
-        }
+        if (picked)
+            RenderPlaceBadge(cell, place);
+    }
+
+    void RenderPlaceBadge(const Rect& cell, int place)
+    {
+        const Rect badge = { cell.x + cell.w - BADGE_SIZE - 1, cell.y + 1, BADGE_SIZE, BADGE_SIZE };
+        Draw::FillRect(badge, 0.95f, 0.80f, 0.40f, 1.f);
+        EndRenderColor();
+        wchar_t text[8] = {};
+        swprintf(text, std::size(text), L"%d", place);
+        Draw::PutTextCentered(Draw::Bold(), badge.x, badge.y + 1, badge.w, text, 30, 24, 8);
     }
 
     void RenderSaveButton()
@@ -108,24 +126,27 @@ namespace
         Draw::FillRect(save, 0.15f, 0.16f, 0.19f, 0.95f);
         Draw::FrameRect(save, 0.40f, 0.40f, 0.40f, 0.6f);
         EndRenderColor();
-        Draw::PutTextCentered(g_hFontBold, save.x, save.y + TEXT_DY + 5, save.w, L"GUARDAR", 110, 110, 110);
+        Draw::PutTextCentered(Draw::Bold(), save.x, save.y + TEXT_DY + 5, save.w, L"GUARDAR", 110, 110, 110);
     }
 
     void RenderTexts(const Loadout::State& state, int hovered)
     {
-        Draw::PutTextCentered(g_hFontBig, PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, L"ELEGIR MIS SKILLS", 241, 196, 83);
+        Draw::PutTextCentered(Draw::Title(), PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, L"ELEGIR MIS SKILLS", 241, 196, 83);
 
         wchar_t line[128] = {};
         const bool complete = Loadout::IsComplete();
-        swprintf(line, std::size(line), L"Elige entre %d y %d skills para la partida: %d/%d", state.minSkills, state.maxSkills, static_cast<int>(state.selected.size()), state.maxSkills);
-        Draw::PutTextCentered(g_hFont, PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, complete ? 111 : 233, complete ? 211 : 228, complete ? 154 : 212);
+        if (state.minSkills == state.maxSkills)
+            swprintf(line, std::size(line), L"Elige %d skills (los buffs se a\u00f1aden solos): %d/%d", state.maxSkills, static_cast<int>(state.selected.size()), state.maxSkills);
+        else
+            swprintf(line, std::size(line), L"Elige entre %d y %d skills para la partida: %d/%d", state.minSkills, state.maxSkills, static_cast<int>(state.selected.size()), state.maxSkills);
+        Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, complete ? 111 : 233, complete ? 211 : 228, complete ? 154 : 212);
 
         const int rows = (static_cast<int>(state.selectable.size()) + GRID_COLUMNS - 1) / GRID_COLUMNS;
         const int nameY = PANEL_Y + GRID_Y + rows * CELL_H + NAME_GAP;
         if (hovered >= 0)
-            Draw::PutTextCentered(g_hFontBold, PANEL_X, nameY + TEXT_DY, PANEL_W, SkillAttribute[state.selectable[hovered]].Name, 233, 228, 212);
+            Draw::PutTextCentered(Draw::Bold(), PANEL_X, nameY + TEXT_DY, PANEL_W, SkillAttribute[state.selectable[hovered]].Name, 233, 228, 212);
         else
-            Draw::PutTextCentered(g_hFont, PANEL_X, nameY + TEXT_DY, PANEL_W, L"Pasa el mouse sobre una skill para ver su nombre", 127, 138, 160);
+            Draw::PutTextCentered(Draw::Body(), PANEL_X, nameY + TEXT_DY, PANEL_W, L"Pasa el mouse sobre una skill para ver su nombre", 127, 138, 160);
     }
 }
 
@@ -152,7 +173,7 @@ bool CMobaLoadoutWindow::Render()
         RenderCell(i, state.selectable[i], i == hovered);
 
     RenderSaveButton();
-    Draw::Button(CancelButton(), L"CANCELAR", false);
+    Draw::Button(CancelButton(), L"CERRAR", false);
     RenderTexts(state, hovered);
     g_pRenderText->SetTextColor(backColor);
     return true;
@@ -165,12 +186,16 @@ bool CMobaLoadoutWindow::Update()
 
 bool CMobaLoadoutWindow::UpdateMouseEvent()
 {
+    if (Draw::HeldClickSwallowed())
+        return false;
+
     const Loadout::State& state = Loadout::Get();
     if (!state.open || !Draw::MouseInRect(Panel()))
         return true;
 
     if (IsPress(VK_LBUTTON))
     {
+        Draw::SwallowHeldClick();
         const int cell = HoveredCell(state);
         if (cell >= 0)
             Loadout::Toggle(state.selectable[cell]);

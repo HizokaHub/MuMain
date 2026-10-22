@@ -3,6 +3,7 @@
 //*****************************************************************************
 
 #include "stdafx.h"
+#include "UI/NewUI/Dialogs/MobaPopupDraw.h"
 #include "UI/NewUI/NPCs/NewUINPCDialogue.h"
 #include "I18N/All.h"
 
@@ -300,7 +301,7 @@ void CNewUINPCDialogue::RenderText()
     const wchar_t* pszTitle = m_bServerMenuMode ? m_strServerMenuTitle.c_str() : g_QuestMng.GetNPCName();
     g_pRenderText->RenderText(m_Pos.x, m_Pos.y + 12, pszTitle, ND_WIDTH, 0, RT3_SORT_CENTER);
 
-    g_pRenderText->SetFont(g_hFont);
+    g_pRenderText->SetFont(m_bServerMenuMode ? UI::Moba::Draw::Body() : g_hFont);
     g_pRenderText->SetTextColor(255, 230, 210, 255);
     int i;
     for (i = 0; i < ND_NPC_MAX_LINE_PER_PAGE; ++i)
@@ -432,7 +433,7 @@ void CNewUINPCDialogue::ApplyNPCWords(const wchar_t* pszSrc)
 {
     memset(m_aszNPCWords[0], 0, sizeof(wchar_t) * ND_NPC_LINE_MAX * ND_WORDS_ROW_MAX);
 
-    g_pRenderText->SetFont(g_hFont);
+    g_pRenderText->SetFont(m_bServerMenuMode ? UI::Moba::Draw::Body() : g_hFont);
     int nLine = ::DivideStringByPixel(&m_aszNPCWords[0][0], ND_NPC_LINE_MAX, ND_WORDS_ROW_MAX,
         pszSrc, 160);
 
@@ -664,7 +665,7 @@ void CNewUINPCDialogue::SetServerMenuSelTexts()
     ::memset(m_aszSelTexts[0], 0, sizeof(wchar_t) * ND_SEL_TEXT_LINE_MAX * ND_WORDS_ROW_MAX);
     ::memset(m_anSelTextLine, 0, sizeof(int) * (ND_QUEST_INDEX_MAX_COUNT + 1));
 
-    g_pRenderText->SetFont(g_hFont);
+    g_pRenderText->SetFont(UI::Moba::Draw::Body());
 
     const int nMaxOptions = ND_QUEST_INDEX_MAX_COUNT + 1;
     int nSelTextLineSum = 0;
