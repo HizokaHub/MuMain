@@ -93,6 +93,7 @@
 #include "World/Moba/MobaRoom.h"
 #include "World/Moba/MobaRoomList.h"
 #include "World/Moba/MobaMinimapCreeps.h"
+#include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
 
@@ -13327,6 +13328,20 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
     g_MobaBuffPoints = (g_MobaLevel > 0 && ReceiveBuffer[1] >= 15 + count * 3 + 5) ? p[4] : 0;
 }
 
+// Handles packet C1 D5 29: the Elf's creature. Layout: [4]=present [5]=control [6..7]=object id u16 LE [8]=hp% [9]=tileX [10]=tileY [11]=rank
+static void ReceiveMobaSummon(const BYTE* ReceiveBuffer)
+{
+    World::Moba::Summon::State state;
+    state.present = ReceiveBuffer[4] != 0;
+    state.control = ReceiveBuffer[5] != 0;
+    state.key = static_cast<unsigned short>(ReceiveBuffer[6] | (ReceiveBuffer[7] << 8));
+    state.hpPercent = ReceiveBuffer[8];
+    state.x = ReceiveBuffer[9];
+    state.y = ReceiveBuffer[10];
+    state.rank = ReceiveBuffer[11];
+    World::Moba::Summon::Set(state);
+}
+
 // Handles packet C1 D5 04: a champion ability just went on its per-match cooldown.
 // Layout: [4..5]=skillNum u16 LE, [6..7]=durationMs u16 LE, [8..9]=graceMs u16 LE.
 // The skill stays castable for graceMs after the cast; the cooldown starts only then.
@@ -13435,6 +13450,26 @@ void SendMobaRecall()
     buf[2] = 0xD5;
     buf[3] = 0x09;
     SocketClient->Send(buf, 4);
+}
+
+// MOBA: the control key of the summon (C1 05 D5 27 on).
+void SendMobaSummonControl(bool on)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[5] = { 0xC1, 5, 0xD5, 0x27, static_cast<BYTE>(on ? 1 : 0) };
+    SocketClient->Send(buf, 5);
+}
+
+// MOBA: an order for the summon (C1 09 D5 28 kind x y keyLo keyHi).
+void SendMobaSummonOrder(unsigned char kind, unsigned char x, unsigned char y, unsigned short key)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[9] = { 0xC1, 9, 0xD5, 0x28, kind, x, y, static_cast<BYTE>(key & 0xFF), static_cast<BYTE>(key >> 8) };
+    SocketClient->Send(buf, 9);
 }
 
 // Slot 10 (ward, subCode 0x0D) and slot 11 (sweeper, subCode 0x0E) of the MOBA HUD.
@@ -14836,6 +14871,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x04:
             ReceiveMobaSkillCooldown(ReceiveBuffer);
+            break;
+        case 0x29:
+            ReceiveMobaSummon(ReceiveBuffer);
             break;
         case 0x05:
             ReceiveMobaScoreboard(ReceiveBuffer);

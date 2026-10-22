@@ -54,6 +54,8 @@ namespace UI::Minimap::MobaMarkers
     void RenderFountains(const Frame& frame, const Atlases& atlases);
     // The lane minions as small dots in the colour of their team (the server sends the ones the team knows).
     void RenderCreeps(const Frame& frame, const Atlases& atlases);
+    // The Elf's creature: a bigger gold dot (white ring while the player commands it).
+    void RenderSummon(const Frame& frame, const Atlases& atlases);
     void RenderFeed(const Frame& frame, const Atlases& atlases);
     // Returns false when the portrait atlas is missing (the caller then draws the old arrow).
     bool RenderOwnHero(const Frame& frame, const Atlases& atlases);

@@ -20,6 +20,7 @@
 #include "World/MapInfra/MapManager.h"
 #include "Render/Terrain/ZzzLodTerrain.h" // TerrainWall (MOBA wall overlay)
 #include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
+#include "World/Moba/MobaSummon.h"
 #include "Engine/Object/ZzzInterface.h" // MobaMinimapWalkTo / MobaMinimapAttack
 #include "Camera/CameraManager.h"       // glide the MOBA camera to a minimap click
 #include "Engine/Object/ZzzCharacter.h" // CharactersClient
@@ -68,7 +69,7 @@ bool SEASON3B::CNewUIMiniMap::Create(CNewUIManager* pNewUIMng, int x, int y)
 
     m_BtnExit.ChangeButtonImgState(true, IMAGE_MINIMAP_INTERFACE + 6, false);
     m_BtnExit.ChangeButtonInfo(m_Pos.x + 610, 3, 85, 85);
-    m_BtnExit.ChangeToolTipText(&I18N::Game::Close388, true);	// 1002 "�ݱ�"
+    m_BtnExit.ChangeToolTipText(&I18N::Game::Close388, true);	// 1002 "\ufffd\u0771\ufffd"
 
     SetPos(x, y);
 
@@ -899,6 +900,9 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     if (mobaArena)
         MobaMarkers::RenderCreeps(frame, atlases);
 
+    if (mobaArena)
+        MobaMarkers::RenderSummon(frame, atlases);
+
     if (g_MobaLevel > 0)
         MobaMarkers::RenderFeed(frame, atlases);
 
@@ -1248,7 +1252,11 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
 
             if (SEASON3B::IsPress(VK_RBUTTON))
             {
-                CameraManager::Instance().FocusMobaCameraOn((tileX) * TERRAIN_SCALE, (tileY) * TERRAIN_SCALE);
+                // While the Elf commands her creature, the right click on the map sends it there (anywhere on the map).
+                if (World::Moba::Summon::Controlling())
+                    World::Moba::Summon::OrderMove(static_cast<int>(tileX), static_cast<int>(tileY));
+                else
+                    CameraManager::Instance().FocusMobaCameraOn((tileX) * TERRAIN_SCALE, (tileY) * TERRAIN_SCALE);
                 MouseRButtonPush = false;
                 MouseRButton = false;
                 return true;

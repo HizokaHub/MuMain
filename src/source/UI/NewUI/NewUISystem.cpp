@@ -9,6 +9,7 @@
 #include "UI/NewUI/Dialogs/MobaMenuPanel.h"
 #include "UI/NewUI/Dialogs/MobaRoomBrowser.h"
 #include "UI/NewUI/Dialogs/MobaRoomInviteWindow.h"
+#include "UI/NewUI/Dialogs/MobaSummonHud.h"
 
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "World/MapInfra/MapManager.h"
@@ -451,6 +452,7 @@ bool CNewUISystem::LoadMainSceneInterface()
     CMobaMenuPanel::Create(m_pNewUIMng);
     CMobaRoomBrowser::Create(m_pNewUIMng);
     CMobaRoomInviteWindow::Create(m_pNewUIMng);
+    CMobaSummonHud::Create(m_pNewUIMng);
 
     m_pNewMiniMap = new CNewUIMiniMap;
     if (m_pNewMiniMap->Create(m_pNewUIMng, 0, 0) == false)

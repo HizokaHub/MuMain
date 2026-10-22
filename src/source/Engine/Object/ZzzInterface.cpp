@@ -70,6 +70,7 @@ const unsigned char* MobaRoadCoverageForRouting();   // MapManager.cpp: the draw
 #include "Scenes/SceneCommon.h"
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MyMobaTeam (MOBA auto-target)
 #include "World/Moba/MobaFog.h"    // IsTileHidden (a minimap-targeted enemy leaving sight)
+#include "World/Moba/MobaSummon.h"  // creature of the Elf: orders with the right click
 
 // Whether the hero is in a MOBA match: the click navigation (chase a clicked target into skill range, walk the whole way,
 // minimap clicks) works with every camera, not only with the MOBA one.
@@ -365,8 +366,8 @@ void RenderTipText(int sx, int sy, const wchar_t* Text)
     int BackupAlphaBlendType = AlphaBlendType;
     EnableAlphaTest();
     glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
-    RenderColor((float)sx - 2, (float)sy - 3, (float)TextSize.cx / g_fScreenRate_x + 4, (float)1);	// 위
-    RenderColor((float)sx - 2, (float)sy - 3, (float)1, (float)TextSize.cy / g_fScreenRate_y + 4);	// 좌
+    RenderColor((float)sx - 2, (float)sy - 3, (float)TextSize.cx / g_fScreenRate_x + 4, (float)1);	// \uc704
+    RenderColor((float)sx - 2, (float)sy - 3, (float)1, (float)TextSize.cy / g_fScreenRate_y + 4);	// \uc88c
     RenderColor((float)sx - 2 + TextSize.cx / g_fScreenRate_x + 3, (float)sy - 3, (float)1, (float)TextSize.cy / g_fScreenRate_y + 4);
     RenderColor((float)sx - 2, (float)sy - 3 + TextSize.cy / g_fScreenRate_y + 3, (float)TextSize.cx / g_fScreenRate_x + 4, (float)1);
 
@@ -576,6 +577,31 @@ bool IsMobaEnemyStructure(const CHARACTER* c)
         && c->MobaTeam != 0 && c->MobaTeam != g_MyMobaTeam;
 }
 
+// MOBA summon control: the right click orders the Elf's creature. On an enemy (champion or minion) it attacks it; on the ground
+// it walks there. The click does not reach the hero's skill.
+static void MobaSummonRightClick()
+{
+    MouseRButtonPush = false;
+    MouseRButton = false;
+    MouseRButtonPop = false;
+
+    if (SelectedCharacter != -1 && SelectedCharacter < MAX_CHARACTERS_CLIENT)
+    {
+        const CHARACTER* target = &CharactersClient[SelectedCharacter];
+        const bool enemy = target != Hero && target->Dead == 0 && target->MobaTeam != 0 && target->MobaTeam != g_MyMobaTeam
+            && (target->Object.Kind == KIND_PLAYER || target->Object.Kind == KIND_MONSTER || target->Object.Kind == KIND_NPC);
+        if (enemy)
+        {
+            World::Moba::Summon::OrderAttack(static_cast<unsigned short>(target->Key));
+            return;
+        }
+    }
+
+    RenderTerrain(true);
+    if (SelectFlag)
+        World::Moba::Summon::OrderMove(static_cast<int>(CollisionPosition[0] / TERRAIN_SCALE), static_cast<int>(CollisionPosition[1] / TERRAIN_SCALE));
+}
+
 bool CheckAttack_Fenrir(CHARACTER* c)
 {
     if (SEASON3B::CNewUIInventoryCtrl::GetPickedItem())
@@ -683,7 +709,7 @@ bool CheckAttack_Fenrir(CHARACTER* c)
             }
         }
 
-        if (c->GuildRelationShip == GR_RIVAL || c->GuildRelationShip == GR_RIVALUNION)		//박종훈 표시
+        if (c->GuildRelationShip == GR_RIVAL || c->GuildRelationShip == GR_RIVALUNION)		//\ubc15\uc885\ud6c8 \ud45c\uc2dc
         {
             return true;
         }
@@ -1311,7 +1337,7 @@ void Action(CHARACTER* c, OBJECT* o, bool Now)
 
         // To debounce repeat left-clicks while a swing animation is still
         // playing, gate on a small *include* list of the actual swing
-        // animations -- never a `>= … <=` range, which would also sweep in
+        // animations -- never a `>= \u2026 <=` range, which would also sweep in
         // idle/locomotion frames and lock out attacks while mounted. e.g.:
         //
         //   if (o->CurrentAction == PLAYER_ATTACK_FIST
@@ -3961,6 +3987,12 @@ void MoveHero()
             }
         }
         MouseUpdateTime++;
+    }
+
+    if (MobaMatchActive() && World::Moba::Summon::Controlling() && MouseRButtonPush && !MouseOnWindow
+        && SEASON3B::CheckMouseIn(0, 0, GetScreenWidth(), 429))
+    {
+        MobaSummonRightClick();
     }
 
     Attack(Hero);

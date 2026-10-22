@@ -14,8 +14,10 @@ namespace World::Moba::Loadout
         int baseClass = 0;
         int minSkills = 0;
         int maxSkills = 0;
-        std::vector<unsigned short> selectable;
-        std::vector<unsigned short> selected;
+        std::vector<unsigned short> selectable;   // the skills which can be picked (the 4 of the kit)
+        std::vector<unsigned short> selected;     // what is picked now (never the summon)
+        std::vector<unsigned short> summons;      // the appearances of the 5th skill (the Elf's seven creatures); empty for the other classes
+        unsigned short summon = 0;                // the appearance picked
     };
 
     // Opens the window with what the server sent.
@@ -29,6 +31,9 @@ namespace World::Moba::Loadout
 
     // The place of the skill in the pick (1 = first), or 0 when it is not picked.
     int PlaceOf(unsigned short skill);
+
+    // Picks the appearance of the summon (the 5th skill); the pick is sent along with the 4 skills when it is complete.
+    void PickSummon(unsigned short skill);
 
     // Picks or drops a skill; picking when the pick is full drops the oldest pick, so the player can swap by clicking.
     void Toggle(unsigned short skill);

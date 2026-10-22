@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "World/Moba/MobaSummon.h"
 #include "GameLogic/Commands/ChatCommandCatalog.h"
 #include "I18N/All.h"
 
@@ -313,6 +314,12 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         else
             g_pNewUISystem->Toggle(SEASON3B::INTERFACE_MINI_MAP);
         PlayBuffer(SOUND_CLICK01);
+        return false;
+    }
+    else if (SEASON3B::IsPress('X') && g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus())
+    {
+        // In a MOBA match X commands the Elf's creature (or gives it back to follow).
+        World::Moba::Summon::ToggleControl();
         return false;
     }
 #ifdef PBG_ADD_INGAMESHOP_UI_MAINFRAME

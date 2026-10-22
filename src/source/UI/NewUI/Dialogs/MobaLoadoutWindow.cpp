@@ -23,6 +23,8 @@ namespace
     // Layout, in the 640x480 reference screen.
     constexpr int PANEL_W = 392;
     constexpr int PANEL_H = 300;
+    constexpr int SUMMON_EXTRA_H = 78;   // the row of the appearances of the summon (the Elf)
+    constexpr int SUMMON_LABEL_GAP = 6;
     constexpr int PANEL_X = (REFERENCE_WIDTH - PANEL_W) / 2;
     constexpr int PANEL_Y = 70;
 
@@ -47,17 +49,43 @@ namespace
     constexpr float KEY_EVENT_ORDER = 100.0f;
     constexpr DWORD UI_KEY_OFFSET = 4;
 
-    Rect Panel() { return { PANEL_X, PANEL_Y, PANEL_W, PANEL_H }; }
+    int PanelHeight() { return PANEL_H + (Loadout::Get().summons.empty() ? 0 : SUMMON_EXTRA_H); }
+
+    Rect Panel() { return { PANEL_X, PANEL_Y, PANEL_W, PanelHeight() }; }
 
     Rect CellOf(int index)
     {
         return { PANEL_X + GRID_X + (index % GRID_COLUMNS) * CELL_W, PANEL_Y + GRID_Y + (index / GRID_COLUMNS) * CELL_H, CELL_W - 2, CELL_H - 2 };
     }
 
+    // The row of the appearances sits below the grid of skills and its name line.
+    int SummonRowY()
+    {
+        const int rows = (static_cast<int>(Loadout::Get().selectable.size()) + GRID_COLUMNS - 1) / GRID_COLUMNS;
+        return PANEL_Y + GRID_Y + rows * CELL_H + 34;
+    }
+
+    Rect SummonCellOf(int index)
+    {
+        return { PANEL_X + GRID_X + index * CELL_W, SummonRowY() + SUMMON_LABEL_GAP + 14, CELL_W - 2, CELL_H - 2 };
+    }
+
     Rect SaveButton()
     {
         const int left = PANEL_X + (PANEL_W - (2 * BUTTON_W + BUTTON_GAP)) / 2;
-        return { left, PANEL_Y + PANEL_H - BUTTON_BOTTOM_MARGIN - BUTTON_H, BUTTON_W, BUTTON_H };
+        return { left, PANEL_Y + PanelHeight() - BUTTON_BOTTOM_MARGIN - BUTTON_H, BUTTON_W, BUTTON_H };
+    }
+
+    // The index of the appearance under the mouse, or -1.
+    int HoveredSummon(const Loadout::State& state)
+    {
+        for (int i = 0; i < static_cast<int>(state.summons.size()); ++i)
+        {
+            if (Draw::MouseInRect(SummonCellOf(i)))
+                return i;
+        }
+
+        return -1;
     }
 
     Rect CancelButton()
@@ -114,6 +142,26 @@ namespace
         Draw::PutTextCentered(Draw::Bold(), badge.x, badge.y + 1, badge.w, text, 30, 24, 8);
     }
 
+    // The cell of an appearance: only one is picked, which gets the gold frame.
+    void RenderSummonCell(int index, unsigned short skill, bool hovered)
+    {
+        const Rect cell = SummonCellOf(index);
+        const bool picked = skill == Loadout::Get().summon;
+        Draw::FillRect(cell, picked ? 0.14f : 0.07f, picked ? 0.26f : 0.09f, picked ? 0.12f : 0.13f, 1.f);
+        if (picked)
+        {
+            Draw::FrameRect(cell, 0.95f, 0.80f, 0.40f, 1.f);
+            Draw::FrameRect({ cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2 }, 0.95f, 0.80f, 0.40f, 1.f);
+        }
+        else
+        {
+            Draw::FrameRect(cell, hovered ? 0.60f : 0.23f, hovered ? 0.64f : 0.27f, hovered ? 0.72f : 0.35f, 1.f);
+        }
+        EndRenderColor();
+
+        UI::Skills::Icon::Render(skill, static_cast<float>(cell.x + (cell.w - ICON_W) / 2), static_cast<float>(cell.y + (cell.h - ICON_H) / 2), ICON_W, ICON_H);
+    }
+
     void RenderSaveButton()
     {
         if (Loadout::IsComplete())
@@ -127,6 +175,17 @@ namespace
         Draw::FrameRect(save, 0.40f, 0.40f, 0.40f, 0.6f);
         EndRenderColor();
         Draw::PutTextCentered(Draw::Bold(), save.x, save.y + TEXT_DY + 5, save.w, L"GUARDAR", 110, 110, 110);
+    }
+
+    void RenderSummonTexts(const Loadout::State& state, int hoveredSummon)
+    {
+        if (state.summons.empty())
+            return;
+
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + GRID_X, SummonRowY(), PANEL_W - 2 * GRID_X, L"5\u00aa skill: aspecto de tu invocaci\u00f3n (todas pegan igual)", 241, 196, 83);
+        const unsigned short shown = hoveredSummon >= 0 ? state.summons[hoveredSummon] : state.summon;
+        const Rect row = SummonCellOf(0);
+        Draw::PutTextCentered(Draw::Body(), PANEL_X, row.y + CELL_H + 2, PANEL_W, SkillAttribute[shown].Name, 233, 228, 212);
     }
 
     void RenderTexts(const Loadout::State& state, int hovered)
@@ -172,9 +231,14 @@ bool CMobaLoadoutWindow::Render()
     for (int i = 0; i < static_cast<int>(state.selectable.size()); ++i)
         RenderCell(i, state.selectable[i], i == hovered);
 
+    const int hoveredSummon = HoveredSummon(state);
+    for (int i = 0; i < static_cast<int>(state.summons.size()); ++i)
+        RenderSummonCell(i, state.summons[i], i == hoveredSummon);
+
     RenderSaveButton();
     Draw::Button(CancelButton(), L"CERRAR", false);
     RenderTexts(state, hovered);
+    RenderSummonTexts(state, hoveredSummon);
     g_pRenderText->SetTextColor(backColor);
     return true;
 }
@@ -197,8 +261,11 @@ bool CMobaLoadoutWindow::UpdateMouseEvent()
     {
         Draw::SwallowHeldClick();
         const int cell = HoveredCell(state);
+        const int summon = HoveredSummon(state);
         if (cell >= 0)
             Loadout::Toggle(state.selectable[cell]);
+        else if (summon >= 0)
+            Loadout::PickSummon(state.summons[summon]);
         else if (Draw::MouseInRect(SaveButton()))
             Loadout::Save();
         else if (Draw::MouseInRect(CancelButton()))

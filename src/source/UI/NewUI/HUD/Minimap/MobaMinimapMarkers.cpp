@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "World/Moba/MobaMinimapCreeps.h"
+#include "World/Moba/MobaSummon.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
 
 #include "Character/CharacterManager.h"   // gCharacterManager (own hero's base class)
@@ -841,6 +842,42 @@ void RenderCreeps(const Frame& frame, const Atlases& atlases)
 
     if (!atlases.portraitsLoaded)
         EndRenderColor();
+    SetColor(COLOR_WHITE);
+}
+
+void RenderSummon(const Frame& frame, const Atlases& atlases)
+{
+    constexpr float SUMMON_DOT_SIZE = 4.2f;
+    constexpr float SUMMON_RING_SIZE = 5.6f;
+    constexpr float SUMMON_FLAT_SIZE = 2.6f;
+    const World::Moba::Summon::State& summon = World::Moba::Summon::Get();
+    if (!summon.present)
+        return;
+
+    float mx, my;
+    if (!frame.TileToRef((float)summon.x, (float)summon.y, mx, my))
+        return;
+
+    if (atlases.portraitsLoaded)
+    {
+        EnableAlphaBlend3();
+        const AtlasGrid portraits = PortraitGrid(atlases);
+        if (World::Moba::Summon::Controlling())
+        {
+            SetColor(COLOR_WHITE);
+            DrawCell(frame, portraits, PORTRAIT_DISC, mx, my, SUMMON_RING_SIZE * frame.markers);
+        }
+
+        SetColor(COLOR_HERO_GOLD);
+        DrawCell(frame, portraits, PORTRAIT_DISC, mx, my, SUMMON_DOT_SIZE * frame.markers);
+    }
+    else
+    {
+        SetColor(COLOR_HERO_GOLD);
+        FlatSquare(frame, mx, my, SUMMON_FLAT_SIZE * frame.markers);
+        EndRenderColor();
+    }
+
     SetColor(COLOR_WHITE);
 }
 
