@@ -27,7 +27,7 @@ namespace
     // Layout, in the 640x480 reference screen.
     constexpr int PANEL_W = 606;
     constexpr int PANEL_X = (REFERENCE_WIDTH - PANEL_W) / 2;
-    constexpr int PANEL_Y = 30;
+    constexpr int PANEL_Y = 24;
     constexpr int PAD = 12;
 
     constexpr int TITLE_Y = 6;
@@ -41,6 +41,8 @@ namespace
     constexpr int PORTRAIT_SIZE = 32;
     constexpr int NAME_X = 42;
     constexpr int NAME_DY = 9;
+    constexpr int NAME_DY_STATUS = 3;   // the name sits higher to leave room for the status line
+    constexpr int STATUS_DY = 20;
     constexpr int HOST_BUTTON = 17;
     constexpr int HOST_BUTTON_GAP = 2;
 
@@ -81,11 +83,16 @@ namespace
 
     constexpr ButtonSpec BUTTONS[] = {
         { Room::Action::SwitchTeam, false },
+        { Room::Action::Ready, false },
+        { Room::Action::Skills, false },
+        { Room::Action::InviteParty, false },
         { Room::Action::ToggleBots, true },
         { Room::Action::Start, true },
         { Room::Action::CloseRoom, true },
         { Room::Action::Leave, false },
     };
+
+    constexpr int MAX_BUTTONS_PER_ROW = 4;
 
     bool s_collapsed = false;
     unsigned int s_portraitsLoadedFor = 0;
@@ -119,9 +126,24 @@ namespace
         return std::max(state.teamSize, 1);
     }
 
+    // The host's buttons are only there for the host; the host does not get a "ready" button (the host starts).
+    bool IsShown(const Room::State& state, const ButtonSpec& spec)
+    {
+        if (spec.hostOnly && !state.isHost)
+            return false;
+
+        return !(spec.action == Room::Action::Ready && state.isHost);
+    }
+
     int ButtonCount(const Room::State& state)
     {
-        return static_cast<int>(std::count_if(std::begin(BUTTONS), std::end(BUTTONS), [&](const ButtonSpec& b) { return !b.hostOnly || state.isHost; }));
+        return static_cast<int>(std::count_if(std::begin(BUTTONS), std::end(BUTTONS), [&](const ButtonSpec& b) { return IsShown(state, b); }));
+    }
+
+    // The buttons go in one row, or two balanced rows when there are more than fit comfortably.
+    int ButtonRows(const Room::State& state)
+    {
+        return ButtonCount(state) > MAX_BUTTONS_PER_ROW ? 2 : 1;
     }
 
     int TeamsBottom(const Room::State& state)
@@ -131,7 +153,7 @@ namespace
 
     int PanelHeight(const Room::State& state)
     {
-        return TeamsBottom(state) + BUTTONS_TOP_GAP + BUTTON_H + BOTTOM_PAD;
+        return TeamsBottom(state) + BUTTONS_TOP_GAP + ButtonRows(state) * BUTTON_H + (ButtonRows(state) - 1) * BUTTON_GAP + BOTTOM_PAD;
     }
 
     Rect Panel(const Room::State& state) { return { PANEL_X, PANEL_Y, PANEL_W, PanelHeight(state) }; }
@@ -154,8 +176,27 @@ namespace
     {
         const Rect panel = Panel(state);
         const int count = ButtonCount(state);
-        const int width = (panel.w - 2 * PAD - (count - 1) * BUTTON_GAP) / count;
-        return { panel.x + PAD + slot * (width + BUTTON_GAP), panel.y + TeamsBottom(state) + BUTTONS_TOP_GAP, width, BUTTON_H };
+        const int rows = ButtonRows(state);
+        const int perRow = (count + rows - 1) / rows;
+        const int row = slot / perRow;
+        const int column = slot % perRow;
+        const int width = (panel.w - 2 * PAD - (perRow - 1) * BUTTON_GAP) / perRow;
+        return { panel.x + PAD + column * (width + BUTTON_GAP), panel.y + TeamsBottom(state) + BUTTONS_TOP_GAP + row * (BUTTON_H + BUTTON_GAP), width, BUTTON_H };
+    }
+
+    // Whether the player has said they are ready.
+    bool IAmReady(const Room::State& state)
+    {
+        for (const std::vector<Room::Member>* team : { &state.blue, &state.red })
+        {
+            for (const Room::Member& member : *team)
+            {
+                if (member.mine)
+                    return member.ready;
+            }
+        }
+
+        return false;
     }
 
     const wchar_t* LabelOf(const Room::State& state, Room::Action action)
@@ -166,6 +207,9 @@ namespace
         case Room::Action::ToggleBots: return state.fillBots ? L"BOTS: S\u00cd" : L"BOTS: NO";
         case Room::Action::Start: return L"EMPEZAR";
         case Room::Action::CloseRoom: return L"CERRAR SALA";
+        case Room::Action::Ready: return IAmReady(state) ? L"NO LISTO" : L"LISTO";
+        case Room::Action::Skills: return L"MIS SKILLS";
+        case Room::Action::InviteParty: return L"INVITAR PARTY";
         default: return L"SALIR";
         }
     }
@@ -177,12 +221,13 @@ namespace
         int slot = 0;
         for (const ButtonSpec& spec : BUTTONS)
         {
-            if (spec.hostOnly && !state.isHost)
+            if (!IsShown(state, spec))
                 continue;
 
             const Rect rect = ButtonRect(state, slot++);
             if (draw)
-                Draw::Button(rect, LabelOf(state, spec.action), spec.action == Room::Action::Start || spec.action == Room::Action::SwitchTeam || spec.action == Room::Action::ToggleBots);
+                Draw::Button(rect, LabelOf(state, spec.action), spec.action == Room::Action::Start || spec.action == Room::Action::SwitchTeam
+                    || spec.action == Room::Action::ToggleBots || (spec.action == Room::Action::Ready && !IAmReady(state)));
             if (!found && Draw::MouseInRect(rect))
             {
                 hovered = spec.action;
@@ -348,6 +393,9 @@ namespace
         case Room::Action::ToggleBots: return L"Rellenar o no con bots los lugares libres";
         case Room::Action::Start: return L"Empezar la partida con los jugadores de la sala";
         case Room::Action::CloseRoom: return L"Cerrar la sala y sacar a todos";
+        case Room::Action::Ready: return L"Avisar que est\u00e1s listo (el anfitri\u00f3n empieza cuando todos lo est\u00e9n)";
+        case Room::Action::Skills: return L"Elegir las 4 skills de la partida";
+        case Room::Action::InviteParty: return L"Invitar a la sala a los miembros de tu party (tambi\u00e9n: /invitar nombre)";
         default: return L"Salir de la sala";
         }
     }
@@ -425,7 +473,12 @@ namespace
             RenderPortrait({ slot.x + 3, slot.y + (SLOT_H - PORTRAIT_SIZE) / 2, PORTRAIT_SIZE, PORTRAIT_SIZE }, member.baseClass, blue);
             const int nameWidth = slot.w - NAME_X - (state.isHost && !member.mine ? 3 * (HOST_BUTTON + HOST_BUTTON_GAP) : 4);
             const std::wstring name = (member.host ? L"* " : L"") + member.name;
-            Draw::PutTextLeft(mine ? Draw::Bold() : Draw::Body(), slot.x + NAME_X, slot.y + NAME_DY, nameWidth, name.c_str(), 233, 228, mine ? 120 : 212);
+            Draw::PutTextLeft(mine ? Draw::Bold() : Draw::Body(), slot.x + NAME_X, slot.y + NAME_DY_STATUS, nameWidth, name.c_str(), 233, 228, mine ? 120 : 212);
+
+            // Second line: ready (the host does not need it) and whether the 4 skills were picked.
+            const bool good = member.host || member.ready;
+            const std::wstring status = std::wstring(member.host ? L"Anfitri\u00f3n" : (member.ready ? L"LISTO" : L"No listo")) + (member.hasSkills ? L" - skills OK" : L" - sin skills");
+            Draw::PutTextLeft(Draw::Body(), slot.x + NAME_X, slot.y + STATUS_DY, nameWidth, status.c_str(), good ? 111 : 170, good ? 211 : 179, good ? 154 : 194);
 
             if (state.isHost && !member.mine)
             {
@@ -497,7 +550,7 @@ namespace
     void RenderTexts(const Room::State& state, const Rect& panel)
     {
         Draw::PutTextCentered(Draw::Title(), panel.x, panel.y + TITLE_Y, panel.w, state.name.c_str(), 241, 196, 83);
-        const std::wstring subtitle = Room::Label(state) + (state.fillBots ? L"   -   con bots" : L"   -   sin bots");
+        const std::wstring subtitle = Room::Label(state) + (state.fillBots ? L"   -   con bots" : L"   -   sin bots") + (state.locked ? L"   -   con clave" : L"");
         Draw::PutTextCentered(Draw::Body(), panel.x, panel.y + SUBTITLE_Y, panel.w, subtitle.c_str(), 233, 228, 212);
         Draw::PutTextCentered(Draw::Bold(), HideButton(panel).x, HideButton(panel).y + 1, HideButton(panel).w, L"_", 233, 228, 212);
     }

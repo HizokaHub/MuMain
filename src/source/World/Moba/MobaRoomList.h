@@ -12,6 +12,7 @@ namespace World::Moba::RoomList
 {
     constexpr unsigned char FLAG_MID_ONLY = 1;
     constexpr unsigned char FLAG_BOTS = 2;
+    constexpr unsigned char FLAG_LOCKED = 4;
 
     struct Entry
     {
@@ -21,6 +22,7 @@ namespace World::Moba::RoomList
         int teamSize = 0;
         bool midOnly = false;
         bool bots = false;
+        bool locked = false;   // asks for a password
         int players = 0;
         int ageSeconds = 0;
         int idleSeconds = 0;
@@ -45,10 +47,11 @@ namespace World::Moba::RoomList
     void Refresh();
 
     // Creates a room (the server answers with the panel of the new room, which closes the browser).
-    void Create(const std::wstring& name, int teamSize, bool midOnly, bool bots);
+    // The password may be empty (a room without one).
+    void Create(const std::wstring& name, int teamSize, bool midOnly, bool bots, const std::wstring& password);
 
-    // Joins a room (a failed attempt leaves the browser open; the server says why).
-    void Join(unsigned int id);
+    // Joins a room (a failed attempt leaves the browser open; the server says why). The password may be empty.
+    void Join(unsigned int id, const std::wstring& password);
 
     // Closes the browser.
     void Close();

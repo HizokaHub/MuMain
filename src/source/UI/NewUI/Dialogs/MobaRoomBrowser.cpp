@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <vector>
 
 extern int MouseWheel;
 
@@ -53,17 +54,20 @@ namespace
     constexpr Column COL_TIME = { 440, 52, L"Creada" };
     constexpr int JOIN_X = 494;
 
-    // The create form.
+    // The create form and the password prompt.
     constexpr int FORM_LABEL_X = 30;
     constexpr int FORM_FIELD_X = 200;
-    constexpr int FORM_NAME_Y = 70;
-    constexpr int FORM_SIZE_Y = 112;
-    constexpr int FORM_MAP_Y = 160;
-    constexpr int FORM_BOTS_Y = 208;
-    constexpr int FORM_SUMMARY_Y = 262;
-    constexpr int NAME_BOX_W = 330;
-    constexpr int NAME_BOX_H = 22;
+    constexpr int FORM_NAME_Y = 58;
+    constexpr int FORM_PASS_Y = 92;
+    constexpr int FORM_SIZE_Y = 130;
+    constexpr int FORM_MAP_Y = 172;
+    constexpr int FORM_BOTS_Y = 214;
+    constexpr int FORM_SUMMARY_Y = 266;
+    constexpr int PROMPT_BOX_Y = 120;
+    constexpr int BOX_W = 330;
+    constexpr int BOX_H = 22;
     constexpr int NAME_MAX_LENGTH = 24;
+    constexpr int PASSWORD_MAX_LENGTH = 16;
     constexpr int SIZE_BUTTON_W = 44;
     constexpr int CHOICE_BUTTON_W = 160;
     constexpr int CHOICE_H = 26;
@@ -78,7 +82,7 @@ namespace
     constexpr int WARNING_IDLE_SECONDS = 12 * SECONDS_PER_MINUTE;   // the server warns the room at this point
     constexpr int MAX_TEAM_SIZE = 5;
 
-    enum class Mode { List, Form };
+    enum class Mode { List, Form, Password };
 
     struct FormState
     {
@@ -90,10 +94,12 @@ namespace
     Mode s_mode = Mode::List;
     FormState s_form;
     int s_scroll = 0;
-    unsigned int s_seenVersion = 0;
+    unsigned int s_joinId = 0;
     double s_lastRefreshMs = 0.0;
     bool s_wasOpen = false;
     std::unique_ptr<CUITextInputBox> s_nameBox;
+    std::unique_ptr<CUITextInputBox> s_passBox;   // the optional password of a new room
+    std::unique_ptr<CUITextInputBox> s_joinBox;   // the password typed to join a locked room (hidden)
 
     double NowMs()
     {
@@ -122,6 +128,8 @@ namespace
     Rect SizeButton(int size) { return { PANEL_X + FORM_FIELD_X + (size - 1) * (SIZE_BUTTON_W + CHOICE_GAP), PANEL_Y + FORM_SIZE_Y, SIZE_BUTTON_W, CHOICE_H }; }
 
     Rect ChoiceButton(int y, int index) { return { PANEL_X + FORM_FIELD_X + index * (CHOICE_BUTTON_W + CHOICE_GAP), PANEL_Y + y, CHOICE_BUTTON_W, CHOICE_H }; }
+
+    Rect BoxFrame(int y) { return { PANEL_X + FORM_FIELD_X, PANEL_Y + y, BOX_W + 12, BOX_H + 8 }; }
 
     int MaxScroll(const RoomList::State& state)
     {
@@ -153,32 +161,80 @@ namespace
         Draw::PutTextCentered(picked ? Draw::Bold() : Draw::Body(), rect.x, rect.y + 5, rect.w, label, picked ? 255 : 200, picked ? 244 : 205, picked ? 214 : 214);
     }
 
+    std::unique_ptr<CUITextInputBox> MakeBox(int maxLength, bool hidden)
+    {
+        auto box = std::make_unique<CUITextInputBox>();
+        box->Init(g_hWnd, BOX_W, BOX_H, maxLength, hidden ? TRUE : FALSE);
+        box->SetTextColor(255, 255, 230, 210);
+        box->SetBackColor(0, 0, 0, 0);
+        box->SetState(UISTATE_NORMAL);
+        box->SetFontProvider(&Draw::Body);
+        return box;
+    }
+
     CUITextInputBox& NameBox()
     {
         if (!s_nameBox)
+            s_nameBox = MakeBox(NAME_MAX_LENGTH, false);
+        return *s_nameBox;
+    }
+
+    CUITextInputBox& PassBox()
+    {
+        if (!s_passBox)
+            s_passBox = MakeBox(PASSWORD_MAX_LENGTH, false);
+        return *s_passBox;
+    }
+
+    CUITextInputBox& JoinBox()
+    {
+        if (!s_joinBox)
+            s_joinBox = MakeBox(PASSWORD_MAX_LENGTH, true);
+        return *s_joinBox;
+    }
+
+    bool AnyBoxFocused()
+    {
+        return (s_nameBox && s_nameBox->HaveFocus()) || (s_passBox && s_passBox->HaveFocus()) || (s_joinBox && s_joinBox->HaveFocus());
+    }
+
+    HWND FocusedBoxHandle()
+    {
+        for (const std::unique_ptr<CUITextInputBox>* box : { &s_nameBox, &s_passBox, &s_joinBox })
         {
-            s_nameBox = std::make_unique<CUITextInputBox>();
-            s_nameBox->Init(g_hWnd, NAME_BOX_W, NAME_BOX_H, NAME_MAX_LENGTH);
-            s_nameBox->SetTextColor(255, 255, 230, 210);
-            s_nameBox->SetBackColor(0, 0, 0, 0);
-            s_nameBox->SetState(UISTATE_NORMAL);
-            s_nameBox->SetFontProvider(&Draw::Body);
+            if (*box && (*box)->HaveFocus())
+                return (*box)->GetHandle();
         }
 
-        return *s_nameBox;
+        return g_hWnd;
+    }
+
+    std::wstring TextOf(CUITextInputBox& box, int maxLength)
+    {
+        std::vector<wchar_t> text(maxLength + 2, L'\0');
+        box.GetText(text.data(), maxLength + 1);
+        return text.data();
     }
 
     void OpenForm()
     {
         s_mode = Mode::Form;
-        CUITextInputBox& box = NameBox();
-        box.SetText(nullptr);
-        box.GiveFocus();
+        NameBox().SetText(nullptr);
+        PassBox().SetText(nullptr);
+        NameBox().GiveFocus();
+    }
+
+    void OpenPasswordPrompt(unsigned int roomId)
+    {
+        s_mode = Mode::Password;
+        s_joinId = roomId;
+        JoinBox().SetText(nullptr);
+        JoinBox().GiveFocus();
     }
 
     void CloseBrowser()
     {
-        if (s_nameBox && s_nameBox->HaveFocus())
+        if (AnyBoxFocused())
             CUITextInputBox::ReleaseFocus();
 
         s_mode = Mode::List;
@@ -187,10 +243,15 @@ namespace
 
     void SubmitForm()
     {
-        wchar_t name[NAME_MAX_LENGTH + 2] = {};
-        NameBox().GetText(name, NAME_MAX_LENGTH + 1);
-        RoomList::Create(name, s_form.teamSize, s_form.midOnly, s_form.bots);
+        RoomList::Create(TextOf(NameBox(), NAME_MAX_LENGTH), s_form.teamSize, s_form.midOnly, s_form.bots, TextOf(PassBox(), PASSWORD_MAX_LENGTH));
         CUITextInputBox::ReleaseFocus();
+    }
+
+    void SubmitPassword()
+    {
+        RoomList::Join(s_joinId, TextOf(JoinBox(), PASSWORD_MAX_LENGTH));
+        CUITextInputBox::ReleaseFocus();
+        s_mode = Mode::List;
     }
 
     void RenderHeader()
@@ -212,7 +273,8 @@ namespace
 
         const int y = rect.y + TEXT_DY;
         const BYTE tint = stale ? 190 : 233;
-        Draw::PutTextLeft(Draw::Bold(), PANEL_X + COL_NAME.x + 2, y, COL_NAME.w, room.name.c_str(), 241, 196, 83);
+        const std::wstring name = (room.locked ? L"[clave] " : L"") + room.name;
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + COL_NAME.x + 2, y, COL_NAME.w, name.c_str(), 241, 196, 83);
         Draw::PutTextLeft(Draw::Body(), PANEL_X + COL_HOST.x, y, COL_HOST.w, room.host.c_str(), tint, tint, tint);
         Draw::PutTextLeft(Draw::Body(), PANEL_X + COL_FORMAT.x, y, COL_FORMAT.w, FormatText(room).c_str(), tint, tint, tint);
 
@@ -263,12 +325,23 @@ namespace
         Draw::Button(FooterButton(2, 3), L"CERRAR", false);
     }
 
+    void RenderBox(CUITextInputBox& box, const Rect& frame)
+    {
+        Draw::FillRect(frame, 0.02f, 0.03f, 0.05f, 1.f);
+        Draw::FrameRect(frame, box.HaveFocus() ? 0.95f : 0.78f, box.HaveFocus() ? 0.80f : 0.64f, box.HaveFocus() ? 0.40f : 0.29f, 1.f);
+        EndRenderColor();
+        box.SetPosition(frame.x + 8, frame.y + (frame.h - Draw::BodyLineHeight()) / 2);
+        box.Render();
+    }
+
     void RenderFormTexts()
     {
-        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_NAME_Y + 3, FORM_FIELD_X - FORM_LABEL_X, L"Nombre de la sala", 233, 228, 212);
-        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_SIZE_Y + 5, FORM_FIELD_X - FORM_LABEL_X, L"Jugadores por equipo", 233, 228, 212);
-        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_MAP_Y + 5, FORM_FIELD_X - FORM_LABEL_X, L"Mapa", 233, 228, 212);
-        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_BOTS_Y + 5, FORM_FIELD_X - FORM_LABEL_X, L"Bots", 233, 228, 212);
+        const int labelWidth = FORM_FIELD_X - FORM_LABEL_X;
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_NAME_Y + 6, labelWidth, L"Nombre de la sala", 233, 228, 212);
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_PASS_Y + 6, labelWidth, L"Clave (opcional)", 233, 228, 212);
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_SIZE_Y + 5, labelWidth, L"Jugadores por equipo", 233, 228, 212);
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_MAP_Y + 5, labelWidth, L"Mapa", 233, 228, 212);
+        Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_BOTS_Y + 5, labelWidth, L"Bots", 233, 228, 212);
 
         wchar_t summary[160] = {};
         swprintf(summary, std::size(summary), L"Se jugar\u00e1 %dv%d %ls, %ls.", s_form.teamSize, s_form.teamSize,
@@ -279,11 +352,6 @@ namespace
 
     void RenderForm()
     {
-        const Rect nameFrame = { PANEL_X + FORM_FIELD_X, PANEL_Y + FORM_NAME_Y, NAME_BOX_W + 12, NAME_BOX_H + 8 };
-        Draw::FillRect(nameFrame, 0.02f, 0.03f, 0.05f, 1.f);
-        Draw::FrameRect(nameFrame, NameBox().HaveFocus() ? 0.95f : 0.78f, NameBox().HaveFocus() ? 0.80f : 0.64f, NameBox().HaveFocus() ? 0.40f : 0.29f, 1.f);
-        EndRenderColor();
-
         for (int size = 1; size <= MAX_TEAM_SIZE; ++size)
             ChoiceDraw(SizeButton(size), std::to_wstring(size).c_str(), s_form.teamSize == size);
 
@@ -295,9 +363,16 @@ namespace
         Draw::Button(FooterButton(0, 2), L"CREAR SALA", true);
         Draw::Button(FooterButton(1, 2), L"VOLVER", false);
         RenderFormTexts();
+        RenderBox(NameBox(), BoxFrame(FORM_NAME_Y));
+        RenderBox(PassBox(), BoxFrame(FORM_PASS_Y));
+    }
 
-        NameBox().SetPosition(nameFrame.x + 8, nameFrame.y + (nameFrame.h - Draw::BodyLineHeight()) / 2);
-        NameBox().Render();
+    void RenderPrompt()
+    {
+        Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + PROMPT_BOX_Y - 36, PANEL_W, L"Esta sala tiene clave. Escr\u00edbela y pulsa Intro.", 233, 228, 212);
+        RenderBox(JoinBox(), BoxFrame(PROMPT_BOX_Y));
+        Draw::Button(FooterButton(0, 2), L"ENTRAR", true);
+        Draw::Button(FooterButton(1, 2), L"VOLVER", false);
     }
 
     void ListClick(const RoomList::State& state)
@@ -329,8 +404,14 @@ namespace
         for (int row = 0; row < VISIBLE_ROWS && s_scroll + row < static_cast<int>(state.rooms.size()); ++row)
         {
             const RoomList::Entry& room = state.rooms[s_scroll + row];
-            if (Draw::MouseInRect(JoinButton(row)) && room.players < 2 * room.teamSize)
-                RoomList::Join(room.id);
+            if (!Draw::MouseInRect(JoinButton(row)) || room.players >= 2 * room.teamSize)
+                continue;
+
+            if (room.locked)
+                OpenPasswordPrompt(room.id);
+            else
+                RoomList::Join(room.id, std::wstring());
+            return;
         }
     }
 
@@ -355,6 +436,24 @@ namespace
         else if (Draw::MouseInRect(FooterButton(1, 2)))
             s_mode = Mode::List;
     }
+
+    void PromptClick()
+    {
+        if (Draw::MouseInRect(FooterButton(0, 2)))
+            SubmitPassword();
+        else if (Draw::MouseInRect(FooterButton(1, 2)))
+            s_mode = Mode::List;
+    }
+
+    const wchar_t* TitleOf()
+    {
+        switch (s_mode)
+        {
+        case Mode::Form: return L"CREAR SALA";
+        case Mode::Password: return L"SALA CON CLAVE";
+        default: return L"SALAS PRIVADAS";
+        }
+    }
 }
 
 void CMobaRoomBrowser::Create(CNewUIManager* pNewUIMng)
@@ -375,9 +474,11 @@ bool CMobaRoomBrowser::Render()
     Draw::FrameRect(Panel(), 0.78f, 0.64f, 0.29f, 1.f);
     EndRenderColor();
 
-    Draw::PutTextCentered(Draw::Title(), PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, s_mode == Mode::Form ? L"CREAR SALA" : L"SALAS PRIVADAS", 241, 196, 83);
+    Draw::PutTextCentered(Draw::Title(), PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, TitleOf(), 241, 196, 83);
     if (s_mode == Mode::Form)
         RenderForm();
+    else if (s_mode == Mode::Password)
+        RenderPrompt();
     else
         RenderList(state);
 
@@ -391,7 +492,7 @@ bool CMobaRoomBrowser::Update()
     const bool visible = state.open && !Room::Get().present;
     if (!visible)
     {
-        if (s_wasOpen && s_nameBox && s_nameBox->HaveFocus())
+        if (s_wasOpen && AnyBoxFocused())
             CUITextInputBox::ReleaseFocus();
 
         s_wasOpen = false;
@@ -415,7 +516,7 @@ bool CMobaRoomBrowser::Update()
     }
 
     // Keys go to the window which owns the focused text field.
-    SetRelatedWnd(s_nameBox && s_nameBox->HaveFocus() ? s_nameBox->GetHandle() : g_hWnd);
+    SetRelatedWnd(FocusedBoxHandle());
     return true;
 }
 
@@ -429,7 +530,14 @@ bool CMobaRoomBrowser::UpdateMouseEvent()
         return true;
 
     if (s_mode == Mode::Form)
+    {
         NameBox().DoAction();
+        PassBox().DoAction();
+    }
+    else if (s_mode == Mode::Password)
+    {
+        JoinBox().DoAction();
+    }
 
     if (MouseWheel != 0 && s_mode == Mode::List)
         s_scroll = std::clamp(s_scroll + (MouseWheel > 0 ? -1 : 1), 0, MaxScroll(state));
@@ -439,6 +547,8 @@ bool CMobaRoomBrowser::UpdateMouseEvent()
         Draw::SwallowHeldClick();
         if (s_mode == Mode::Form)
             FormClick();
+        else if (s_mode == Mode::Password)
+            PromptClick();
         else
             ListClick(state);
     }
@@ -455,7 +565,7 @@ bool CMobaRoomBrowser::UpdateKeyEvent()
 
     if (IsPress(VK_ESCAPE))
     {
-        if (s_mode == Mode::Form)
+        if (s_mode != Mode::List)
         {
             s_mode = Mode::List;
             CUITextInputBox::ReleaseFocus();
@@ -468,10 +578,19 @@ bool CMobaRoomBrowser::UpdateKeyEvent()
         return false;
     }
 
-    if (s_mode == Mode::Form && IsPress(VK_RETURN))
+    if (IsPress(VK_RETURN))
     {
-        SubmitForm();
-        return false;
+        if (s_mode == Mode::Form)
+        {
+            SubmitForm();
+            return false;
+        }
+
+        if (s_mode == Mode::Password)
+        {
+            SubmitPassword();
+            return false;
+        }
     }
 
     return true;

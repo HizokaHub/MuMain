@@ -36,15 +36,15 @@ void Refresh()
     SendMobaRoomListRequest();
 }
 
-void Create(const std::wstring& name, int teamSize, bool midOnly, bool bots)
+void Create(const std::wstring& name, int teamSize, bool midOnly, bool bots, const std::wstring& password)
 {
     const unsigned char flags = static_cast<unsigned char>((midOnly ? FLAG_MID_ONLY : 0) | (bots ? FLAG_BOTS : 0));
-    SendMobaRoomCreate(name, static_cast<unsigned char>(teamSize), flags);
+    SendMobaRoomCreate(name, static_cast<unsigned char>(teamSize), flags, password);
 }
 
-void Join(unsigned int id)
+void Join(unsigned int id, const std::wstring& password)
 {
-    SendMobaRoomJoin(id);
+    SendMobaRoomJoin(id, password);
 }
 
 void Close()

@@ -3,6 +3,10 @@
 
 #include "Network/Server/WSclient.h"  // SendMobaRoomAction, SendMobaRoomTargetAction, SendMobaRoomChat
 #include "World/Moba/MobaRoomList.h"
+#include "Audio/DSPlaySound.h"        // PlayBuffer
+
+#include <algorithm>
+#include <chrono>
 
 namespace World::Moba::Room
 {
@@ -15,6 +19,19 @@ namespace
     unsigned int s_version = 1;
     std::vector<ChatLine> s_chat;
     unsigned int s_chatVersion = 1;
+    Invite s_invite;
+    double s_inviteExpiresMs = 0.0;
+
+    double NowMs()
+    {
+        using namespace std::chrono;
+        return static_cast<double>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+    }
+
+    size_t MemberCount(const State& state)
+    {
+        return state.blue.size() + state.red.size();
+    }
 }
 
 void Show(State state)
@@ -28,6 +45,10 @@ void Show(State state)
     // The browser is not needed once the player is in a room.
     if (state.present)
         RoomList::Close();
+
+    // Somebody joined the room the player is already in.
+    if (state.present && s_state.present && state.id == s_state.id && MemberCount(state) > MemberCount(s_state))
+        PlayBuffer(SOUND_CLICK01);
 
     s_state = std::move(state);
     ++s_version;
@@ -45,6 +66,16 @@ unsigned int Version()
 
 void AddChatLine(ChatLine line)
 {
+    bool mine = false;
+    for (const std::vector<Member>* team : { &s_state.blue, &s_state.red })
+    {
+        for (const Member& member : *team)
+            mine = mine || (member.mine && member.name == line.name);
+    }
+
+    if (!mine)
+        PlayBuffer(SOUND_CLICK01);
+
     s_chat.push_back(std::move(line));
     if (s_chat.size() > MAX_CHAT_LINES)
         s_chat.erase(s_chat.begin());
@@ -89,6 +120,38 @@ void SendChat(const std::wstring& text)
         return;
 
     SendMobaRoomChat(text);
+}
+
+void ShowInvite(unsigned int id, std::wstring roomName, std::wstring from, int seconds)
+{
+    // Not while the player already is in a room.
+    if (s_state.present)
+        return;
+
+    s_invite = { true, id, std::move(roomName), std::move(from) };
+    s_inviteExpiresMs = NowMs() + seconds * 1000.0;
+    PlayBuffer(SOUND_CLICK01);
+}
+
+const Invite& CurrentInvite()
+{
+    if (s_invite.active && (NowMs() > s_inviteExpiresMs || s_state.present))
+        s_invite = Invite{};
+
+    return s_invite;
+}
+
+double InviteRemainingMs()
+{
+    return std::max(0.0, s_inviteExpiresMs - NowMs());
+}
+
+void AnswerInvite(bool accept)
+{
+    if (accept && s_invite.active)
+        RoomList::Join(s_invite.id, std::wstring());
+
+    s_invite = Invite{};
 }
 
 }

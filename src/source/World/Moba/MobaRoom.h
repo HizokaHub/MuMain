@@ -19,6 +19,9 @@ namespace World::Moba::Room
         Start = 3,
         Leave = 4,
         CloseRoom = 5,
+        Ready = 6,         // toggles "ready" (everybody but the host has to be ready for the host to start)
+        Skills = 7,        // opens the loadout window from the room
+        InviteParty = 8,   // invites the party members to the room
     };
 
     // What the host's buttons of a player ask (the values are part of the packet).
@@ -35,6 +38,8 @@ namespace World::Moba::Room
         bool host = false;
         bool mine = false;
         unsigned char baseClass = 0;   // 0 Dark Wizard .. 6 Rage Fighter: the portrait
+        bool ready = false;
+        bool hasSkills = false;        // picked the 4 skills of the match already
     };
 
     struct ChatLine
@@ -50,6 +55,7 @@ namespace World::Moba::Room
         bool isHost = false;
         bool fillBots = false;
         bool midOnly = false;
+        bool locked = false;           // has a password
         int teamSize = 0;
         unsigned int id = 0;
         std::wstring name;
@@ -84,4 +90,24 @@ namespace World::Moba::Room
 
     // Writes a line in the chat of the room.
     void SendChat(const std::wstring& text);
+
+    // An invitation to a room (C2 D5 26: id, seconds, room name, who invites). It is shown in a popup until it is answered or expires.
+    struct Invite
+    {
+        bool active = false;
+        unsigned int id = 0;
+        std::wstring roomName;
+        std::wstring from;
+    };
+
+    void ShowInvite(unsigned int id, std::wstring roomName, std::wstring from, int seconds);
+
+    // The pending invitation (inactive once it expired).
+    const Invite& CurrentInvite();
+
+    // Milliseconds left to answer the invitation.
+    double InviteRemainingMs();
+
+    // Accepts (joins the room) or declines (drops it) the pending invitation.
+    void AnswerInvite(bool accept);
 }

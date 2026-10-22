@@ -8,6 +8,7 @@
 #include "UI/NewUI/Dialogs/MobaRoomPanel.h"
 #include "UI/NewUI/Dialogs/MobaMenuPanel.h"
 #include "UI/NewUI/Dialogs/MobaRoomBrowser.h"
+#include "UI/NewUI/Dialogs/MobaRoomInviteWindow.h"
 
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "World/MapInfra/MapManager.h"
@@ -449,6 +450,7 @@ bool CNewUISystem::LoadMainSceneInterface()
     CMobaRoomPanel::Create(m_pNewUIMng);
     CMobaMenuPanel::Create(m_pNewUIMng);
     CMobaRoomBrowser::Create(m_pNewUIMng);
+    CMobaRoomInviteWindow::Create(m_pNewUIMng);
 
     m_pNewMiniMap = new CNewUIMiniMap;
     if (m_pNewMiniMap->Create(m_pNewUIMng, 0, 0) == false)
@@ -1845,7 +1847,7 @@ bool CNewUISystem::CheckKeyUse()
 bool CNewUISystem::HandleFrameCornerClose(const POINT& winPos, DWORD dwKey)
 {
     // Box of the corner glyph in the shared 190-wide frame. Matches the MU Helper
-    // close "X" exactly (13x12 anchored at +169,+7) — the same hit-box the
+    // close "X" exactly (13x12 anchored at +169,+7) \u2014 the same hit-box the
     // per-window copies used originally, so the click feel is identical across
     // every window. One place to tune for every window that uses this frame.
     constexpr int X_OFFSET = 169, Y_OFFSET = 7, WIDTH = 13, HEIGHT = 12;

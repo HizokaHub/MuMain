@@ -1922,7 +1922,7 @@ void ReceiveChatKey(const BYTE* ReceiveBuffer)
     int Key = ((int)(Data->KeyH) << 8) + Data->KeyL;
     int Index = FindCharacterIndex(Key);
 
-    if (Hero->GuildStatus == G_MASTER && wcscmp(CharactersClient[Index].ID, L"길드 마스터") == 0)
+    if (Hero->GuildStatus == G_MASTER && wcscmp(CharactersClient[Index].ID, L"\uae38\ub4dc \ub9c8\uc2a4\ud130") == 0)
     {
         g_pNewUISystem->Show(SEASON3B::INTERFACE_NPCGUILDMASTER);
 
@@ -4355,7 +4355,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         PlayBuffer(SOUND_SKILL_SWORD4);
         break;
 
-    case AT_SKILL_SLASH://베기
+    case AT_SKILL_SLASH://\ubca0\uae30
     case AT_SKILL_SLASH_STR:
         if (sc->SwordCount % 2 == 0)
         {
@@ -4377,7 +4377,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         PlayBuffer(SOUND_SKILL_SWORD4);
         break;
 
-    case AT_SKILL_IMPALE:	// 창찌르기
+    case AT_SKILL_IMPALE:	// \ucc3d\ucc0c\ub974\uae30
         if (sc->Helper.Type == MODEL_HORN_OF_FENRIR)
             SetAction(so, PLAYER_FENRIR_ATTACK_SPEAR);
         else
@@ -6437,9 +6437,9 @@ BOOL ReceiveTalk(const BYTE* ReceiveBuffer, BOOL bEncrypted)
         g_MixRecipeMgr.SetMixType(SEASON3A::MIXTYPE_GOBLIN_NORMAL);
         g_pNewUISystem->Show(SEASON3B::INTERFACE_MIXINVENTORY);
         //BYTE *pbyChaosRate = ( &Data->Value) + 1;
-        //int iDummyRate[6];	// 광장표 확률을 서버에서 받으나 사용하지 않고 버림
+        //int iDummyRate[6];	// \uad11\uc7a5\ud45c \ud655\ub960\uc744 \uc11c\ubc84\uc5d0\uc11c \ubc1b\uc73c\ub098 \uc0ac\uc6a9\ud558\uc9c0 \uc54a\uace0 \ubc84\ub9bc
         //for ( int i = 0; i < 6; ++i)
-        //	iDummyRate[i] = ( int)pbyChaosRate[i];	// 광장표 확률을 서버에서 받으나 사용하지 않고 버림(스크립트사용)
+        //	iDummyRate[i] = ( int)pbyChaosRate[i];	// \uad11\uc7a5\ud45c \ud655\ub960\uc744 \uc11c\ubc84\uc5d0\uc11c \ubc1b\uc73c\ub098 \uc0ac\uc6a9\ud558\uc9c0 \uc54a\uace0 \ubc84\ub9bc(\uc2a4\ud06c\ub9bd\ud2b8\uc0ac\uc6a9)
         break;
 
     case 4:
@@ -6727,7 +6727,7 @@ void ReceiveMixExtended(std::span<const BYTE> ReceiveBuffer)
             g_pSystemLogBox->AddText(szText, SEASON3B::TYPE_ERROR_MESSAGE);
             break;
             // 			case SEASON3A::MIXTYPE_TRAINER:
-            // 				wprintf(szText, I18N::Game::ResurrectionFailed);	// 부활 실패
+            // 				wprintf(szText, I18N::Game::ResurrectionFailed);	// \ubd80\ud65c \uc2e4\ud328
             // 				g_pSystemLogBox->AddText(szText, SEASON3B::TYPE_ERROR_MESSAGE);
             // 				break;
         case SEASON3A::MIXTYPE_OSBOURNE:
@@ -7817,7 +7817,7 @@ void ReceiveGuildInfo(const BYTE* ReceiveBuffer)
     int Index = g_GuildCache.SetGuildMark(Data->GuildKey, Data->UnionName, Data->GuildName, Data->Mark);
 }
 
-// 길드직책을 임명/변경/해제 결과
+// \uae38\ub4dc\uc9c1\ucc45\uc744 \uc784\uba85/\ubcc0\uacbd/\ud574\uc81c \uacb0\uacfc
 void ReceiveGuildAssign(const BYTE* ReceiveBuffer)
 {
     wchar_t szTemp[MAX_GLOBAL_TEXT_STRING] = L"Invalid GuildAssign";
@@ -9556,7 +9556,7 @@ void ReceiveFriendList(const BYTE* ReceiveBuffer)
     g_pFriendList->Sort(1);
     g_pWindowMgr->RefreshMainWndPalList();
 
-    // 채팅 서버 살아남
+    // \ucc44\ud305 \uc11c\ubc84 \uc0b4\uc544\ub0a8
     g_pWindowMgr->SetServerEnable(TRUE);
     if (g_iChatInputType == 0)
     {
@@ -13542,8 +13542,8 @@ namespace
         return utf8;
     }
 
-    // Sends C1 len D5 sub  fixed bytes...  [lenByte text]
-    void SendMobaPacket(BYTE subCode, const std::vector<BYTE>& fixedBytes, const std::string* text)
+    // Sends C1 len D5 sub  fixed bytes...  [lenByte text]  [lenByte moreText]
+    void SendMobaPacket(BYTE subCode, const std::vector<BYTE>& fixedBytes, const std::string* text, const std::string* moreText = nullptr)
     {
         constexpr size_t HeaderLength = 4;
         constexpr size_t MaxPacket = 255;
@@ -13556,6 +13556,12 @@ namespace
         {
             packet.push_back(static_cast<BYTE>(text->size()));
             packet.insert(packet.end(), text->begin(), text->end());
+        }
+
+        if (moreText != nullptr)
+        {
+            packet.push_back(static_cast<BYTE>(moreText->size()));
+            packet.insert(packet.end(), moreText->begin(), moreText->end());
         }
 
         if (packet.size() < HeaderLength || packet.size() > MaxPacket)
@@ -13572,18 +13578,22 @@ void SendMobaRoomListRequest()
     SendMobaPacket(0x1E, {}, nullptr);
 }
 
-// MOBA: creates a private room (C1 len D5 20 teamSize flags nameLen name).
-void SendMobaRoomCreate(const std::wstring& name, unsigned char teamSize, unsigned char flags)
+// MOBA: creates a private room (C1 len D5 20 teamSize flags nameLen name passLen pass).
+void SendMobaRoomCreate(const std::wstring& name, unsigned char teamSize, unsigned char flags, const std::wstring& password)
 {
     constexpr size_t MaxNameBytes = 72;
+    constexpr size_t MaxPasswordBytes = 16;
     const std::string utf8 = Utf8Limited(name, MaxNameBytes);
-    SendMobaPacket(0x20, { teamSize, flags }, &utf8);
+    const std::string utf8Password = Utf8Limited(password, MaxPasswordBytes);
+    SendMobaPacket(0x20, { teamSize, flags }, &utf8, &utf8Password);
 }
 
-// MOBA: joins a private room (C1 08 D5 21 id).
-void SendMobaRoomJoin(unsigned int id)
+// MOBA: joins a private room (C1 len D5 21 id passLen pass).
+void SendMobaRoomJoin(unsigned int id, const std::wstring& password)
 {
-    SendMobaPacket(0x21, { static_cast<BYTE>(id & 0xFF), static_cast<BYTE>((id >> 8) & 0xFF), static_cast<BYTE>((id >> 16) & 0xFF), static_cast<BYTE>((id >> 24) & 0xFF) }, nullptr);
+    constexpr size_t MaxPasswordBytes = 16;
+    const std::string utf8Password = Utf8Limited(password, MaxPasswordBytes);
+    SendMobaPacket(0x21, { static_cast<BYTE>(id & 0xFF), static_cast<BYTE>((id >> 8) & 0xFF), static_cast<BYTE>((id >> 16) & 0xFF), static_cast<BYTE>((id >> 24) & 0xFF) }, &utf8Password);
 }
 
 // MOBA: a host button which acts on a player of the room (C1 len D5 22 action nameLen name).
@@ -13850,12 +13860,14 @@ static void ReceiveMobaResults(std::span<const BYTE> packet)
     World::Moba::Results::Show(std::move(state), secondsToReturn);
 }
 
-// Handles packet C2 D5 1B: the private room of the player. Layout after the header: present, isHost, fillBots, midOnly, teamSize,
-// id(u32), nameLen name, blueCount (flags [0x01 host, 0x02 yours] baseClass nameLen name)*, redCount (...)*.
+// Handles packet C2 D5 1B: the private room of the player. Layout after the header: present, isHost, fillBots, midOnly, locked, teamSize,
+// id(u32), nameLen name, blueCount (flags [0x01 host, 0x02 yours, 0x04 ready, 0x08 has skills] baseClass nameLen name)*, redCount (...)*.
 static bool ReadMobaRoomTeam(MobaPacketReader& reader, std::vector<World::Moba::Room::Member>& team)
 {
     constexpr BYTE HostFlag = 0x01;
     constexpr BYTE YoursFlag = 0x02;
+    constexpr BYTE ReadyFlag = 0x04;
+    constexpr BYTE SkillsFlag = 0x08;
 
     BYTE count = 0;
     if (!reader.ReadByte(count))
@@ -13871,6 +13883,8 @@ static bool ReadMobaRoomTeam(MobaPacketReader& reader, std::vector<World::Moba::
 
         member.host = (flags & HostFlag) != 0;
         member.mine = (flags & YoursFlag) != 0;
+        member.ready = (flags & ReadyFlag) != 0;
+        member.hasSkills = (flags & SkillsFlag) != 0;
         team.push_back(std::move(member));
     }
 
@@ -13885,6 +13899,7 @@ static void ReceiveMobaRoom(std::span<const BYTE> packet)
     BYTE isHost = 0;
     BYTE fillBots = 0;
     BYTE midOnly = 0;
+    BYTE locked = 0;
     BYTE teamSize = 0;
     BYTE nameLength = 0;
     uint32_t id = 0;
@@ -13897,7 +13912,7 @@ static void ReceiveMobaRoom(std::span<const BYTE> packet)
         return;
     }
 
-    if (!reader.ReadByte(isHost) || !reader.ReadByte(fillBots) || !reader.ReadByte(midOnly) || !reader.ReadByte(teamSize)
+    if (!reader.ReadByte(isHost) || !reader.ReadByte(fillBots) || !reader.ReadByte(midOnly) || !reader.ReadByte(locked) || !reader.ReadByte(teamSize)
         || !reader.ReadDword(id) || !reader.ReadByte(nameLength) || !reader.ReadUtf8(nameLength, state.name)
         || !ReadMobaRoomTeam(reader, state.blue) || !ReadMobaRoomTeam(reader, state.red))
         return;
@@ -13906,13 +13921,14 @@ static void ReceiveMobaRoom(std::span<const BYTE> packet)
     state.isHost = isHost != 0;
     state.fillBots = fillBots != 0;
     state.midOnly = midOnly != 0;
+    state.locked = locked != 0;
     state.teamSize = teamSize;
     state.id = id;
     World::Moba::Room::Show(std::move(state));
 }
 
 // Handles packet C2 D5 1F: the list of the open rooms. Layout after the header: open, count, count * (id u32, nameLen name,
-// hostLen host, teamSize, flags [1 mid only, 2 bots], players, ageSeconds u16, idleSeconds u16).
+// hostLen host, teamSize, flags [1 mid only, 2 bots, 4 locked], players, ageSeconds u16, idleSeconds u16).
 static void ReceiveMobaRoomList(std::span<const BYTE> packet)
 {
     MobaPacketReader reader(packet, MobaC2HeaderLength);
@@ -13942,6 +13958,7 @@ static void ReceiveMobaRoomList(std::span<const BYTE> packet)
         room.teamSize = teamSize;
         room.midOnly = (flags & World::Moba::RoomList::FLAG_MID_ONLY) != 0;
         room.bots = (flags & World::Moba::RoomList::FLAG_BOTS) != 0;
+        room.locked = (flags & World::Moba::RoomList::FLAG_LOCKED) != 0;
         room.players = players;
         room.ageSeconds = age;
         room.idleSeconds = idle;
@@ -13949,6 +13966,23 @@ static void ReceiveMobaRoomList(std::span<const BYTE> packet)
     }
 
     World::Moba::RoomList::Show(std::move(rooms), open != 0);
+}
+
+// Handles packet C2 D5 26: an invitation to a room. Layout after the header: id(u32), seconds, roomNameLen roomName, fromLen from.
+static void ReceiveMobaRoomInvite(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    uint32_t id = 0;
+    BYTE seconds = 0;
+    BYTE roomNameLength = 0;
+    BYTE fromLength = 0;
+    std::wstring roomName;
+    std::wstring from;
+    if (!reader.ReadDword(id) || !reader.ReadByte(seconds) || !reader.ReadByte(roomNameLength) || !reader.ReadUtf8(roomNameLength, roomName)
+        || !reader.ReadByte(fromLength) || !reader.ReadUtf8(fromLength, from))
+        return;
+
+    World::Moba::Room::ShowInvite(id, std::move(roomName), std::move(from), seconds);
 }
 
 // Handles packet C2 D5 25: the lane minions for the minimap. Layout after the header: count(u16 LE), count * (tileX, tileY, team).
@@ -14852,6 +14886,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x25:
             ReceiveMobaMinimapCreeps(received_span);
+            break;
+        case 0x26:
+            ReceiveMobaRoomInvite(received_span);
             break;
         }
     }

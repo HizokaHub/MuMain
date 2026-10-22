@@ -180,8 +180,8 @@ void SendMobaRoomAction(unsigned char action);
 // MOBA: the room browser (C1 04 D5 1E list, C1 len D5 20 create, C1 08 D5 21 join), the host's buttons on a player (C1 len D5 22)
 // and the room chat (C1 len D5 24).
 void SendMobaRoomListRequest();
-void SendMobaRoomCreate(const std::wstring& name, unsigned char teamSize, unsigned char flags);
-void SendMobaRoomJoin(unsigned int id);
+void SendMobaRoomCreate(const std::wstring& name, unsigned char teamSize, unsigned char flags, const std::wstring& password);
+void SendMobaRoomJoin(unsigned int id, const std::wstring& password);
 void SendMobaRoomTargetAction(unsigned char action, const std::wstring& playerName);
 void SendMobaRoomChat(const std::wstring& text);
 
