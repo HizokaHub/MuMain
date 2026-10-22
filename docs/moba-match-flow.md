@@ -5,14 +5,14 @@ shows the windows and sends the answers.
 
 ## Picking the skills (loadout window)
 
-Talk to the **Maestro de la Arena** in Lorencia and choose **Elegir mis skills**. A window opens with the icon of every skill
-the character's class can take into a match (buffs and summons are not offered).
+The window opens by itself when your champion stands in its base before the match starts (and from the **Maestro de la Arena**
+in town, or with `/misskills`). It shows every skill the character's class can take into a match (buffs and summons are not
+offered; the class's buffs are always part of the champion).
 
-- Click a skill to pick it or drop it. Between 4 and 6 skills have to be picked; the counter shows how many.
-- **GUARDAR** saves the pick (it stays after a server restart); **CANCELAR** or `Esc` closes the window without saving.
-- A character that never picked uses a default set of six attacks for its class.
-- The pick is used by every match started from the queue or from a private room. The champion enters the match with only
-  those skills (the skill bar is built from them).
+- Click a skill to pick it; the picked ones get a green cell, a gold frame and a number. Pick **4**: clicking a fifth drops the
+  oldest. Every time the pick is complete it is applied to the champion at once and saved (it stays after a server restart).
+- **CERRAR** or `Esc` closes the window; when the countdown ends the window closes and the picks of that match are final.
+- A character that never picked uses a default set of four attacks for its class.
 
 ## Private rooms
 
