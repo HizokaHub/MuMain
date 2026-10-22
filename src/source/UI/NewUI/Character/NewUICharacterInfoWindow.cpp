@@ -459,7 +459,7 @@ void SEASON3B::CNewUICharacterInfoWindow::RenderTableTexts()
     wchar_t strPointProbability[128];
     mu_swprintf(strPointProbability, I18N::Game::DD1907, iAddPoint, iMinusPoint);
     if (g_MobaLevel > 0)
-        mu_swprintf(strPointProbability, L"Puntos de habilidad: %d (+ sobre la barra)", (int)g_MobaSkillPoints);
+        mu_swprintf(strPointProbability, L"Puntos: habilidades %d, buffs %d (+ sobre la barra)", (int)g_MobaSkillPoints, (int)g_MobaBuffPoints);
     g_pRenderText->SetFont(g_hFont);
     g_pRenderText->SetTextColor(76, 197, 254, 255);
     g_pRenderText->SetBgColor(0, 0, 0, 0);

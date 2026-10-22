@@ -13275,15 +13275,17 @@ int      g_MobaLevel = 0;
 uint32_t g_MobaExp = 0;
 uint32_t g_MobaNextExp = 0;
 int      g_MobaSkillPoints = 0;
+int      g_MobaBuffPoints = 0;
 bool     g_MobaHasSkill[MOBA_MAX_SKILL_NUMBER] = {};
 BYTE     g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER] = {};
+bool     g_MobaSkillIsBuff[MOBA_MAX_SKILL_NUMBER] = {};
 double   g_MobaSkillCooldownEnd[MOBA_MAX_SKILL_NUMBER] = {};
 double   g_MobaSkillCooldownFull[MOBA_MAX_SKILL_NUMBER] = {};
 double   g_MobaSkillCooldownGraceEnd[MOBA_MAX_SKILL_NUMBER] = {}; // WorldTime ms until which the skill stays castable after a cast (cooldown starts after)
 
 // Handles packet C1 D5 02: this champion's MOBA level + experience + skill levels.
 // Layout: [4]=level [5..8]=exp u32 LE [9..12]=nextExp u32 LE [13]=skillPoints
-//         [14]=count, then count * (skillNum u16 LE, level u8)
+//         [14]=count, then count * (skillNum u16 LE, level u8 [bit 7 = buff]), then the stat points u32 LE and the buff points u8
 static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
 {
     g_MobaLevel = ReceiveBuffer[4];
@@ -13295,6 +13297,7 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
 
     memset(g_MobaHasSkill, 0, sizeof(g_MobaHasSkill));
     memset(g_MobaSkillLevel, 0, sizeof(g_MobaSkillLevel));
+    memset(g_MobaSkillIsBuff, 0, sizeof(g_MobaSkillIsBuff));
     if (g_MobaLevel == 0)
     {
         memset(g_MobaSkillCooldownEnd, 0, sizeof(g_MobaSkillCooldownEnd));
@@ -13309,7 +13312,8 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
         if (num > 0 && num < MOBA_MAX_SKILL_NUMBER)
         {
             g_MobaHasSkill[num] = true;
-            g_MobaSkillLevel[num] = p[2];
+            g_MobaSkillLevel[num] = p[2] & 0x7F;
+            g_MobaSkillIsBuff[num] = (p[2] & 0x80) != 0;
         }
     }
 
@@ -13318,6 +13322,9 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
     {
         CharacterAttribute->LevelUpPoint = (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
     }
+
+    // The points of the class buffs follow the stat points.
+    g_MobaBuffPoints = (g_MobaLevel > 0 && ReceiveBuffer[1] >= 15 + count * 3 + 5) ? p[4] : 0;
 }
 
 // Handles packet C1 D5 04: a champion ability just went on its per-match cooldown.

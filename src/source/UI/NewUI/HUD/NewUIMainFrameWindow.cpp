@@ -2541,11 +2541,20 @@ void SEASON3B::CNewUISkillList::RenderCurrentSkillAndHotSkillList()
             }
             if (moba && mobaNum > 0 && mobaNum < MOBA_MAX_SKILL_NUMBER && g_MobaHasSkill[mobaNum])
             {
+                // Rank 0 = inactive until a point is put in it: the icon is darkened.
+                if (g_MobaSkillLevel[mobaNum] == 0)
+                {
+                    glColor4f(0.f, 0.f, 0.f, 0.68f);
+                    RenderColor(sx + 2.f, y + 2.f, width - 4.f, height - 4.f);
+                    glColor3f(1.f, 1.f, 1.f);
+                    EndRenderColor();
+                }
+
                 glColor3f(1.f, 0.85f, 0.2f);
                 SEASON3B::RenderNumber(sx + 3.f, y + height - 13.f, (int)g_MobaSkillLevel[mobaNum]);
                 glColor3f(1.f, 1.f, 1.f);
 
-                if (g_MobaSkillPoints > 0 && g_MobaSkillLevel[mobaNum] < 5 && m_MobaBarPlusBoxCount < 10)
+                if (MobaPointsFor(mobaNum) > 0 && g_MobaSkillLevel[mobaNum] < 5 && m_MobaBarPlusBoxCount < 10)
                 {
                     const float bx = sx + width - 13.f;
                     const float by = y - 1.f;
@@ -2660,17 +2669,25 @@ bool SEASON3B::CNewUISkillList::Render()
 
                     RenderSkillIcon(i, x + 6, y + 6, 20, 28);
 
-                    // Custom MOBA game mode: current skill level badge (bottom-left).
+                    // Custom MOBA game mode: current skill level badge (bottom-left); rank 0 = inactive (darkened).
                     if (g_MobaLevel > 0 && iSkillType > 0 && iSkillType < MOBA_MAX_SKILL_NUMBER
                         && g_MobaHasSkill[iSkillType])
                     {
+                        if (g_MobaSkillLevel[iSkillType] == 0)
+                        {
+                            glColor4f(0.f, 0.f, 0.f, 0.68f);
+                            RenderColor(x + 2.f, y + 2.f, width - 4.f, height - 4.f);
+                            glColor3f(1.f, 1.f, 1.f);
+                            EndRenderColor();
+                        }
+
                         glColor3f(1.f, 0.85f, 0.2f);
                         SEASON3B::RenderNumber(x + 3.f, y + height - 13.f, (int)g_MobaSkillLevel[iSkillType]);
                         glColor3f(1.f, 1.f, 1.f);
                     }
 
                     // Custom MOBA game mode: "+" box to spend a champion skill point.
-                    if (g_MobaLevel > 0 && g_MobaSkillPoints > 0
+                    if (g_MobaLevel > 0 && MobaPointsFor(iSkillType) > 0
                         && iSkillType > 0 && iSkillType < MOBA_MAX_SKILL_NUMBER
                         && g_MobaHasSkill[iSkillType] && g_MobaSkillLevel[iSkillType] < 5
                         && m_MobaPlusBoxCount < 32)

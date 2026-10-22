@@ -91,13 +91,21 @@ extern int g_MyMobaTeam;
 extern int      g_MobaLevel;
 extern uint32_t g_MobaExp;
 extern uint32_t g_MobaNextExp;
-extern int      g_MobaSkillPoints;
+extern int      g_MobaSkillPoints;   // unspent points of the attack skills (1 per level up to 20)
+extern int      g_MobaBuffPoints;    // unspent points of the class buffs (levels 5, 10, 15, 20, 25, 30)
 
 // Per-skill MOBA state (indexed by server skill number). g_MobaHasSkill marks the
 // champion's learned skills; g_MobaSkillLevel is their level (cap 5).
 constexpr int MOBA_MAX_SKILL_NUMBER = 700;
 extern bool g_MobaHasSkill[MOBA_MAX_SKILL_NUMBER];
 extern BYTE g_MobaSkillLevel[MOBA_MAX_SKILL_NUMBER];
+extern bool g_MobaSkillIsBuff[MOBA_MAX_SKILL_NUMBER];   // raised with the buff points; rank 0 = inactive (cannot be cast)
+
+// Unspent champion points which can raise the skill (attack or buff pool).
+inline int MobaPointsFor(int skillNumber)
+{
+    return skillNumber > 0 && skillNumber < MOBA_MAX_SKILL_NUMBER && g_MobaSkillIsBuff[skillNumber] ? g_MobaBuffPoints : g_MobaSkillPoints;
+}
 
 // Per-match skill cooldowns (packet C1 D5 04, sent on a successful cast). Both are in
 // WorldTime milliseconds: ...End is when the skill is ready again, ...Full is the full

@@ -52,7 +52,10 @@ void Render(int sx, int sy, int Type, int /*SkillNum*/, int iRenderPoint /*= STR
         && g_MobaHasSkill[skillType] && model.count < MAX_TOOLTIP_LINES)
     {
         Line& ln = model.lines[model.count++];
-        swprintf(ln.text, MAX_TOOLTIP_LINE_TEXT, L"Nivel de habilidad: %d/5", (int)g_MobaSkillLevel[skillType]);
+        if (g_MobaSkillLevel[skillType] == 0)
+            swprintf(ln.text, MAX_TOOLTIP_LINE_TEXT, L"Inactiva: sube un punto con el + para usarla");
+        else
+            swprintf(ln.text, MAX_TOOLTIP_LINE_TEXT, L"Nivel de habilidad: %d/5", (int)g_MobaSkillLevel[skillType]);
         ln.color = LineColor::Blue;
         ln.isBold = false;
     }
