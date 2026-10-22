@@ -2,6 +2,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "World/Moba/MobaLaneWalls.h"
 #include "I18N/All.h"
 
 #include "UI/NewUI/HUD/NewUIMiniMap.h"
@@ -430,6 +431,16 @@ namespace
 
     // Zoom of the corner minimap (mouse wheel over it): 1x, 1.6x, 2.2x, following the hero; eased between levels.
     constexpr float ZOOM_LEVELS[3] = { 1.f, 1.6f, 2.2f };
+
+    // The formats which play the middle lane only (1v1, ARAM; the server walls the side lanes off) show just that lane: the
+    // window of the art is a narrow strip around the lane (tile X = 118), drawn this many times wider than it really is.
+    constexpr float MID_ONLY_STRETCH = 5.f;
+    constexpr float MID_LANE_CENTER_V = 118.5f / 256.f;   // v = tile X / 256
+
+    float MidOnlyStretch()
+    {
+        return gMapManager.WorldActive == WD_200_MOBA_ARENA && World::Moba::LaneWalls::IsActive() ? MID_ONLY_STRETCH : 1.f;
+    }
     float g_zoomCurrent = 1.f;
     double g_zoomLastTime = 0.0;
     double g_zoomLabelUntil = 0.0;
@@ -501,9 +512,12 @@ namespace
             return false;
 
         const float zoom = g_zoomCurrent;
+        const float vScale = MidOnlyStretch();
         const float half = 0.5f / zoom;
+        const float halfV = 0.5f / (zoom * vScale);
+        const float heroV = vScale > 1.f ? MID_LANE_CENTER_V : Hero->Object.Position[0] / (256.f * TERRAIN_SCALE);
         const float cu = std::clamp(Hero->Object.Position[1] / (256.f * TERRAIN_SCALE), half, 1.f - half);   // u = tile Y
-        const float cv = std::clamp(Hero->Object.Position[0] / (256.f * TERRAIN_SCALE), half, 1.f - half);   // v = tile X
+        const float cv = std::clamp(heroV, halfV, 1.f - halfV);   // v = tile X
         const float rad = 90.f * 3.14159265f / 180.f;
         const float c = cosf(rad), s = sinf(rad);
         const float ax = ((float)MouseX - l.cx) * l.sx;
@@ -512,7 +526,7 @@ namespace
         const float ly = -ax * s + ay * c;
         const float scale = zoom * l.sidePx;
         const float pu = cu + lx / scale;
-        const float pv = cv - ly / scale;
+        const float pv = cv - ly / (scale * vScale);
         if (pu < 0.f || pu >= 1.f || pv < 0.f || pv >= 1.f)
             return false;
         tileX = pv * 256.f;
@@ -807,22 +821,25 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
             g_zoomCurrent = zoomTarget;
     }
     const float zoom = g_zoomCurrent;
+    const float vScale = MidOnlyStretch();
     const float zoomHalf = 0.5f / zoom;
+    const float zoomHalfV = 0.5f / (zoom * vScale);
+    const float heroV = vScale > 1.f ? MID_LANE_CENTER_V : Hero->Object.Position[0] / (256.f * TERRAIN_SCALE);
     const float zoomCu = std::clamp(Hero->Object.Position[1] / (256.f * TERRAIN_SCALE), zoomHalf, 1.f - zoomHalf);   // u = tile Y
-    const float zoomCv = std::clamp(Hero->Object.Position[0] / (256.f * TERRAIN_SCALE), zoomHalf, 1.f - zoomHalf);   // v = tile X
-    const float artU0 = zoomCu - zoomHalf, artV0 = zoomCv - zoomHalf, artSize = 1.f / zoom;
+    const float zoomCv = std::clamp(heroV, zoomHalfV, 1.f - zoomHalfV);   // v = tile X
+    const float artU0 = zoomCu - zoomHalf, artV0 = zoomCv - zoomHalfV, artSize = 1.f / zoom, artSizeV = 1.f / (zoom * vScale);
 
     // MOBA arena: our own map from the walk mask; elsewhere (Crywolf) the original art.
     const bool mobaArt = gMapManager.WorldActive == WD_200_MOBA_ARENA && UpdateBlockedTexture();
     if (mobaArt)
-        RenderBitmapRotate(-(int)g_blockedTex.id, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, artU0, artV0, artSize, artSize);
+        RenderBitmapRotate(-(int)g_blockedTex.id, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, artU0, artV0, artSize, artSizeV);
     else
-        RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, artU0, artV0, artSize, artSize);
+        RenderBitmapRotate(IMAGE_MINIMAP_INTERFACE, CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, artU0, artV0, artSize, artSizeV);
 
     // Fog of war of the match over the arena art, under every marker (no-op outside a match).
     if (mobaArt)
     {
-        const MobaFog::ArtPlacement fogArt{ CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, L.opacity, artU0, artV0, artSize, artSize };
+        const MobaFog::ArtPlacement fogArt{ CENTRE_X, CENTRE_Y, SIZE, SIZE_Y, ROT, L.opacity, artU0, artV0, artSize, artSizeV };
         MobaFog::Render(fogArt, g_artClearCells, g_artClearVersion);
     }
 
@@ -833,7 +850,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     // Where the art is on screen: map-local positions (0..1, texture space) are
     // rotated by ROT around the map centre in screen px, matching how
     // RenderBitmapRotate rotated the texture.
-    const MobaMarkers::Frame frame{ CENTRE_X, CENTRE_Y, SIDE_PX, ca, sa, sx, sy, L.markers, zoom, zoomCu, zoomCv };
+    const MobaMarkers::Frame frame{ CENTRE_X, CENTRE_Y, SIDE_PX, ca, sa, sx, sy, L.markers, zoom, zoomCu, zoomCv, vScale };
     const MobaMarkers::Atlases atlases{ IMAGE_MINIMAP_MOBA_PORTRAITS, IMAGE_MINIMAP_MOBA_ICONS, m_bMobaPortraitsLoaded, m_bMobaIconsLoaded };
 
     // Plot a marker, then blit the icon (square on screen).

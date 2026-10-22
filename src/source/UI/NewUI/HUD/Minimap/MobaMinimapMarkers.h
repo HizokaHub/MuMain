@@ -24,6 +24,7 @@ namespace UI::Minimap::MobaMarkers
         float zoom = 1.f;         // 1 = the whole map; above 1 only a window of 1/zoom of it, around (centreU, centreV)
         float centreU = 0.5f;     // window centre in texture space (u = tile Y / 256)
         float centreV = 0.5f;     // (v = tile X / 256)
+        float vScale = 1.f;       // extra stretch along v (tile X): the middle-lane-only formats show a narrow strip of the map wider
 
         // Map-local position (0..1, texture space) to reference px, rotated like the art.
         void ToRef(float pu, float pv, float& mx, float& my) const;

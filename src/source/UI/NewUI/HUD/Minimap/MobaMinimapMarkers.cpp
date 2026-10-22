@@ -595,7 +595,7 @@ namespace
 void Frame::ToRef(float pu, float pv, float& mx, float& my) const
 {
     const float lx = (pu - centreU) * zoom * sidePx;
-    const float ly = (centreV - pv) * zoom * sidePx;
+    const float ly = (centreV - pv) * zoom * vScale * sidePx;
     mx = centreX + (lx * cosRot - ly * sinRot) / sx;
     my = centreY - (lx * sinRot + ly * cosRot) / sy;
 }
@@ -605,7 +605,7 @@ bool Frame::TileToRef(float tileX, float tileY, float& mx, float& my) const
     const float pu = tileY / MAP_TILES, pv = tileX / MAP_TILES;
     ToRef(pu, pv, mx, my);
     const float half = 0.5f * sidePx;
-    return fabsf((pu - centreU) * zoom * sidePx) <= half && fabsf((centreV - pv) * zoom * sidePx) <= half;
+    return fabsf((pu - centreU) * zoom * sidePx) <= half && fabsf((centreV - pv) * zoom * vScale * sidePx) <= half;
 }
 
 float Frame::TilesToRef(float tiles) const
