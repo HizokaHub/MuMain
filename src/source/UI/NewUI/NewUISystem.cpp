@@ -3,6 +3,8 @@
 #include "UI/NewUI/Dialogs/NewUIMessageBox.h"
 #include "UI/NewUI/Dialogs/MobaReadyCheckWindow.h"
 #include "UI/NewUI/Dialogs/MobaQueuePanel.h"
+#include "UI/NewUI/Dialogs/MobaResultsWindow.h"
+#include "UI/NewUI/Dialogs/MobaLoadoutWindow.h"
 
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "World/MapInfra/MapManager.h"
@@ -439,6 +441,8 @@ bool CNewUISystem::LoadMainSceneInterface()
 
     CMobaReadyCheckWindow::Create(m_pNewUIMng);
     CMobaQueuePanel::Create(m_pNewUIMng);
+    CMobaResultsWindow::Create(m_pNewUIMng);
+    CMobaLoadoutWindow::Create(m_pNewUIMng);
 
     m_pNewMiniMap = new CNewUIMiniMap;
     if (m_pNewMiniMap->Create(m_pNewUIMng, 0, 0) == false)

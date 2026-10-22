@@ -88,6 +88,8 @@
 #include "World/Moba/MobaBanner.h"
 #include "World/Moba/MobaReadyCheck.h"
 #include "World/Moba/MobaQueueStatus.h"
+#include "World/Moba/MobaResults.h"
+#include "World/Moba/MobaLoadout.h"
 #include "World/Moba/MobaLaneWalls.h"
 
 #define MAX_DEBUG_MAX 10
@@ -13469,6 +13471,46 @@ void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex)
     SocketClient->Send(buf, PacketLength);
 }
 
+// MOBA: the "back to town" button of the results table (C1 04 D5 18).
+void SendMobaReturnToTown()
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    constexpr BYTE PacketLength = 4;
+    BYTE buf[PacketLength];
+    buf[0] = 0xC1;
+    buf[1] = PacketLength;
+    buf[2] = 0xD5;
+    buf[3] = 0x18;
+    SocketClient->Send(buf, PacketLength);
+}
+
+// MOBA: the skills picked in the loadout window (C1 len D5 1A count skill(u16 LE)...).
+void SendMobaLoadout(const std::vector<unsigned short>& skills)
+{
+    constexpr size_t HeaderLength = 5;
+    constexpr size_t SkillBytes = 2;
+    constexpr size_t MaxSkills = 16;
+    if (SocketClient == nullptr || !SocketClient->IsConnected() || skills.empty() || skills.size() > MaxSkills)
+        return;
+
+    BYTE buf[HeaderLength + MaxSkills * SkillBytes];
+    const size_t length = HeaderLength + skills.size() * SkillBytes;
+    buf[0] = 0xC1;
+    buf[1] = static_cast<BYTE>(length);
+    buf[2] = 0xD5;
+    buf[3] = 0x1A;
+    buf[4] = static_cast<BYTE>(skills.size());
+    for (size_t i = 0; i < skills.size(); ++i)
+    {
+        buf[HeaderLength + i * SkillBytes] = static_cast<BYTE>(skills[i] & 0xFF);
+        buf[HeaderLength + i * SkillBytes + 1] = static_cast<BYTE>(skills[i] >> 8);
+    }
+
+    SocketClient->Send(buf, static_cast<DWORD>(length));
+}
+
 namespace
 {
     // Bounds-checked reader for the variable-length MOBA packets (C2 D5 xx).
@@ -13620,6 +13662,92 @@ static void ReceiveMobaShieldOptions(std::span<const BYTE> packet)
     }
 
     GameLogic::Items::MobaShopPrices::SetShieldOptions(std::move(shields));
+}
+
+// Handles packet C2 D5 18: the results table of a finished match. Layout after the header: winner(u8), duration(u32 LE),
+// secondsToReturn(u16 LE), count(u8), count * (team, baseClass, flags [0x01 yours, 0x02 bot], level, kills u16, deaths u16,
+// assists u16, creeps u16, gold u32, damageDealt u32, damageTaken u32, nameLength u8, name UTF-8).
+static bool ReadMobaResultRow(MobaPacketReader& reader, World::Moba::Results::Row& row)
+{
+    constexpr BYTE YoursFlag = 0x01;
+    constexpr BYTE BotFlag = 0x02;
+
+    BYTE flags = 0;
+    BYTE level = 0;
+    BYTE nameLength = 0;
+    WORD kills = 0;
+    WORD deaths = 0;
+    WORD assists = 0;
+    WORD creeps = 0;
+    if (!reader.ReadByte(row.team) || !reader.ReadByte(row.baseClass) || !reader.ReadByte(flags) || !reader.ReadByte(level)
+        || !reader.ReadWord(kills) || !reader.ReadWord(deaths) || !reader.ReadWord(assists) || !reader.ReadWord(creeps)
+        || !reader.ReadDword(row.gold) || !reader.ReadDword(row.damageDealt) || !reader.ReadDword(row.damageTaken)
+        || !reader.ReadByte(nameLength) || !reader.ReadUtf8(nameLength, row.name))
+        return false;
+
+    row.mine = (flags & YoursFlag) != 0;
+    row.bot = (flags & BotFlag) != 0;
+    row.level = level;
+    row.kills = kills;
+    row.deaths = deaths;
+    row.assists = assists;
+    row.creeps = creeps;
+    return true;
+}
+
+static void ReceiveMobaResults(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    World::Moba::Results::State state;
+    uint32_t duration = 0;
+    WORD secondsToReturn = 0;
+    BYTE count = 0;
+    if (!reader.ReadByte(state.winner) || !reader.ReadDword(duration) || !reader.ReadWord(secondsToReturn) || !reader.ReadByte(count))
+        return;
+
+    state.durationSeconds = duration;
+    for (int i = 0; i < count; ++i)
+    {
+        World::Moba::Results::Row row;
+        if (!ReadMobaResultRow(reader, row))
+            return;
+
+        state.rows.push_back(std::move(row));
+    }
+
+    World::Moba::Results::Show(std::move(state), secondsToReturn);
+}
+
+// Handles packet C1 D5 19: opens the loadout window. Layout after the header: baseClass, min, max, selectableCount,
+// selectedCount, selectable(u16 LE)..., selected(u16 LE)...
+static void ReceiveMobaLoadout(std::span<const BYTE> packet)
+{
+    constexpr size_t MobaC1HeaderLength = 4; // C1 len D5 subCode
+
+    MobaPacketReader reader(packet, MobaC1HeaderLength);
+    World::Moba::Loadout::State state;
+    BYTE baseClass = 0;
+    BYTE minSkills = 0;
+    BYTE maxSkills = 0;
+    BYTE selectableCount = 0;
+    BYTE selectedCount = 0;
+    if (!reader.ReadByte(baseClass) || !reader.ReadByte(minSkills) || !reader.ReadByte(maxSkills)
+        || !reader.ReadByte(selectableCount) || !reader.ReadByte(selectedCount))
+        return;
+
+    state.baseClass = baseClass;
+    state.minSkills = minSkills;
+    state.maxSkills = maxSkills;
+    for (int i = 0; i < selectableCount + selectedCount; ++i)
+    {
+        WORD skill = 0;
+        if (!reader.ReadWord(skill))
+            return;
+
+        (i < selectableCount ? state.selectable : state.selected).push_back(skill);
+    }
+
+    World::Moba::Loadout::Open(std::move(state));
 }
 
 // Handles packet C2 D5 08: the MOBA shop prices the tooltips show instead of the
@@ -14434,6 +14562,12 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x17:
             World::Moba::LaneWalls::Receive(ReceiveBuffer);
+            break;
+        case 0x18:
+            ReceiveMobaResults(received_span);
+            break;
+        case 0x19:
+            ReceiveMobaLoadout(received_span);
             break;
         }
     }

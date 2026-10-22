@@ -6,6 +6,7 @@
 #include "Dotnet/Connection.h"
 #include "Network/Server/CSMapServer.h"
 #include <span>
+#include <vector>
 #include <typeinfo>
 
 #define WM_ASYNCSELECTMSG (WM_USER+0)
@@ -166,6 +167,12 @@ bool TrySendMobaTeleportClick();
 
 // MOBA: tells the server which option of a server-driven NPC menu was picked (C1 D5 07).
 void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex);
+
+// MOBA: the "back to town" button of the results table (C1 04 D5 18).
+void SendMobaReturnToTown();
+
+// MOBA: the skills picked in the loadout window (C1 len D5 1A).
+void SendMobaLoadout(const std::vector<unsigned short>& skills);
 
 inline uint64_t ntoh64(uint64_t value)
 {
