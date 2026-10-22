@@ -44,14 +44,12 @@ namespace
             CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH | FF_DONTCARE, face);
     }
 
-    void DeleteFonts()
+    // The old fonts are not deleted when the resolution changes: a text field may still hold one (the loss is a few handles).
+    void ForgetFonts()
     {
-        for (HFONT* font : { &s_body, &s_bold, &s_title })
-        {
-            if (*font != nullptr)
-                DeleteObject(*font);
-            *font = nullptr;
-        }
+        s_body = nullptr;
+        s_bold = nullptr;
+        s_title = nullptr;
     }
 
     // Builds the fonts the first time and whenever the size of the UI fonts changed (a new window resolution).
@@ -60,7 +58,7 @@ namespace
         if (s_body != nullptr && s_builtForHeight == FontHeight)
             return;
 
-        DeleteFonts();
+        ForgetFonts();
         s_body = MakeFont(BODY_SCALE, FW_NORMAL);
         s_bold = MakeFont(BODY_SCALE, FW_SEMIBOLD);
         s_title = MakeFont(TITLE_SCALE, FW_SEMIBOLD);

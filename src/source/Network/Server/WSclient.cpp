@@ -91,6 +91,7 @@
 #include "World/Moba/MobaResults.h"
 #include "World/Moba/MobaLoadout.h"
 #include "World/Moba/MobaRoom.h"
+#include "World/Moba/MobaRoomList.h"
 #include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
 
@@ -13518,6 +13519,88 @@ void SendMobaCloseNpcDialog()
     SocketClient->ToGameServer()->SendCloseNpcRequest();
 }
 
+namespace
+{
+    // The text of a name or a chat line in the UTF-8 the server reads, cut to a limit of bytes.
+    std::string Utf8Limited(const std::wstring& text, size_t maxBytes)
+    {
+        const int needed = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+        std::string utf8(static_cast<size_t>(std::max(needed, 0)), '\0');
+        if (needed > 0)
+            WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), utf8.data(), needed, nullptr, nullptr);
+
+        if (utf8.size() > maxBytes)
+        {
+            // Do not cut in the middle of a character.
+            size_t cut = maxBytes;
+            while (cut > 0 && (static_cast<unsigned char>(utf8[cut]) & 0xC0) == 0x80)
+                --cut;
+            utf8.resize(cut);
+        }
+
+        return utf8;
+    }
+
+    // Sends C1 len D5 sub  fixed bytes...  [lenByte text]
+    void SendMobaPacket(BYTE subCode, const std::vector<BYTE>& fixedBytes, const std::string* text)
+    {
+        constexpr size_t HeaderLength = 4;
+        constexpr size_t MaxPacket = 255;
+        if (SocketClient == nullptr || !SocketClient->IsConnected())
+            return;
+
+        std::vector<BYTE> packet = { 0xC1, 0, 0xD5, subCode };
+        packet.insert(packet.end(), fixedBytes.begin(), fixedBytes.end());
+        if (text != nullptr)
+        {
+            packet.push_back(static_cast<BYTE>(text->size()));
+            packet.insert(packet.end(), text->begin(), text->end());
+        }
+
+        if (packet.size() < HeaderLength || packet.size() > MaxPacket)
+            return;
+
+        packet[1] = static_cast<BYTE>(packet.size());
+        SocketClient->Send(packet.data(), static_cast<DWORD>(packet.size()));
+    }
+}
+
+// MOBA: the room browser asks for a fresh list of rooms (C1 04 D5 1E).
+void SendMobaRoomListRequest()
+{
+    SendMobaPacket(0x1E, {}, nullptr);
+}
+
+// MOBA: creates a private room (C1 len D5 20 teamSize flags nameLen name).
+void SendMobaRoomCreate(const std::wstring& name, unsigned char teamSize, unsigned char flags)
+{
+    constexpr size_t MaxNameBytes = 72;
+    const std::string utf8 = Utf8Limited(name, MaxNameBytes);
+    SendMobaPacket(0x20, { teamSize, flags }, &utf8);
+}
+
+// MOBA: joins a private room (C1 08 D5 21 id).
+void SendMobaRoomJoin(unsigned int id)
+{
+    SendMobaPacket(0x21, { static_cast<BYTE>(id & 0xFF), static_cast<BYTE>((id >> 8) & 0xFF), static_cast<BYTE>((id >> 16) & 0xFF), static_cast<BYTE>((id >> 24) & 0xFF) }, nullptr);
+}
+
+// MOBA: a host button which acts on a player of the room (C1 len D5 22 action nameLen name).
+void SendMobaRoomTargetAction(unsigned char action, const std::wstring& playerName)
+{
+    constexpr size_t MaxNameBytes = 20;
+    const std::string utf8 = Utf8Limited(playerName, MaxNameBytes);
+    SendMobaPacket(0x22, { action }, &utf8);
+}
+
+// MOBA: a line of the room chat (C1 len D5 24 textLen text).
+void SendMobaRoomChat(const std::wstring& text)
+{
+    constexpr size_t MaxChatBytes = 200;
+    const std::string utf8 = Utf8Limited(text, MaxChatBytes);
+    SendMobaPacket(0x24, {}, &utf8);
+}
+
 // MOBA: a button of the private room panel (C1 05 D5 1C action).
 void SendMobaRoomAction(unsigned char action)
 {
@@ -13766,8 +13849,8 @@ static void ReceiveMobaResults(std::span<const BYTE> packet)
     World::Moba::Results::Show(std::move(state), secondsToReturn);
 }
 
-// Handles packet C2 D5 1B: the private room of the player. Layout after the header: present, isHost, fillBots, teamSize,
-// codeLen code, labelLen label, blueCount (flags [0x01 host, 0x02 yours] baseClass nameLen name)*, redCount (...)*.
+// Handles packet C2 D5 1B: the private room of the player. Layout after the header: present, isHost, fillBots, midOnly, teamSize,
+// id(u32), nameLen name, blueCount (flags [0x01 host, 0x02 yours] baseClass nameLen name)*, redCount (...)*.
 static bool ReadMobaRoomTeam(MobaPacketReader& reader, std::vector<World::Moba::Room::Member>& team)
 {
     constexpr BYTE HostFlag = 0x01;
@@ -13800,9 +13883,10 @@ static void ReceiveMobaRoom(std::span<const BYTE> packet)
     BYTE present = 0;
     BYTE isHost = 0;
     BYTE fillBots = 0;
+    BYTE midOnly = 0;
     BYTE teamSize = 0;
-    BYTE codeLength = 0;
-    BYTE labelLength = 0;
+    BYTE nameLength = 0;
+    uint32_t id = 0;
     if (!reader.ReadByte(present))
         return;
 
@@ -13812,17 +13896,75 @@ static void ReceiveMobaRoom(std::span<const BYTE> packet)
         return;
     }
 
-    if (!reader.ReadByte(isHost) || !reader.ReadByte(fillBots) || !reader.ReadByte(teamSize)
-        || !reader.ReadByte(codeLength) || !reader.ReadUtf8(codeLength, state.code)
-        || !reader.ReadByte(labelLength) || !reader.ReadUtf8(labelLength, state.label)
+    if (!reader.ReadByte(isHost) || !reader.ReadByte(fillBots) || !reader.ReadByte(midOnly) || !reader.ReadByte(teamSize)
+        || !reader.ReadDword(id) || !reader.ReadByte(nameLength) || !reader.ReadUtf8(nameLength, state.name)
         || !ReadMobaRoomTeam(reader, state.blue) || !ReadMobaRoomTeam(reader, state.red))
         return;
 
     state.present = true;
     state.isHost = isHost != 0;
     state.fillBots = fillBots != 0;
+    state.midOnly = midOnly != 0;
     state.teamSize = teamSize;
+    state.id = id;
     World::Moba::Room::Show(std::move(state));
+}
+
+// Handles packet C2 D5 1F: the list of the open rooms. Layout after the header: open, count, count * (id u32, nameLen name,
+// hostLen host, teamSize, flags [1 mid only, 2 bots], players, ageSeconds u16, idleSeconds u16).
+static void ReceiveMobaRoomList(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    BYTE open = 0;
+    BYTE count = 0;
+    if (!reader.ReadByte(open) || !reader.ReadByte(count))
+        return;
+
+    std::vector<World::Moba::RoomList::Entry> rooms;
+    for (int i = 0; i < count; ++i)
+    {
+        World::Moba::RoomList::Entry room;
+        uint32_t id = 0;
+        BYTE nameLength = 0;
+        BYTE hostLength = 0;
+        BYTE teamSize = 0;
+        BYTE flags = 0;
+        BYTE players = 0;
+        WORD age = 0;
+        WORD idle = 0;
+        if (!reader.ReadDword(id) || !reader.ReadByte(nameLength) || !reader.ReadUtf8(nameLength, room.name)
+            || !reader.ReadByte(hostLength) || !reader.ReadUtf8(hostLength, room.host) || !reader.ReadByte(teamSize)
+            || !reader.ReadByte(flags) || !reader.ReadByte(players) || !reader.ReadWord(age) || !reader.ReadWord(idle))
+            return;
+
+        room.id = id;
+        room.teamSize = teamSize;
+        room.midOnly = (flags & World::Moba::RoomList::FLAG_MID_ONLY) != 0;
+        room.bots = (flags & World::Moba::RoomList::FLAG_BOTS) != 0;
+        room.players = players;
+        room.ageSeconds = age;
+        room.idleSeconds = idle;
+        rooms.push_back(std::move(room));
+    }
+
+    World::Moba::RoomList::Show(std::move(rooms), open != 0);
+}
+
+// Handles packet C2 D5 23: a line of the chat of the room. Layout after the header: kind (1 = notice), nameLen name,
+// textLen(u16 LE) text.
+static void ReceiveMobaRoomChat(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    World::Moba::Room::ChatLine line;
+    BYTE kind = 0;
+    BYTE nameLength = 0;
+    WORD textLength = 0;
+    if (!reader.ReadByte(kind) || !reader.ReadByte(nameLength) || !reader.ReadUtf8(nameLength, line.name)
+        || !reader.ReadWord(textLength) || !reader.ReadUtf8(textLength, line.text))
+        return;
+
+    line.notice = kind != 0;
+    World::Moba::Room::AddChatLine(std::move(line));
 }
 
 // Handles packet C1 D5 19: opens the loadout window. Layout after the header: baseClass, min, max, selectableCount,
@@ -14678,6 +14820,12 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x1B:
             ReceiveMobaRoom(received_span);
+            break;
+        case 0x1F:
+            ReceiveMobaRoomList(received_span);
+            break;
+        case 0x23:
+            ReceiveMobaRoomChat(received_span);
             break;
         }
     }

@@ -177,6 +177,14 @@ void SendMobaLoadout(const std::vector<unsigned short>& skills);
 // MOBA: a button of the private room panel (C1 05 D5 1C action).
 void SendMobaRoomAction(unsigned char action);
 
+// MOBA: the room browser (C1 04 D5 1E list, C1 len D5 20 create, C1 08 D5 21 join), the host's buttons on a player (C1 len D5 22)
+// and the room chat (C1 len D5 24).
+void SendMobaRoomListRequest();
+void SendMobaRoomCreate(const std::wstring& name, unsigned char teamSize, unsigned char flags);
+void SendMobaRoomJoin(unsigned int id);
+void SendMobaRoomTargetAction(unsigned char action, const std::wstring& playerName);
+void SendMobaRoomChat(const std::wstring& text);
+
 // MOBA: the room code typed in the menu panel (C1 len D5 1D codeLen code).
 void SendMobaJoinCode(const std::wstring& code);
 

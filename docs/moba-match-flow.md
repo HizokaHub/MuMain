@@ -16,18 +16,20 @@ the character's class can take into a match (buffs and summons are not offered).
 
 ## Private rooms
 
-For playing with friends without the queue. Either use the **Partida privada (sala con código)** option of the Maestro or
-the chat command `/sala`:
+For playing with friends without the queue. Talk to the **Maestro de la Arena** and choose **Salas privadas**: the room browser
+opens with the list of the open rooms (name, host, format, players, how long ago it was created) and a **UNIRME** button on each.
 
-| Command | What it does |
-|---|---|
-| `/sala crear [5v5\|3v3\|1v1\|aram]` | Creates a room (you are the host, blue team) and shows its code. |
-| `/sala unir CODIGO` | Joins a friend's room (the team with fewer players). |
-| `/sala equipo` | Moves you to the other team, if it has room. |
-| `/sala bots si\|no` | Host only: fill the free places with bots (default yes). Without bots both teams must have the same number of players. |
-| `/sala iniciar` | Host only: starts the match for everybody in the room. There is no ready check. |
-| `/sala salir` | Leaves the room (the host leaving hands the room to another member). |
-| `/sala` | Shows the room. |
+- **CREAR SALA** opens the form: the name, the players per team (1 to 5), the map (the three lanes with the jungle, or the
+  middle lane only) and whether the free places are filled with bots. So any mix is possible: 2v2 without bots, 3v3 on the middle
+  lane, 5v5 with bots...
+- Inside a room a panel shows both teams with the portrait of each player's class, and the **chat of the room** on the right
+  (press Enter or click the line to write, Enter sends, Esc leaves the line). Every player has **CAMBIAR EQUIPO** and **SALIR**.
+- The host also has **BOTS**, **EMPEZAR** (there is no ready check) and **CERRAR SALA**, and three small buttons on every other
+  player: move to the other team (`<>`), kick (`X`) and hand the room over (`★`). A kicked player cannot join that room again.
+- A room closes by itself after 15 minutes without news (somebody joining, leaving, writing or changing something); the members
+  are warned in the room chat three minutes before. `_` turns the panel into a small «MI SALA» tab and back.
+- Chat commands still work: `/sala crear [NvN|NvNaram|aram]`, `/sala unir NUMBER`, `/sala equipo`, `/sala bots si|no`,
+  `/sala iniciar`, `/sala salir` and `/sala`.
 
 Everybody needs level 400 and a Master class (game masters skip the requirement), and cannot be in the queue or in a match.
 
