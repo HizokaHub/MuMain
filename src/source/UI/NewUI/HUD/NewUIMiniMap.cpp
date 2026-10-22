@@ -896,6 +896,9 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     if (mobaArena)
         MobaMarkers::RenderFountains(frame, atlases);
 
+    if (mobaArena)
+        MobaMarkers::RenderCreeps(frame, atlases);
+
     if (g_MobaLevel > 0)
         MobaMarkers::RenderFeed(frame, atlases);
 

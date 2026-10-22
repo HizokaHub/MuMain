@@ -149,7 +149,7 @@ namespace
 
     void RenderCodeBox(const Menu::State& state, const Rect& panel)
     {
-        Draw::PutTextCentered(Draw::Body(), panel.x, panel.y + TEXT_Y + TEXT_DY, panel.w, L"Escribe el código de la sala y pulsa Intro", 233, 228, 212);
+        Draw::PutTextCentered(Draw::Body(), panel.x, panel.y + TEXT_Y + TEXT_DY, panel.w, L"Escribe el c\u00f3digo de la sala y pulsa Intro", 233, 228, 212);
 
         const Rect box = CodeBox(panel);
         Draw::FillRect(box, 0.02f, 0.03f, 0.05f, 1.f);

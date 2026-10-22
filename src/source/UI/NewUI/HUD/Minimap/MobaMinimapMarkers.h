@@ -52,6 +52,8 @@ namespace UI::Minimap::MobaMarkers
     // The ground the camera shows, as a white outline on the minimap (the corners of the screen cast onto the ground).
     void RenderCameraView(const Frame& frame);
     void RenderFountains(const Frame& frame, const Atlases& atlases);
+    // The lane minions as small dots in the colour of their team (the server sends the ones the team knows).
+    void RenderCreeps(const Frame& frame, const Atlases& atlases);
     void RenderFeed(const Frame& frame, const Atlases& atlases);
     // Returns false when the portrait atlas is missing (the caller then draws the old arrow).
     bool RenderOwnHero(const Frame& frame, const Atlases& atlases);

@@ -15,6 +15,12 @@ namespace UI::Moba::Draw
     HFONT Bold();
     HFONT Title();
 
+    // The height of a line of the body font, in reference px (to centre a text field inside its frame).
+    int BodyLineHeight();
+
+    // A small box with a text next to the mouse (the name of what the mouse is over); draw it last.
+    void Tooltip(const wchar_t* text);
+
     // Whether the mouse is inside the rectangle.
     bool MouseInRect(const Rect& r);
 

@@ -92,6 +92,7 @@
 #include "World/Moba/MobaLoadout.h"
 #include "World/Moba/MobaRoom.h"
 #include "World/Moba/MobaRoomList.h"
+#include "World/Moba/MobaMinimapCreeps.h"
 #include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
 
@@ -13950,6 +13951,28 @@ static void ReceiveMobaRoomList(std::span<const BYTE> packet)
     World::Moba::RoomList::Show(std::move(rooms), open != 0);
 }
 
+// Handles packet C2 D5 25: the lane minions for the minimap. Layout after the header: count(u16 LE), count * (tileX, tileY, team).
+static void ReceiveMobaMinimapCreeps(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    WORD count = 0;
+    if (!reader.ReadWord(count))
+        return;
+
+    std::vector<World::Moba::MinimapCreeps::Dot> dots;
+    dots.reserve(count);
+    for (int i = 0; i < count; ++i)
+    {
+        World::Moba::MinimapCreeps::Dot dot;
+        if (!reader.ReadByte(dot.x) || !reader.ReadByte(dot.y) || !reader.ReadByte(dot.team))
+            return;
+
+        dots.push_back(dot);
+    }
+
+    World::Moba::MinimapCreeps::Set(std::move(dots));
+}
+
 // Handles packet C2 D5 23: a line of the chat of the room. Layout after the header: kind (1 = notice), nameLen name,
 // textLen(u16 LE) text.
 static void ReceiveMobaRoomChat(std::span<const BYTE> packet)
@@ -14826,6 +14849,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x23:
             ReceiveMobaRoomChat(received_span);
+            break;
+        case 0x25:
+            ReceiveMobaMinimapCreeps(received_span);
             break;
         }
     }

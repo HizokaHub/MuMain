@@ -47,7 +47,7 @@ namespace
     constexpr int CHAT_X = 2 * PAD + 2 * COLUMN_W + COLUMN_GAP;   // from the panel's left edge
     constexpr int CHAT_W = PANEL_W - CHAT_X - PAD;
     constexpr int CHAT_LINE_H = 15;
-    constexpr int CHAT_INPUT_H = 20;
+    constexpr int CHAT_INPUT_H = 24;
     constexpr int CHAT_MAX_CHARS = 100;
     constexpr int CHAT_ROW_CHARS = 96;
     constexpr int CHAT_PIXEL_WIDTH = CHAT_W - 8;
@@ -101,6 +101,19 @@ namespace
     std::vector<WrappedLine> s_wrapped;
     unsigned int s_wrappedFor = 0;
 
+    // A player picked up with the mouse: dropped on a free place of the other team it changes team (the host can drag anybody,
+    // everybody can drag themselves).
+    struct DragState
+    {
+        bool active = false;
+        int column = 0;            // 0 blue, 1 red
+        std::wstring name;
+        unsigned char baseClass = 0;
+        bool mine = false;
+    };
+
+    DragState s_drag;
+
     int Slots(const Room::State& state)
     {
         return std::max(state.teamSize, 1);
@@ -150,7 +163,7 @@ namespace
         switch (action)
         {
         case Room::Action::SwitchTeam: return L"CAMBIAR EQUIPO";
-        case Room::Action::ToggleBots: return state.fillBots ? L"BOTS: SÍ" : L"BOTS: NO";
+        case Room::Action::ToggleBots: return state.fillBots ? L"BOTS: S\u00cd" : L"BOTS: NO";
         case Room::Action::Start: return L"EMPEZAR";
         case Room::Action::CloseRoom: return L"CERRAR SALA";
         default: return L"SALIR";
@@ -189,6 +202,7 @@ namespace
             s_chatBox->SetTextColor(255, 255, 230, 210);
             s_chatBox->SetBackColor(0, 0, 0, 0);
             s_chatBox->SetState(UISTATE_NORMAL);
+            s_chatBox->SetFontProvider(&Draw::Body);
         }
 
         return *s_chatBox;
@@ -236,13 +250,148 @@ namespace
 
     const wchar_t* HostButtonLabel(int index)
     {
-        static const wchar_t* const labels[3] = { L"<>", L"X", L"★" };
+        static const wchar_t* const labels[3] = { L"<>", L"X", L"*" };
         return labels[index];
     }
 
     Rect SlotRect(const Room::State& state, const Rect& panel, int column, int i)
     {
         return { panel.x + PAD + column * (COLUMN_W + COLUMN_GAP), panel.y + TEAMS_Y + TEAM_HEADER_H + SLOT_GAP + i * (SLOT_H + SLOT_GAP), COLUMN_W, SLOT_H };
+    }
+
+    // The slot of a column under the mouse, or -1.
+    int SlotUnderMouse(const Room::State& state, const Rect& panel, int column)
+    {
+        for (int i = 0; i < Slots(state); ++i)
+        {
+            if (Draw::MouseInRect(SlotRect(state, panel, column, i)))
+                return i;
+        }
+
+        return -1;
+    }
+
+    // Picks up the player under the mouse (not on one of the host's small buttons), if the player may move them.
+    bool BeginDrag(const Room::State& state, const Rect& panel)
+    {
+        for (int column = 0; column < 2; ++column)
+        {
+            const std::vector<Room::Member>& members = column == 0 ? state.blue : state.red;
+            const int slot = SlotUnderMouse(state, panel, column);
+            if (slot < 0 || slot >= static_cast<int>(members.size()))
+                continue;
+
+            const Room::Member& member = members[slot];
+            if (!state.isHost && !member.mine)
+                return false;
+
+            s_drag = { true, column, member.name, member.baseClass, member.mine };
+            return true;
+        }
+
+        return false;
+    }
+
+    // The mouse button was released: if it is over a free place of the other team, the player changes team.
+    void EndDrag(const Room::State& state, const Rect& panel)
+    {
+        const DragState drag = s_drag;
+        s_drag = DragState{};
+        const int target = 1 - drag.column;
+        const std::vector<Room::Member>& members = target == 0 ? state.blue : state.red;
+        const int slot = SlotUnderMouse(state, panel, target);
+        if (slot < static_cast<int>(members.size()) || slot < 0)
+            return;
+
+        if (drag.mine)
+            Room::Request(Room::Action::SwitchTeam);
+        else
+            Room::RequestOnPlayer(Room::TargetAction::Move, drag.name);
+    }
+
+    // While dragging: the free places of the other team light up and the player follows the mouse.
+    void RenderDragTargets(const Room::State& state, const Rect& panel)
+    {
+        if (!s_drag.active)
+            return;
+
+        const int target = 1 - s_drag.column;
+        const int taken = static_cast<int>((target == 0 ? state.blue : state.red).size());
+        for (int i = taken; i < Slots(state); ++i)
+        {
+            Draw::FrameRect(SlotRect(state, panel, target, i), 0.95f, 0.80f, 0.40f, 1.f);
+            Draw::FrameRect({ SlotRect(state, panel, target, i).x + 1, SlotRect(state, panel, target, i).y + 1, COLUMN_W - 2, SLOT_H - 2 }, 0.95f, 0.80f, 0.40f, 1.f);
+        }
+
+        EndRenderColor();
+    }
+
+    void RenderDragGhost()
+    {
+        if (!s_drag.active)
+            return;
+
+        const Rect ghost = { static_cast<int>(MouseX) - 16, static_cast<int>(MouseY) - 16, COLUMN_W - 40, SLOT_H - 4 };
+        Draw::FillRect(ghost, 0.20f, 0.18f, 0.08f, 1.f);
+        Draw::FrameRect(ghost, 0.95f, 0.80f, 0.40f, 1.f);
+        EndRenderColor();
+        RenderPortrait({ ghost.x + 2, ghost.y + 2, PORTRAIT_SIZE - 4, PORTRAIT_SIZE - 4 }, s_drag.baseClass, s_drag.column == 0);
+        Draw::PutTextLeft(Draw::Bold(), ghost.x + NAME_X - 8, ghost.y + NAME_DY - 3, ghost.w - NAME_X, s_drag.name.c_str(), 255, 244, 214);
+    }
+
+    // What a button of the panel does, for the tooltip.
+    const wchar_t* ButtonHint(Room::Action action)
+    {
+        switch (action)
+        {
+        case Room::Action::SwitchTeam: return L"Pasarte al otro equipo (tambi\u00e9n puedes arrastrarte a un lugar libre)";
+        case Room::Action::ToggleBots: return L"Rellenar o no con bots los lugares libres";
+        case Room::Action::Start: return L"Empezar la partida con los jugadores de la sala";
+        case Room::Action::CloseRoom: return L"Cerrar la sala y sacar a todos";
+        default: return L"Salir de la sala";
+        }
+    }
+
+    const wchar_t* HostButtonHint(int index)
+    {
+        static const wchar_t* const hints[3] = {
+            L"Mover al otro equipo (tambi\u00e9n puedes arrastrarlo)",
+            L"Expulsar de la sala (no podr\u00e1 volver)",
+            L"Hacer anfitri\u00f3n a este jugador" };
+        return hints[index];
+    }
+
+    // The tooltip of whatever small button or panel button the mouse rests on.
+    void RenderTooltips(const Room::State& state, const Rect& panel)
+    {
+        if (s_drag.active)
+            return;
+
+        Room::Action hovered = Room::Action::Leave;
+        if (ForEachButton(state, hovered, false))
+        {
+            Draw::Tooltip(ButtonHint(hovered));
+            return;
+        }
+
+        if (!state.isHost)
+            return;
+
+        for (int column = 0; column < 2; ++column)
+        {
+            const std::vector<Room::Member>& members = column == 0 ? state.blue : state.red;
+            for (int i = 0; i < static_cast<int>(members.size()); ++i)
+            {
+                for (int b = 0; b < 3 && !members[i].mine; ++b)
+                {
+                    if (Draw::MouseInRect(HostButton(SlotRect(state, panel, column, i), b)))
+                    {
+                        Draw::Tooltip(HostButtonHint(b));
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     // One column: the header of the team and a slot per place (portrait and name, or an empty slot).
@@ -275,7 +424,7 @@ namespace
             const Room::Member& member = members[i];
             RenderPortrait({ slot.x + 3, slot.y + (SLOT_H - PORTRAIT_SIZE) / 2, PORTRAIT_SIZE, PORTRAIT_SIZE }, member.baseClass, blue);
             const int nameWidth = slot.w - NAME_X - (state.isHost && !member.mine ? 3 * (HOST_BUTTON + HOST_BUTTON_GAP) : 4);
-            const std::wstring name = (member.host ? L"★ " : L"") + member.name;
+            const std::wstring name = (member.host ? L"* " : L"") + member.name;
             Draw::PutTextLeft(mine ? Draw::Bold() : Draw::Body(), slot.x + NAME_X, slot.y + NAME_DY, nameWidth, name.c_str(), 233, 228, mine ? 120 : 212);
 
             if (state.isHost && !member.mine)
@@ -334,15 +483,14 @@ namespace
                 line.notice ? 241 : 233, line.notice ? 196 : 228, line.notice ? 83 : 212);
         }
 
-        ChatBox().SetPosition(input.x + 4, input.y + 2);
-        ChatBox().SetFont(Draw::Body());
+        ChatBox().SetPosition(input.x + 6, input.y + (input.h - Draw::BodyLineHeight()) / 2);
         ChatBox().Render();
         if (!ChatFocused() && ChatBox().GetState() == UISTATE_NORMAL)
         {
             wchar_t text[8] = {};
             ChatBox().GetText(text, 2);
             if (text[0] == L'\0')
-                Draw::PutTextLeft(Draw::Body(), input.x + 6, input.y + 3, input.w - 8, L"Pulsa Intro para escribir...", 90, 98, 112);
+                Draw::PutTextLeft(Draw::Body(), input.x + 6, input.y + (input.h - Draw::BodyLineHeight()) / 2, input.w - 8, L"Pulsa Intro para escribir...", 90, 98, 112);
         }
     }
 
@@ -432,9 +580,12 @@ bool CMobaRoomPanel::Render()
     RenderTeam(state, panel, state.blue, true);
     RenderTeam(state, panel, state.red, false);
     RenderChat(state, panel);
+    RenderDragTargets(state, panel);
     Room::Action hovered = Room::Action::Leave;
     ForEachButton(state, hovered, true);
     RenderTexts(state, panel);
+    RenderTooltips(state, panel);
+    RenderDragGhost();
     g_pRenderText->SetTextColor(backColor);
     return true;
 }
@@ -447,6 +598,7 @@ bool CMobaRoomPanel::Update()
         if (ChatFocused())
             CUITextInputBox::ReleaseFocus();
 
+        s_drag = DragState{};
         s_collapsed = false;
         SetRelatedWnd(g_hWnd);
         return true;
@@ -487,6 +639,14 @@ bool CMobaRoomPanel::UpdateMouseEvent()
     }
 
     const Rect panel = Panel(state);
+    if (s_drag.active)
+    {
+        if (!(IsPress(VK_LBUTTON) || IsRepeat(VK_LBUTTON)))
+            EndDrag(state, panel);
+
+        return false;
+    }
+
     if (!Draw::MouseInRect(panel))
         return true;
 
@@ -507,6 +667,10 @@ bool CMobaRoomPanel::UpdateMouseEvent()
         else if (HostButtonClick(state, panel))
         {
             Draw::SwallowHeldClick();
+        }
+        else if (BeginDrag(state, panel))
+        {
+            // the press is kept: the drop is decided when the button is released
         }
         else if (ForEachButton(state, hovered, false))
         {

@@ -569,6 +569,13 @@ static bool IsMobaEnemyChampion(const CHARACTER* c)
         && c->Object.Kind == KIND_PLAYER && c->MobaTeam != 0 && c->MobaTeam != g_MyMobaTeam;
 }
 
+// An enemy structure of the MOBA match which the server sends as an NPC (the nexus): it is attacked, not talked to.
+bool IsMobaEnemyStructure(const CHARACTER* c)
+{
+    return g_MobaLevel > 0 && g_MyMobaTeam != 0 && c != nullptr && c->Object.Kind == KIND_NPC
+        && c->MobaTeam != 0 && c->MobaTeam != g_MyMobaTeam;
+}
+
 bool CheckAttack_Fenrir(CHARACTER* c)
 {
     if (SEASON3B::CNewUIInventoryCtrl::GetPickedItem())
@@ -752,6 +759,11 @@ bool CheckAttack()
     if (c->Dead > 0)
     {
         return false;
+    }
+
+    if (IsMobaEnemyStructure(c))
+    {
+        return true;
     }
 
     if (gMapManager.InChaosCastle() == true && c != Hero)
@@ -2951,6 +2963,7 @@ namespace
     bool   s_MobaRouteActive = false;
     constexpr int MOBA_ROUTE_WAYPOINT_STEP = 9;      // tiles between waypoints along the route
     constexpr int MOBA_ROUTE_MAX_SEGMENTS = 200;
+    constexpr int MOBA_ROUTE_REISSUE_STEPS = 2;      // steps left of a segment at which the next one is already sent (no stop between them)
 
     constexpr int    MOBA_AUTOWALK_ARRIVE_TILES = 2;
     constexpr int    MOBA_AUTOWALK_MAX_SEGMENTS = 48;   // ~720 tiles, well past any map
@@ -3129,7 +3142,13 @@ namespace
         }
 
         if (c->Movement)
-            return;  // a segment is still playing out
+        {
+            // A segment is still playing out. On a planned route the next one is sent a couple of steps before this one
+            // ends (like clicking again while running), so the hero does not stop, walk and run again at every waypoint.
+            const int stepsLeft = static_cast<int>(c->Path.PathNum) - static_cast<int>(c->Path.CurrentPath);
+            if (!s_MobaRouteActive || stepsLeft > MOBA_ROUTE_REISSUE_STEPS || WorldTime < s_MobaAutoWalkNextSegmentTime)
+                return;
+        }
 
         if (c->MovementType != MOVEMENT_MOVE
             || s_MobaAutoWalkSegments >= (s_MobaRouteActive ? MOBA_ROUTE_MAX_SEGMENTS : MOBA_AUTOWALK_MAX_SEGMENTS))

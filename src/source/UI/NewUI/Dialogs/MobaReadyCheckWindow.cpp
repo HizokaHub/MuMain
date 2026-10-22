@@ -99,14 +99,14 @@ namespace
         PutTextCentered(Draw::Title(), PANEL_X, PANEL_Y + TITLE_Y, PANEL_W, L"PARTIDA ENCONTRADA", 241, 196, 83);
 
         const int seconds = static_cast<int>(std::ceil(ReadyCheck::RemainingMs() / MS_PER_SECOND));
-        swprintf(line, std::size(line), L"Acepta en %d s o saldrás de la cola", seconds);
+        swprintf(line, std::size(line), L"Acepta en %d s o saldr\u00e1s de la cola", seconds);
         PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, 233, 228, 212);
 
         swprintf(line, std::size(line), L"%d/%d jugadores han aceptado", state.accepted, state.total);
         PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + COUNT_TEXT_Y, PANEL_W, line, 170, 179, 194);
 
         if (state.status == ReadyCheck::Status::Accepted)
-            PutTextCentered(Draw::Bold(), PANEL_X, PANEL_Y + WAITING_TEXT_Y, PANEL_W, L"Aceptaste. Esperando a los demás...", 111, 211, 154);
+            PutTextCentered(Draw::Bold(), PANEL_X, PANEL_Y + WAITING_TEXT_Y, PANEL_W, L"Aceptaste. Esperando a los dem\u00e1s...", 111, 211, 154);
         else
             PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + HINT_Y, PANEL_W, L"Intro = aceptar", 127, 138, 160);
     }

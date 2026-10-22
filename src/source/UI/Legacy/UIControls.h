@@ -846,6 +846,7 @@ public:
 
     virtual void SetState(int iState);
     virtual void SetFont(HFONT hFont);
+    void SetFontProvider(HFONT (*pProvider)()) { m_pFontProvider = pProvider; }
     virtual void SetMultiline(BOOL bUseFlag) { m_bUseMultiLine = bUseFlag; }
 
     virtual void SetTextLimit(int iLimit);
@@ -950,6 +951,8 @@ protected:
     // resolution change; CurrentFont() re-resolves the live handle each frame.
     enum class PortableFontKind { Default, Bold, Big, Fix };
     PortableFontKind m_fontKind = PortableFontKind::Default;
+    // When set, the box draws with the font this returns (a font which is not one of the global kinds and which follows the resolution).
+    HFONT (*m_pFontProvider)() = nullptr;
     static CUITextInputBox* s_pFocusedPortable;
 
     CUITextInputBox* m_pTabTarget;

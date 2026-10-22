@@ -47,12 +47,12 @@ namespace
     {
         switch (mode)
         {
-        case QueueStatus::Mode::Premade: return L"Equipo de 5 · solo humanos";
+        case QueueStatus::Mode::Premade: return L"Equipo de 5 \u00b7 solo humanos";
         case QueueStatus::Mode::WithBots: return L"5v5 con bots (garantizada)";
-        case QueueStatus::Mode::Trio: return L"3v3 · humanos; con bots tras la espera";
-        case QueueStatus::Mode::Duel: return L"1v1 · solo humanos";
-        case QueueStatus::Mode::Aram: return L"ARAM 5v5 · carril central";
-        default: return L"5v5 · solo humanos";
+        case QueueStatus::Mode::Trio: return L"3v3 \u00b7 humanos; con bots tras la espera";
+        case QueueStatus::Mode::Duel: return L"1v1 \u00b7 solo humanos";
+        case QueueStatus::Mode::Aram: return L"ARAM 5v5 \u00b7 carril central";
+        default: return L"5v5 \u00b7 solo humanos";
         }
     }
 
@@ -97,9 +97,9 @@ namespace
         wchar_t line[96] = {};
         FormatClock(clock, std::size(clock), stage.seconds);
         if (stage.humans <= 1)
-            swprintf(humans, std::size(humans), L"cualquier número de humanos");
+            swprintf(humans, std::size(humans), L"cualquier n\u00famero de humanos");
         else
-            swprintf(humans, std::size(humans), L"%d o más humanos", stage.humans);
+            swprintf(humans, std::size(humans), L"%d o m\u00e1s humanos", stage.humans);
         swprintf(line, std::size(line), L"%ls   %ls", clock, humans);
 
         const bool isCurrent = static_cast<int>(index) == current;
@@ -146,7 +146,7 @@ namespace
         Draw::PutTextCentered(g_hFont, PANEL_X, PANEL_Y + MODE_Y, PANEL_W, ModeLabel(state.mode), 170, 179, 194);
 
         FormatClock(clock, std::size(clock), elapsed);
-        swprintf(line, std::size(line), L"En cola: %ls  ·  %d jugador(es)", clock, state.waiting);
+        swprintf(line, std::size(line), L"En cola: %ls  \u00b7  %d jugador(es)", clock, state.waiting);
         Draw::PutTextCentered(g_hFont, PANEL_X, PANEL_Y + TIME_Y, PANEL_W, line, 233, 228, 212);
 
         if (state.stages.empty())
@@ -174,7 +174,7 @@ bool CMobaQueuePanel::Render()
     Draw::FrameRect(Panel(state), 0.78f, 0.64f, 0.29f, 1.f);
     EndRenderColor();
     RenderTexts(state);
-    Draw::Button(CancelButton(state), L"CANCELAR BÚSQUEDA", false);
+    Draw::Button(CancelButton(state), L"CANCELAR B\u00daSQUEDA", false);
     g_pRenderText->SetTextColor(backColor);
     return true;
 }

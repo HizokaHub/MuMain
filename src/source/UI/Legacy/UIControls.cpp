@@ -3342,6 +3342,9 @@ namespace
 
 HFONT CUITextInputBox::CurrentFont() const
 {
+    if (m_pFontProvider != nullptr)
+        return m_pFontProvider();
+
     switch (m_fontKind)
     {
     case PortableFontKind::Bold: return g_hFontBold;

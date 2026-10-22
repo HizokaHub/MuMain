@@ -47,7 +47,7 @@ namespace
     // The columns of the list: left edge from the panel and width.
     struct Column { int x; int w; const wchar_t* title; };
     constexpr Column COL_NAME = { PAD, 156, L"Sala" };
-    constexpr Column COL_HOST = { 172, 84, L"Anfitrión" };
+    constexpr Column COL_HOST = { 172, 84, L"Anfitri\u00f3n" };
     constexpr Column COL_FORMAT = { 258, 126, L"Formato" };
     constexpr Column COL_PLAYERS = { 386, 52, L"Jugad." };
     constexpr Column COL_TIME = { 440, 52, L"Creada" };
@@ -162,6 +162,7 @@ namespace
             s_nameBox->SetTextColor(255, 255, 230, 210);
             s_nameBox->SetBackColor(0, 0, 0, 0);
             s_nameBox->SetState(UISTATE_NORMAL);
+            s_nameBox->SetFontProvider(&Draw::Body);
         }
 
         return *s_nameBox;
@@ -172,7 +173,6 @@ namespace
         s_mode = Mode::Form;
         CUITextInputBox& box = NameBox();
         box.SetText(nullptr);
-        box.SetPosition(PANEL_X + FORM_FIELD_X + 6, PANEL_Y + FORM_NAME_Y + 4);
         box.GiveFocus();
     }
 
@@ -240,7 +240,7 @@ namespace
         RenderHeader();
         if (state.rooms.empty())
         {
-            Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + ROWS_Y + 90, PANEL_W, L"No hay salas abiertas. ¡Crea la primera!", 170, 179, 194);
+            Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + ROWS_Y + 90, PANEL_W, L"No hay salas abiertas. \u00a1Crea la primera!", 170, 179, 194);
         }
 
         for (int row = 0; row < VISIBLE_ROWS && s_scroll + row < static_cast<int>(state.rooms.size()); ++row)
@@ -271,7 +271,7 @@ namespace
         Draw::PutTextLeft(Draw::Bold(), PANEL_X + FORM_LABEL_X, PANEL_Y + FORM_BOTS_Y + 5, FORM_FIELD_X - FORM_LABEL_X, L"Bots", 233, 228, 212);
 
         wchar_t summary[160] = {};
-        swprintf(summary, std::size(summary), L"Se jugará %dv%d %ls, %ls.", s_form.teamSize, s_form.teamSize,
+        swprintf(summary, std::size(summary), L"Se jugar\u00e1 %dv%d %ls, %ls.", s_form.teamSize, s_form.teamSize,
             s_form.midOnly ? L"solo por el carril central (sin jungla)" : L"en los 3 carriles con jungla",
             s_form.bots ? L"rellenando con bots los lugares libres" : L"solo con jugadores (los equipos tienen que quedar iguales)");
         Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + FORM_SUMMARY_Y, PANEL_W, summary, 170, 179, 194);
@@ -296,7 +296,7 @@ namespace
         Draw::Button(FooterButton(1, 2), L"VOLVER", false);
         RenderFormTexts();
 
-        NameBox().SetFont(Draw::Body());
+        NameBox().SetPosition(nameFrame.x + 8, nameFrame.y + (nameFrame.h - Draw::BodyLineHeight()) / 2);
         NameBox().Render();
     }
 

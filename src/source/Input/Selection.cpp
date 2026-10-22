@@ -28,6 +28,8 @@
 #include "GameLogic/Events/MatchEvent.h"
 #include "Network/Server/WSclient.h" // g_MyMobaTeam
 #include "GameLogic/Items/PersonalShopTitleImp.h"
+
+bool IsMobaEnemyStructure(const CHARACTER* c);   // ZzzInterface.cpp
 #include "GameLogic/Quests/CSQuest.h"
 #include "GameLogic/Items/CSItemOption.h"
 #include "GameLogic/NPCs/npcBreeder.h"
@@ -295,7 +297,7 @@ void SelectObjects()
         {
             CHARACTER* sc = &CharactersClient[SelectedCharacter];
 
-            if (sc->Dead > 0 || sc->Object.Kind != KIND_MONSTER)
+            if (sc->Dead > 0 || (sc->Object.Kind != KIND_MONSTER && !IsMobaEnemyStructure(sc)))
             {
                 SelectedCharacter = -1;
                 Attacking = -1;
@@ -419,6 +421,13 @@ void SelectObjects()
     else
     {
         g_pPartyManager->SearchPartyMember();
+    }
+
+    // The enemy nexus is an NPC for the client, but in a match it is a target: it is attacked (attack cursor), not talked to.
+    if (SelectedNpc != -1 && IsMobaEnemyStructure(&CharactersClient[SelectedNpc]))
+    {
+        SelectedCharacter = SelectedNpc;
+        SelectedNpc = -1;
     }
 
     if (SelectedCharacter == -1)

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "World/Moba/MobaMinimapCreeps.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
 
 #include "Character/CharacterManager.h"   // gCharacterManager (own hero's base class)
@@ -807,6 +808,39 @@ void RenderCameraView(const Frame& frame)
     horizontal(bottom);
     vertical(left);
     vertical(right);
+    SetColor(COLOR_WHITE);
+}
+
+void RenderCreeps(const Frame& frame, const Atlases& atlases)
+{
+    constexpr float CREEP_DOT_SIZE = 2.6f;   // reference px, before the marker size of the options panel
+    constexpr float CREEP_FLAT_SIZE = 1.6f;
+    const std::vector<World::Moba::MinimapCreeps::Dot>& dots = World::Moba::MinimapCreeps::Get();
+    if (dots.empty())
+        return;
+
+    if (atlases.portraitsLoaded)
+        EnableAlphaBlend3();
+
+    const AtlasGrid portraits = PortraitGrid(atlases);
+    for (const World::Moba::MinimapCreeps::Dot& dot : dots)
+    {
+        if (!IsTeam(dot.team))
+            continue;
+
+        float mx, my;
+        if (!frame.TileToRef((float)dot.x, (float)dot.y, mx, my))
+            continue;
+
+        SetColor(TeamColor(dot.team));
+        if (atlases.portraitsLoaded)
+            DrawCell(frame, portraits, PORTRAIT_DISC, mx, my, CREEP_DOT_SIZE * frame.markers);
+        else
+            FlatSquare(frame, mx, my, CREEP_FLAT_SIZE * frame.markers);
+    }
+
+    if (!atlases.portraitsLoaded)
+        EndRenderColor();
     SetColor(COLOR_WHITE);
 }
 

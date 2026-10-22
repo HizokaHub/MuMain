@@ -66,6 +66,30 @@ namespace
     }
 }
 
+int BodyLineHeight()
+{
+    constexpr float LINE_TO_FONT = 1.2f;   // the line of a font is a bit taller than its size
+    const float px = (FontHeight - 1) * BODY_SCALE * LINE_TO_FONT;
+    return (g_fScreenRate_y > 0.f) ? static_cast<int>(px / g_fScreenRate_y + 0.5f) : static_cast<int>(px);
+}
+
+void Tooltip(const wchar_t* text)
+{
+    constexpr int PAD = 4;
+    constexpr int CURSOR_GAP = 14;
+    g_pRenderText->SetFont(Body());
+    SIZE size = { 0, 0 };
+    GetTextExtentPoint32(g_pRenderText->GetFontDC(), text, static_cast<int>(wcslen(text)), &size);
+    const int width = (g_fScreenRate_x > 0.f ? static_cast<int>(size.cx / g_fScreenRate_x) : size.cx) + 2 * PAD;
+    const int height = BodyLineHeight() + 2 * PAD;
+    const int x = std::clamp(static_cast<int>(MouseX) + CURSOR_GAP, 0, REFERENCE_WIDTH - width);
+    const int y = std::clamp(static_cast<int>(MouseY) + CURSOR_GAP, 0, REFERENCE_HEIGHT - height);
+    FillRect({ x, y, width, height }, 0.02f, 0.02f, 0.03f, 1.f);
+    FrameRect({ x, y, width, height }, 0.95f, 0.80f, 0.40f, 1.f);
+    EndRenderColor();
+    PutTextLeft(Body(), x + PAD, y + PAD, width, text, 255, 244, 214);
+}
+
 HFONT Body()
 {
     EnsureFonts();

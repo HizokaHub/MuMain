@@ -44,13 +44,13 @@ namespace
         const wchar_t* title;
     };
 
-    constexpr Column COL_NAME = { 16, 126, L"Campeón" };
+    constexpr Column COL_NAME = { 16, 126, L"Campe\u00f3n" };
     constexpr Column COL_CLASS = { 144, 34, L"Clase" };
     constexpr Column COL_LEVEL = { 180, 28, L"Nv" };
     constexpr Column COL_KDA = { 210, 74, L"K / D / A" };
     constexpr Column COL_CREEPS = { 286, 40, L"Minions" };
     constexpr Column COL_GOLD = { 328, 60, L"Oro" };
-    constexpr Column COL_DAMAGE = { 392, 76, L"Daño" };
+    constexpr Column COL_DAMAGE = { 392, 76, L"Da\u00f1o" };
     constexpr Column COL_TAKEN = { 470, 76, L"Recibido" };
 
     constexpr float LAYER_DEPTH = 10.9f;       // above the ready-check popup (10.8)
@@ -105,7 +105,7 @@ namespace
         wchar_t line[96] = {};
         const int minutes = static_cast<int>(state.durationSeconds) / SECONDS_PER_MINUTE;
         const int seconds = static_cast<int>(state.durationSeconds) % SECONDS_PER_MINUTE;
-        swprintf(line, std::size(line), L"Nexo %ls destruido  -  duración %d:%02d", blueWon ? L"rojo" : L"azul", minutes, seconds);
+        swprintf(line, std::size(line), L"Nexo %ls destruido  -  duraci\u00f3n %d:%02d", blueWon ? L"rojo" : L"azul", minutes, seconds);
         Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + SUBTITLE_Y, PANEL_W, line, 233, 228, 212);
     }
 
@@ -174,7 +174,7 @@ namespace
     {
         wchar_t line[96] = {};
         const int seconds = static_cast<int>(std::ceil(Results::RemainingMs() / MS_PER_SECOND));
-        swprintf(line, std::size(line), L"Volverás a Lorencia automáticamente en %d s", seconds);
+        swprintf(line, std::size(line), L"Volver\u00e1s a Lorencia autom\u00e1ticamente en %d s", seconds);
         Draw::PutTextCentered(Draw::Body(), PANEL_X, PANEL_Y + PANEL_H - HINT_BOTTOM_MARGIN - ROW_H + TEXT_DY, PANEL_W, line, 127, 138, 160);
     }
 }
