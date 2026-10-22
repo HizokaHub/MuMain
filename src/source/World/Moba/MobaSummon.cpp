@@ -41,8 +41,18 @@ void ToggleControl()
     if (!Get().present)
         return;
 
+    // X commands it; X again releases it where it stands.
     s_localControl = !s_localControl;
-    SendMobaSummonControl(s_localControl);
+    SendMobaSummonControl(s_localControl ? 1 : 0);
+}
+
+void CallBack()
+{
+    if (!Get().present)
+        return;
+
+    s_localControl = false;
+    SendMobaSummonControl(2);
 }
 
 void OrderMove(int tileX, int tileY)

@@ -13328,12 +13328,13 @@ static void ReceiveMobaChampionState(const BYTE* ReceiveBuffer)
     g_MobaBuffPoints = (g_MobaLevel > 0 && ReceiveBuffer[1] >= 15 + count * 3 + 5) ? p[4] : 0;
 }
 
-// Handles packet C1 D5 29: the Elf's creature. Layout: [4]=present [5]=control [6..7]=object id u16 LE [8]=hp% [9]=tileX [10]=tileY [11]=rank
+// Handles packet C1 D5 29: the Elf's creature. Layout: [4]=present [5]=mode (0 follows, 1 commanded, 2 holds its post) [6..7]=object id u16 LE [8]=hp% [9]=tileX [10]=tileY [11]=rank
 static void ReceiveMobaSummon(const BYTE* ReceiveBuffer)
 {
     World::Moba::Summon::State state;
     state.present = ReceiveBuffer[4] != 0;
-    state.control = ReceiveBuffer[5] != 0;
+    state.control = ReceiveBuffer[5] == 1;
+    state.stay = ReceiveBuffer[5] == 2;
     state.key = static_cast<unsigned short>(ReceiveBuffer[6] | (ReceiveBuffer[7] << 8));
     state.hpPercent = ReceiveBuffer[8];
     state.x = ReceiveBuffer[9];
@@ -13453,12 +13454,12 @@ void SendMobaRecall()
 }
 
 // MOBA: the control key of the summon (C1 05 D5 27 on).
-void SendMobaSummonControl(bool on)
+void SendMobaSummonControl(unsigned char mode)
 {
     if (SocketClient == nullptr || !SocketClient->IsConnected())
         return;
 
-    BYTE buf[5] = { 0xC1, 5, 0xD5, 0x27, static_cast<BYTE>(on ? 1 : 0) };
+    BYTE buf[5] = { 0xC1, 5, 0xD5, 0x27, mode };
     SocketClient->Send(buf, 5);
 }
 

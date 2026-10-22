@@ -64,7 +64,7 @@ bool CMobaSummonHud::Render()
     wchar_t text[64] = {};
     swprintf(text, std::size(text), L"Invocaci\u00f3n  rango %d", state.rank);
     Draw::PutTextLeft(Draw::Bold(), strip.x + BAR_X, strip.y + LABEL_Y, BAR_W, text, 233, 228, 212);
-    Draw::PutTextCentered(Draw::Bold(), strip.x + BAR_X + BAR_W + 4, strip.y + 5, STRIP_W - BAR_X - BAR_W - 8, control ? L"[X] MANDO" : L"[X] sigue",
+    Draw::PutTextCentered(Draw::Bold(), strip.x + BAR_X + BAR_W + 4, strip.y + 5, STRIP_W - BAR_X - BAR_W - 8, control ? L"[X] MANDO" : (state.stay ? L"[Z] llamar" : L"[X] mandar"),
         control ? 255 : 160, control ? 220 : 170, control ? 90 : 185);
     g_pRenderText->SetTextColor(backColor);
     return true;

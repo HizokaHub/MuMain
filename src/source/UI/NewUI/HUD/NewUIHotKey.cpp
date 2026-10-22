@@ -318,7 +318,7 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
     }
     else if (SEASON3B::IsPress('X') && g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus())
     {
-        // In a MOBA match X commands the Elf's creature (or gives it back to follow).
+        // In a MOBA match X commands the creature of the Elf; pressed again it stays where it is.
         World::Moba::Summon::ToggleControl();
         return false;
     }
@@ -393,6 +393,12 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
     {
         MUHelper::g_MuHelper.Toggle();
         PlayBuffer(SOUND_CLICK01);
+        return false;
+    }
+    else if (SEASON3B::IsPress('Z') && g_MobaLevel > 0 && World::Moba::Summon::Get().present && !g_pChatInputBox->HaveFocus())
+    {
+        // In a MOBA match, with a creature alive, Z calls it back to follow (otherwise it is the helper).
+        World::Moba::Summon::CallBack();
         return false;
     }
     else if (SEASON3B::IsPress('Z'))
