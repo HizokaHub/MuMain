@@ -6437,7 +6437,8 @@ void MoveCharacterPosition(CHARACTER* c)
 // reappear far from where the minimap showed them. Here they ignore the other characters, hurry when they lag and snap when far behind.
 namespace
 {
-    constexpr float MOBA_MONSTER_HURRY_TILES = 3.0f;    // further than this from the target tile: walks at double speed
+    constexpr float MOBA_MONSTER_HURRY_TILES = 2.5f;    // further than this from the target tile: walks at double speed
+    constexpr float MOBA_MONSTER_HURRY_FAR_TILES = 5.0f; // further than this: triple speed
     constexpr float MOBA_MONSTER_SNAP_TILES = 8.0f;     // further than this: goes straight to the target tile
     constexpr double MOBA_LAG_LOG_EVERY_MS = 4000.0;
 
@@ -6447,12 +6448,19 @@ namespace
         int hurrying = 0;
         int snapped = 0;
         float worst = 0.f;
+        int worstMonsterIndex = -1;
+        int players = 0;
+        int playersHurrying = 0;
+        int playersSnapped = 0;
+        float playersWorst = 0.f;
         double nextLogMs = 0.0;
     } s_mobaLag;
 
+    // Every character the server moves in the arena except the hero: minions, jungle mobs, summons, bots and other champions.
     bool IsMobaMatchMonster(const CHARACTER* c)
     {
-        return gMapManager.WorldActive == WD_200_MOBA_ARENA && c->Object.Kind == KIND_MONSTER;
+        return gMapManager.WorldActive == WD_200_MOBA_ARENA
+            && (c->Object.Kind == KIND_MONSTER || c->Object.Kind == KIND_PLAYER);
     }
 
     // Tiles between where the client draws the monster and the tile the server sent it to.
@@ -6470,8 +6478,9 @@ namespace
 
         if (s_mobaLag.nextLogMs > 0.0 && s_mobaLag.monsters > 0)
         {
-            g_ErrorReport.Write(L"[MOBA-LAG] monsters=%d hurrying=%d snapped=%d worstLagTiles=%.1f\r\n",
-                s_mobaLag.monsters, s_mobaLag.hurrying, s_mobaLag.snapped, s_mobaLag.worst);
+            g_ErrorReport.Write(L"[MOBA-LAG] monsters=%d hurrying=%d snapped=%d worstLagTiles=%.1f worstMonsterIndex=%d | players=%d hurrying=%d snapped=%d worstLagTiles=%.1f\r\n",
+                s_mobaLag.monsters, s_mobaLag.hurrying, s_mobaLag.snapped, s_mobaLag.worst, s_mobaLag.worstMonsterIndex,
+                s_mobaLag.players, s_mobaLag.playersHurrying, s_mobaLag.playersSnapped, s_mobaLag.playersWorst);
         }
 
         s_mobaLag = MobaLagStats{};
@@ -6490,12 +6499,28 @@ void MoveMonsterClient(CHARACTER* c, OBJECT* o)
         {
             LogMobaLag();
             const float lag = MobaMonsterLagTiles(c);
-            ++s_mobaLag.monsters;
-            s_mobaLag.worst = std::max(s_mobaLag.worst, lag);
+            const bool isPlayer = o->Kind == KIND_PLAYER;
+            if (isPlayer)
+            {
+                ++s_mobaLag.players;
+                s_mobaLag.playersWorst = std::max(s_mobaLag.playersWorst, lag);
+            }
+            else
+            {
+                ++s_mobaLag.monsters;
+                if (lag > s_mobaLag.worst)
+                {
+                    s_mobaLag.worst = lag;
+                    s_mobaLag.worstMonsterIndex = c->MonsterIndex;
+                }
+            }
             if (lag > MOBA_MONSTER_SNAP_TILES && c->Appear == 0)
             {
                 // Far behind the server: the minimap shows it somewhere else. Put it on its target tile.
-                ++s_mobaLag.snapped;
+                if (isPlayer)
+                    ++s_mobaLag.playersSnapped;
+                else
+                    ++s_mobaLag.snapped;
                 o->Position[0] = (static_cast<float>(c->TargetX) + 0.5f) * TERRAIN_SCALE;
                 o->Position[1] = (static_cast<float>(c->TargetY) + 0.5f) * TERRAIN_SCALE;
                 c->PositionX = c->TargetX;
@@ -6544,17 +6569,31 @@ void MoveMonsterClient(CHARACTER* c, OBJECT* o)
                 SetPlayerWalk(c);
             }
 
-            if (MovePath(c))
+            // Lagging behind the server: walks 2x (3x when far) by repeating the whole step, so the path keeps being followed
+            // point by point instead of overshooting its points.
+            int steps = 1;
+            if (mobaMonster)
             {
-                c->Movement = false;
-                SetPlayerStop(c);
+                const float lag = MobaMonsterLagTiles(c);
+                if (lag > MOBA_MONSTER_HURRY_TILES)
+                {
+                    steps = lag > MOBA_MONSTER_HURRY_FAR_TILES ? 3 : 2;
+                    if (o->Kind == KIND_PLAYER)
+                        ++s_mobaLag.playersHurrying;
+                    else
+                        ++s_mobaLag.hurrying;
+                }
             }
 
-            MoveCharacterPosition(c);
-            if (mobaMonster && MobaMonsterLagTiles(c) > MOBA_MONSTER_HURRY_TILES)
+            for (int i = 0; i < steps; ++i)
             {
-                ++s_mobaLag.hurrying;
-                MoveCharacterPosition(c);   // lagging behind the server: double speed
+                if (MovePath(c))
+                {
+                    c->Movement = false;
+                    SetPlayerStop(c);
+                    break;
+                }
+                MoveCharacterPosition(c);
             }
         }
     }
