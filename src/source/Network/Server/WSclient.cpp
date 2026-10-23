@@ -2058,6 +2058,12 @@ void ReceiveMoveCharacter(std::span<const BYTE> ReceiveBuffer)
             iDefaultWall = TW_NOMOVE;
         }
 
+        // MOBA match: the minions walk through the crowd of the lane (the server keeps them apart); only the terrain stops them.
+        if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->Kind == KIND_MONSTER)
+        {
+            iDefaultWall = TW_NOMOVE;
+        }
+
         if (PathFinding2(c->PositionX, c->PositionY, c->TargetX, c->TargetY, &c->Path, 0.0f, iDefaultWall))
         {
             c->Movement = true;
