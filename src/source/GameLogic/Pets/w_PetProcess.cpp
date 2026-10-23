@@ -292,6 +292,21 @@ bool PetProcess::IsPet(int itemType)
     return TRUE;
 }
 
+bool PetProcess::HasPet(CHARACTER* Owner, int itemType)
+{
+    if (NULL == Owner) return FALSE;
+
+    for (auto iter = m_petsList.begin(); iter != m_petsList.end(); ++iter)
+    {
+        Weak_Ptr(PetObject) basepet = *iter;
+        if (basepet.expired() == FALSE && basepet.lock()->IsSameObject(&Owner->Object, itemType))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 bool PetProcess::CreatePet(int itemType, int modelType, vec3_t Position, CHARACTER* Owner, int SubType, int LinkBone)
 {
     if (NULL == Owner) return FALSE;

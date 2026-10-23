@@ -115,6 +115,8 @@ namespace
 #include "GameLogic/Pets/w_PetProcess.h"
 #include "Character/CSParts.h"
 #include "World/Moba/MobaFog.h"
+#include "World/Moba/MobaSummon.h"
+#include "World/Moba/MobaExtraPets.h"
 #include "Render/Models/BoneManager.h"
 #include "GameLogic/Events/Cinematic/CDirection.h"
 #include "Core/Input/Input.h"
@@ -6437,9 +6439,11 @@ void MoveCharacterPosition(CHARACTER* c)
 // reappear far from where the minimap showed them. Here they ignore the other characters, hurry when they lag and snap when far behind.
 namespace
 {
-    constexpr float MOBA_MONSTER_HURRY_TILES = 2.5f;    // further than this from the target tile: walks at double speed
-    constexpr float MOBA_MONSTER_HURRY_FAR_TILES = 5.0f; // further than this: triple speed
-    constexpr float MOBA_MONSTER_SNAP_TILES = 8.0f;     // further than this: goes straight to the target tile
+    // The lag is how many tiles the monster is from the target tile beyond the length of the last walk packet: the server walks a
+    // packet of N steps from where the monster was, so being N tiles from its end is on time (a 16-step jungle walk is not lag).
+    constexpr float MOBA_MONSTER_HURRY_TILES = 1.0f;    // more lag than this: walks at double speed
+    constexpr float MOBA_MONSTER_HURRY_FAR_TILES = 3.0f; // more lag than this: triple speed
+    constexpr float MOBA_MONSTER_SNAP_TILES = 6.0f;     // more lag than this: goes straight to the target tile
     constexpr double MOBA_LAG_LOG_EVERY_MS = 4000.0;
 
     struct MobaLagStats
@@ -6463,12 +6467,12 @@ namespace
             && (c->Object.Kind == KIND_MONSTER || c->Object.Kind == KIND_PLAYER);
     }
 
-    // Tiles between where the client draws the monster and the tile the server sent it to.
+    // Tiles the client draws the monster behind where the server walked it (see above).
     float MobaMonsterLagTiles(const CHARACTER* c)
     {
-        const float dx = c->Object.Position[0] / TERRAIN_SCALE - (static_cast<float>(c->TargetX) + 0.5f);
-        const float dy = c->Object.Position[1] / TERRAIN_SCALE - (static_cast<float>(c->TargetY) + 0.5f);
-        return std::sqrt(dx * dx + dy * dy);
+        const float dx = std::fabs(c->Object.Position[0] / TERRAIN_SCALE - (static_cast<float>(c->TargetX) + 0.5f));
+        const float dy = std::fabs(c->Object.Position[1] / TERRAIN_SCALE - (static_cast<float>(c->TargetY) + 0.5f));
+        return std::max(0.f, std::max(dx, dy) - static_cast<float>(c->MobaChunkLen));
     }
 
     void LogMobaLag()
@@ -6491,6 +6495,23 @@ namespace
 void MoveMonsterClient(CHARACTER* c, OBJECT* o)
 {
     if (c == Hero) return;
+
+    if (gMapManager.WorldActive == WD_200_MOBA_ARENA && o->Kind == KIND_MONSTER)
+    {
+        // The creature of an Elf grows with its level (the server sends the levels of all the creatures of the match).
+        const float sizeFactor = World::Moba::Summon::SizeFactor(static_cast<unsigned short>(c->Key));
+        if (sizeFactor != 1.0f || c->MobaBaseScale > 0.f)
+        {
+            if (c->MobaBaseScale <= 0.f || c->MobaScaleKey != c->Key)
+            {
+                c->MobaBaseScale = o->Scale;
+                c->MobaScaleKey = c->Key;
+            }
+            o->Scale = c->MobaBaseScale * sizeFactor;
+            if (sizeFactor == 1.0f)
+                c->MobaBaseScale = 0.f;
+        }
+    }
 
     if (c->Dead == 0)
     {
@@ -6613,6 +6634,7 @@ void MoveCharacterClient(CHARACTER* cc)
     {
         co->Visible = TestFrustrum2D(co->Position[0] * 0.01f, co->Position[1] * 0.01f, -20.f);
 
+        World::Moba::ExtraPets::Apply(cc);
         MoveMonsterClient(cc, co);
         MoveCharacter(cc, co);
         MoveCharacterVisual(cc, co);

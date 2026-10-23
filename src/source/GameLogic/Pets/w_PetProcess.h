@@ -79,6 +79,7 @@ private:
 public:
     bool LoadData();
     bool IsPet(int itemType);
+    bool HasPet(CHARACTER* Owner, int itemType);
     bool CreatePet(int itemType, int modelType, vec3_t Position, CHARACTER* Owner, int SubType = 0, int LinkBone = 0);
     void DeletePet(CHARACTER* Owner, int itemType = -1, bool allDelete = false);
     void UpdatePets();

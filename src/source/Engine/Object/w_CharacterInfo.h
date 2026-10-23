@@ -158,6 +158,10 @@ public:
     WORD		m_byDieType;
     BYTE        TargetX;
     BYTE        TargetY;
+    BYTE        MobaChunkLen; // MOBA arena: number of steps of the last walk packet (the lag is measured past them)
+    float       MobaBaseScale; // MOBA arena: the model scale before a summon level made it bigger (0 = not taken yet)
+    int         MobaScaleKey;  // object key the base scale belongs to
+    WORD        MobaExtraMask; // MOBA arena: extra pets this client created for the character (see MobaExtraPets.h)
     BYTE        SkillX;
     BYTE        SkillY;
     float        Appear;

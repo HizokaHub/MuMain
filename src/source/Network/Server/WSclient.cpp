@@ -94,6 +94,7 @@
 #include "World/Moba/MobaRoomList.h"
 #include "World/Moba/MobaMinimapCreeps.h"
 #include "World/Moba/MobaSummon.h"
+#include "World/Moba/MobaExtraPets.h"
 #include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
 
@@ -2023,6 +2024,7 @@ void ReceiveMoveCharacter(std::span<const BYTE> ReceiveBuffer)
 
     c->TargetX = Data->TargetX;
     c->TargetY = Data->TargetY;
+    c->MobaChunkLen = static_cast<BYTE>(pathNum);
     c->TargetAngle = Data->PathMetadata >> 4;
 
     g_ConsoleDebug->Write(MCD_RECEIVE, L"ID : %ls | sX : %d | sY : %d | tX : %d | tY : %d", c->ID, Data->SourceX, Data->SourceY, c->TargetX, c->TargetY);
@@ -13346,7 +13348,35 @@ static void ReceiveMobaSummon(const BYTE* ReceiveBuffer)
     state.x = ReceiveBuffer[9];
     state.y = ReceiveBuffer[10];
     state.rank = ReceiveBuffer[11];
+    state.level = std::max<int>(1, ReceiveBuffer[12]);
+    state.progress = ReceiveBuffer[13];
     World::Moba::Summon::Set(state);
+}
+
+// Handles packet C1 D5 2C: the pets every champion switched on from its inventory: count, then [keyLo keyHi maskLo maskHi] per champion.
+static void ReceiveMobaExtraPets(const BYTE* ReceiveBuffer)
+{
+    std::vector<std::pair<unsigned short, unsigned short>> pets;
+    const int count = ReceiveBuffer[4];
+    for (int i = 0; i < count; ++i)
+    {
+        const BYTE* entry = ReceiveBuffer + 5 + i * 4;
+        pets.emplace_back(static_cast<unsigned short>(entry[0] | (entry[1] << 8)), static_cast<unsigned short>(entry[2] | (entry[3] << 8)));
+    }
+    World::Moba::ExtraPets::SetAll(pets);
+}
+
+// Handles packet C1 D5 2B: the level of every living summon of the match: count, then [keyLo keyHi level] per creature.
+static void ReceiveMobaSummonSizes(const BYTE* ReceiveBuffer)
+{
+    std::vector<std::pair<unsigned short, int>> levels;
+    const int count = ReceiveBuffer[4];
+    for (int i = 0; i < count; ++i)
+    {
+        const BYTE* entry = ReceiveBuffer + 5 + i * 3;
+        levels.emplace_back(static_cast<unsigned short>(entry[0] | (entry[1] << 8)), static_cast<int>(entry[2]));
+    }
+    World::Moba::Summon::SetSizes(levels);
 }
 
 // Handles packet C1 D5 04: a champion ability just went on its per-match cooldown.
@@ -14891,6 +14921,12 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x29:
             ReceiveMobaSummon(ReceiveBuffer);
+            break;
+        case 0x2B:
+            ReceiveMobaSummonSizes(ReceiveBuffer);
+            break;
+        case 0x2C:
+            ReceiveMobaExtraPets(ReceiveBuffer);
             break;
         case 0x05:
             ReceiveMobaScoreboard(ReceiveBuffer);

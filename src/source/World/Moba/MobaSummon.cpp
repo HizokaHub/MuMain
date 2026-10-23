@@ -13,7 +13,10 @@ namespace
     // Without news for this long the creature is taken as gone (the match ended or the packets stopped).
     constexpr double STALE_AFTER_MS = 4000.0;
 
+    constexpr float SIZE_PER_LEVEL = 0.075f;   // +7.5 % per level: 1.68x at level 10
+
     State s_state;
+    std::vector<std::pair<unsigned short, int>> s_sizes;
     double s_updatedMs = -1.0e9;
     bool s_localControl = false;   // set at once by the key, until the server confirms
 }
@@ -23,6 +26,21 @@ void Set(State state)
     s_state = state;
     s_localControl = state.present && state.control;
     s_updatedMs = WorldTime;
+}
+
+void SetSizes(const std::vector<std::pair<unsigned short, int>>& levels)
+{
+    s_sizes = levels;
+}
+
+float SizeFactor(unsigned short key)
+{
+    for (const auto& entry : s_sizes)
+    {
+        if (entry.first == key)
+            return 1.0f + SIZE_PER_LEVEL * static_cast<float>(entry.second - 1);
+    }
+    return 1.0f;
 }
 
 const State& Get()

@@ -83,6 +83,10 @@ void CHARACTER::Initialize()
     Damage = 0;
     Hit = 0;
     MoveSpeed = 0;
+    MobaChunkLen = 0;
+    MobaBaseScale = 0.f;
+    MobaScaleKey = 0;
+    MobaExtraMask = 0;
 
     Action = 0;
     ExtendStateTime = 0;
