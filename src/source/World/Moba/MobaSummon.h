@@ -44,7 +44,10 @@ namespace World::Moba::Summon
     // its level is. Replaces the whole list.
     void SetSizes(const std::vector<std::pair<unsigned short, int>>& levels);
 
-    // The factor on the size of the creature with that object id (1 when it is not on the list).
+    // The golden invasion sends the size of its growing dragons (C1 D5 2E count [keyLo keyHi percent]): a newborn is 35 % of a grown one. Replaces the list.
+    void SetGrowth(const std::vector<std::pair<unsigned short, int>>& percents);
+
+    // The factor on the size of the monster with that object id: the level of an Elf's creature or the growth of a golden dragon (1 when it is on neither list).
     float SizeFactor(unsigned short key);
 
     // Orders: walk to a tile, or attack the enemy with that object id.

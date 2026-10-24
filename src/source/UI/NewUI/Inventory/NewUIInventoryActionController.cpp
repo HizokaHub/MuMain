@@ -283,7 +283,13 @@ bool CNewUIInventoryActionController::HandleInventoryRightClickActions(CNewUIInv
 
     // MOBA: the Dark Horse and the Dark Raven work from the inventory: the right click switches them on or off, so they do not
     // take an equipment slot (the Dark Lord keeps its shield and its other pet).
-    if (g_MobaLevel > 0 && iIndex >= 0 && (pItem->Type == ITEM_HELPER + 4 || pItem->Type == ITEM_HELPER + 5))
+    // The other pets (Guardian Angel, Imp, Demon, Spirit, Rudolf, Panda, Unicorn, Skeleton) work the same way and all can be on at once; the golden
+    // gems of the invasion (Creation, Bless, Soul, Life, Chaos) are used with the right click too.
+    if (g_MobaLevel > 0 && iIndex >= 0 && (pItem->Type == ITEM_HELPER + 4 || pItem->Type == ITEM_HELPER + 5
+        || pItem->Type == ITEM_GUARDIAN_ANGEL || pItem->Type == ITEM_IMP || pItem->Type == ITEM_DEMON || pItem->Type == ITEM_SPIRIT_OF_GUARDIAN
+        || pItem->Type == ITEM_PET_RUDOLF || pItem->Type == ITEM_PET_PANDA || pItem->Type == ITEM_PET_UNICORN || pItem->Type == ITEM_PET_SKELETON
+        || pItem->Type == ITEM_JEWEL_OF_CREATION || pItem->Type == ITEM_JEWEL_OF_BLESS || pItem->Type == ITEM_JEWEL_OF_SOUL
+        || pItem->Type == ITEM_JEWEL_OF_LIFE || pItem->Type == ITEM_JEWEL_OF_CHAOS))
     {
         SendMobaPetToggle(static_cast<unsigned char>(iIndex));
         PlayBuffer(SOUND_CLICK01);

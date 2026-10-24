@@ -17,6 +17,7 @@ namespace
 
     State s_state;
     std::vector<std::pair<unsigned short, int>> s_sizes;
+    std::vector<std::pair<unsigned short, int>> s_growth;
     double s_updatedMs = -1.0e9;
     bool s_localControl = false;   // set at once by the key, until the server confirms
 }
@@ -33,12 +34,22 @@ void SetSizes(const std::vector<std::pair<unsigned short, int>>& levels)
     s_sizes = levels;
 }
 
+void SetGrowth(const std::vector<std::pair<unsigned short, int>>& percents)
+{
+    s_growth = percents;
+}
+
 float SizeFactor(unsigned short key)
 {
     for (const auto& entry : s_sizes)
     {
         if (entry.first == key)
             return 1.0f + SIZE_PER_LEVEL * static_cast<float>(entry.second - 1);
+    }
+    for (const auto& entry : s_growth)
+    {
+        if (entry.first == key)
+            return static_cast<float>(entry.second) / 100.0f;
     }
     return 1.0f;
 }

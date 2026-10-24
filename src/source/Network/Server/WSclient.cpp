@@ -95,6 +95,7 @@
 #include "World/Moba/MobaMinimapCreeps.h"
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaExtraPets.h"
+#include "World/Moba/MobaCityFire.h"
 #include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
 
@@ -13353,6 +13354,38 @@ static void ReceiveMobaSummon(const BYTE* ReceiveBuffer)
     World::Moba::Summon::Set(state);
 }
 
+// Handles packet C1 D5 2E: the size in percent of every growing golden dragon: count, then [keyLo keyHi percent] per dragon.
+static void ReceiveMobaGoldenGrowth(const BYTE* ReceiveBuffer)
+{
+    std::vector<std::pair<unsigned short, int>> percents;
+    const int count = ReceiveBuffer[4];
+    for (int i = 0; i < count; ++i)
+    {
+        const BYTE* entry = ReceiveBuffer + 5 + i * 3;
+        percents.emplace_back(static_cast<unsigned short>(entry[0] | (entry[1] << 8)), static_cast<int>(entry[2]));
+    }
+    World::Moba::Summon::SetGrowth(percents);
+}
+
+// Handles packet C1 D5 2F: the cities of the golden invasion: count, then [team x y radius burning] per team.
+static void ReceiveMobaGoldenCities(const BYTE* ReceiveBuffer)
+{
+    std::vector<World::Moba::CityFire::City> cities;
+    const int count = ReceiveBuffer[4];
+    for (int i = 0; i < count; ++i)
+    {
+        const BYTE* entry = ReceiveBuffer + 5 + i * 5;
+        World::Moba::CityFire::City city;
+        city.team = entry[0];
+        city.x = entry[1];
+        city.y = entry[2];
+        city.radius = entry[3];
+        city.burning = entry[4] != 0;
+        cities.push_back(city);
+    }
+    World::Moba::CityFire::Set(cities);
+}
+
 // Handles packet C1 D5 2D: the golden dragons of the invasion fly over the arena for the given milliseconds.
 extern double g_MobaFlyoverUntilMs;
 static void ReceiveMobaGoldenFlyover(const BYTE* ReceiveBuffer)
@@ -14939,6 +14972,12 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x2D:
             ReceiveMobaGoldenFlyover(ReceiveBuffer);
+            break;
+        case 0x2E:
+            ReceiveMobaGoldenGrowth(ReceiveBuffer);
+            break;
+        case 0x2F:
+            ReceiveMobaGoldenCities(ReceiveBuffer);
             break;
         case 0x05:
             ReceiveMobaScoreboard(ReceiveBuffer);
