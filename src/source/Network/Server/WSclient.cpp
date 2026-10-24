@@ -13353,6 +13353,15 @@ static void ReceiveMobaSummon(const BYTE* ReceiveBuffer)
     World::Moba::Summon::Set(state);
 }
 
+// Handles packet C1 D5 2D: the golden dragons of the invasion fly over the arena for the given milliseconds.
+extern double g_MobaFlyoverUntilMs;
+static void ReceiveMobaGoldenFlyover(const BYTE* ReceiveBuffer)
+{
+    const int durationMs = ReceiveBuffer[4] | (ReceiveBuffer[5] << 8);
+    EnableEvent = 3;
+    g_MobaFlyoverUntilMs = WorldTime + static_cast<double>(durationMs);
+}
+
 // Handles packet C1 D5 2C: the pets every champion switched on from its inventory: count, then [keyLo keyHi maskLo maskHi] per champion.
 static void ReceiveMobaExtraPets(const BYTE* ReceiveBuffer)
 {
@@ -14927,6 +14936,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x2C:
             ReceiveMobaExtraPets(ReceiveBuffer);
+            break;
+        case 0x2D:
+            ReceiveMobaGoldenFlyover(ReceiveBuffer);
             break;
         case 0x05:
             ReceiveMobaScoreboard(ReceiveBuffer);

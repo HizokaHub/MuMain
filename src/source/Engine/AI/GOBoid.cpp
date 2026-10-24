@@ -1197,8 +1197,19 @@ void MoveBoidGroup(OBJECT* o, int index)
     }
 }
 
+// MOBA arena: the golden dragons which announce the invasion are the dragons of the client's golden dragon event (EnableEvent 3: golden
+// dragons flying over the hero and fire raining around it). The server asks for it for a while (C1 D5 2D); this is when it ends.
+extern double WorldTime;
+double g_MobaFlyoverUntilMs = 0.0;
+
 void MoveBoids()
 {
+    if (g_MobaFlyoverUntilMs > 0.0 && WorldTime > g_MobaFlyoverUntilMs)
+    {
+        g_MobaFlyoverUntilMs = 0.0;
+        EnableEvent = 0;
+    }
+
     if (!g_pOption->GetRenderAllEffects())
     {
         return;
