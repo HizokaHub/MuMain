@@ -12,6 +12,8 @@
 
 #include "GameLogic/Social/GambleSystem.h"
 #include "GameLogic/Items/MobaShopPrices.h"
+#include "UI/NewUI/NPCs/MobaShopPanel.h"
+#include "UI/NewUI/NewUI3DRenderMng.h"
 
 using namespace SEASON3B;
 
@@ -66,13 +68,64 @@ bool SEASON3B::CNewUINPCShop::Create(CNewUIManager* pNewUIMng, int x, int y)
 
     SetButtonInfo();
 
+    m_mobaIcons.owner = this;
+    if (g_pNewUI3DRenderMng)
+        g_pNewUI3DRenderMng->Add3DRenderObj(&m_mobaIcons, INVENTORY_CAMERA_Z_ORDER);
+
     Show(false);
 
     return true;
 }
 
+void SEASON3B::CNewUINPCShop::MobaIcons::Render3D()
+{
+    if (owner != nullptr)
+        UI::Moba::ShopPanel::Render3D(owner->m_pNewInventoryCtrl);
+}
+
+bool SEASON3B::CNewUINPCShop::MobaIcons::IsVisible() const
+{
+    return owner != nullptr && owner->IsVisible() && UI::Moba::ShopPanel::Active();
+}
+
+// MOBA shop: the own panel gets the mouse. A click on an item buys it; an item of the inventory dropped on the panel is sold.
+bool SEASON3B::CNewUINPCShop::UpdateMobaMouse()
+{
+    if (InventoryProcess() == true)
+    {
+        return false;
+    }
+
+    const UI::Moba::ShopPanel::MouseResult result = UI::Moba::ShopPanel::UpdateMouse(m_pNewInventoryCtrl, m_bIsNPCShopOpen);
+    if (result.close)
+    {
+        g_pNewUISystem->Hide(SEASON3B::INTERFACE_NPCSHOP);
+        PlayBuffer(SOUND_CLICK01);
+        return false;
+    }
+
+    if (result.used && SEASON3B::IsRelease(VK_LBUTTON) && !m_bIsNPCShopOpen)
+    {
+        m_bIsNPCShopOpen = true;
+        return false;
+    }
+
+    if (result.buyItem != nullptr && BuyCost == 0)
+    {
+        SocketClient->ToGameServer()->SendBuyItemFromNpcRequest(result.buyIndex);
+        BuyCost = ItemValue(result.buyItem, 0);
+        PlayBuffer(SOUND_CLICK01);
+        return false;
+    }
+
+    return !result.used;
+}
+
 void SEASON3B::CNewUINPCShop::Release()
 {
+    if (g_pNewUI3DRenderMng)
+        g_pNewUI3DRenderMng->Remove3DRenderObj(&m_mobaIcons);
+
     UnloadImages();
 
     SAFE_DELETE(m_pNewInventoryCtrl);
@@ -94,6 +147,11 @@ void SEASON3B::CNewUINPCShop::SetPos(int x, int y)
 
 bool SEASON3B::CNewUINPCShop::UpdateMouseEvent()
 {
+    if (UI::Moba::ShopPanel::Active() && m_pNewInventoryCtrl)
+    {
+        return UpdateMobaMouse();
+    }
+
     if (m_pNewInventoryCtrl)
     {
         if (false == m_pNewInventoryCtrl->UpdateMouseEvent())
@@ -200,6 +258,17 @@ bool SEASON3B::CNewUINPCShop::Update()
     {
         RepairAllGold();
     }
+    if (UI::Moba::ShopPanel::Active())
+    {
+        if (m_pNewInventoryCtrl)
+            m_pNewInventoryCtrl->HideInventory();
+        UI::Moba::ShopPanel::QueueTooltip();
+    }
+    else if (m_pNewInventoryCtrl)
+    {
+        m_pNewInventoryCtrl->ShowInventory();
+    }
+
     if (m_pNewInventoryCtrl && false == m_pNewInventoryCtrl->Update())
     {
         return false;
@@ -209,6 +278,14 @@ bool SEASON3B::CNewUINPCShop::Update()
 
 bool SEASON3B::CNewUINPCShop::Render()
 {
+    if (UI::Moba::ShopPanel::Active() && m_pNewInventoryCtrl)
+    {
+        EnableAlphaTest();
+        UI::Moba::ShopPanel::Render(m_pNewInventoryCtrl);
+        DisableAlphaBlend();
+        return true;
+    }
+
     EnableAlphaTest();
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     RenderFrame();
@@ -330,7 +407,7 @@ bool SEASON3B::CNewUINPCShop::InventoryProcess()
     if (IsSellingBan(pItem))	m_pNewInventoryCtrl->SetSquareColorNormal(1.0f, 0.0f, 0.0f);
     else	m_pNewInventoryCtrl->SetSquareColorNormal(0.1f, 0.4f, 0.8f);
 
-    if (SEASON3B::IsRelease(VK_LBUTTON) == true && m_pNewInventoryCtrl->CheckPtInRect(MouseX, MouseY) == true && m_bSellingItem == false)
+    if (SEASON3B::IsRelease(VK_LBUTTON) == true && (m_pNewInventoryCtrl->CheckPtInRect(MouseX, MouseY) == true || (UI::Moba::ShopPanel::Active() && UI::Moba::ShopPanel::Contains(MouseX, MouseY))) && m_bSellingItem == false)
     {
         if (CharacterMachine->Gold + ItemValue(pItem) > 2000000000)
         {
@@ -410,6 +487,7 @@ void SEASON3B::CNewUINPCShop::DeleteAllItems()
 
 void SEASON3B::CNewUINPCShop::OpenningProcess()
 {
+    UI::Moba::ShopPanel::Reset();
     if (SEASON3B::IsRepeat(VK_LBUTTON))
     {
         m_bIsNPCShopOpen = false;
@@ -422,6 +500,7 @@ void SEASON3B::CNewUINPCShop::OpenningProcess()
 
 void SEASON3B::CNewUINPCShop::ClosingProcess()
 {
+    UI::Moba::ShopPanel::Reset();
     SocketClient->ToGameServer()->SendCloseNpcRequest();
     GameLogic::Items::MobaShopPrices::Clear();
 

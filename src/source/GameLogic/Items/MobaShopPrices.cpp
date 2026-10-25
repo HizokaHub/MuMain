@@ -48,6 +48,19 @@ namespace
 
 namespace GameLogic::Items::MobaShopPrices
 {
+    bool HasPrices()
+    {
+        return !s_entries.empty();
+    }
+
+    int TierOf(const tagITEM& item)
+    {
+        const Entry* entry = Find(item);
+        if (entry == nullptr || entry->ExcellentCount < 3)
+            return 0;
+        return entry->ExcellentCount >= 6 ? 3 : (entry->ExcellentCount >= 4 ? 2 : 1);
+    }
+
     void SetTraits(std::vector<Trait> traits)
     {
         s_traits = std::move(traits);

@@ -57,6 +57,12 @@ namespace GameLogic::Items::MobaShopPrices
     // The tooltip line of the item's trait (e.g. "Anti-curacion 20%"), if it has one.
     bool TryGetTraitText(uint16_t itemType, wchar_t* text, size_t textLength);
 
+    // Whether the server sent the prices of a MOBA shop (the own shop panel is used instead of the native window).
+    bool HasPrices();
+
+    // The tier of a wearable item of the shop, 1-3 (by its number of excellent options: 3, 4 or all 6); 0 for anything else (potions, packs...).
+    int TierOf(const tagITEM& item);
+
     // Replaces the whole price table.
     void Set(std::vector<Entry> entries, uint8_t sellPercent);
 

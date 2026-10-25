@@ -56,6 +56,17 @@ namespace SEASON3B
         CNewUIButton m_BtnRepair;
         CNewUIButton m_BtnRepairAll;
 
+        // MOBA: the icons of the items of the own shop panel (see MobaShopPanel.h), drawn in the 3D pass of the UI.
+        class MobaIcons : public INewUI3DRenderObj
+        {
+        public:
+            CNewUINPCShop* owner = nullptr;
+            void Render3D() override;
+            bool IsVisible() const override;
+        };
+        MobaIcons m_mobaIcons;
+        bool UpdateMobaMouse();
+
         DWORD m_dwStandbyItemKey;
 
         bool m_bSellingItem;
