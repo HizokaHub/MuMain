@@ -58,7 +58,7 @@ namespace GameLogic::Items::MobaShopPrices
         const Entry* entry = Find(item);
         if (entry == nullptr || entry->ExcellentCount < 3)
             return 0;
-        return entry->ExcellentCount >= 6 ? 3 : (entry->ExcellentCount >= 4 ? 2 : 1);
+        return entry->ExcellentCount >= 5 ? 3 : (entry->ExcellentCount >= 4 ? 2 : 1);
     }
 
     void SetTraits(std::vector<Trait> traits)

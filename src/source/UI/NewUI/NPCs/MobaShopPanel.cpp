@@ -58,7 +58,7 @@ namespace
     };
 
     int s_tab = 0;          // 0 = all, 1..3 = tier
-    int s_scroll = 0;       // first visible row
+    int s_scroll = 0;       // current page (a page is a full grid of cells)
     int s_hoverCell = -1;
     ITEM* s_hoverItem = nullptr;
     int s_hoverX = 0;
@@ -103,14 +103,21 @@ namespace
         return items;
     }
 
-    int TotalRows(int itemCount) { return (itemCount + COLUMNS - 1) / COLUMNS; }
+    constexpr int PAGE_SIZE = COLUMNS * ROWS;
 
-    int MaxScroll(int itemCount) { return std::max(0, TotalRows(itemCount) - ROWS); }
+    int TotalPages(int itemCount) { return std::max(1, (itemCount + PAGE_SIZE - 1) / PAGE_SIZE); }
+
+    // The last page (pages are counted from 0).
+    int MaxScroll(int itemCount) { return TotalPages(itemCount) - 1; }
+
+    Rect PrevPageButton() { return { PANEL_X + PANEL_W - PAD - 106, PANEL_Y + PANEL_H - 26, 24, 20 }; }
+
+    Rect NextPageButton() { return { PANEL_X + PANEL_W - PAD - 24, PANEL_Y + PANEL_H - 26, 24, 20 }; }
 
     // The item in a visible cell (slot counted from the first visible row), or nullptr.
     ITEM* ItemAt(const std::vector<ITEM*>& items, int slot)
     {
-        const int index = (s_scroll * COLUMNS) + slot;
+        const int index = (s_scroll * PAGE_SIZE) + slot;
         return index >= 0 && index < static_cast<int>(items.size()) ? items[index] : nullptr;
     }
 
@@ -194,6 +201,20 @@ MouseResult UpdateMouse(CNewUIInventoryCtrl* store, bool clicksEnabled)
         if (Draw::MouseInRect(CloseButton()))
         {
             result.close = true;
+            return result;
+        }
+
+        if (Draw::MouseInRect(PrevPageButton()))
+        {
+            s_scroll = std::max(0, s_scroll - 1);
+            PlayBuffer(SOUND_CLICK01);
+            return result;
+        }
+
+        if (Draw::MouseInRect(NextPageButton()))
+        {
+            s_scroll = std::min(MaxScroll(static_cast<int>(items.size())), s_scroll + 1);
+            PlayBuffer(SOUND_CLICK01);
             return result;
         }
 
@@ -314,14 +335,17 @@ void Render(CNewUIInventoryCtrl* store)
     }
 
     // Scroll hint and footer.
-    const int rows = TotalRows(static_cast<int>(items.size()));
-    if (rows > ROWS)
+    const int pages = TotalPages(static_cast<int>(items.size()));
     {
-        swprintf(text, std::size(text), L"%d / %d  (rueda del raton)", s_scroll + 1, MaxScroll(static_cast<int>(items.size())) + 1);
-        Draw::PutText(body, panel.x + PAD, panel.y + panel.h - FOOTER_H + 2, panel.w - 2 * PAD, text, 170, 176, 190, RT3_SORT_RIGHT);
+        const Rect prev = PrevPageButton();
+        const Rect next = NextPageButton();
+        Draw::Button(prev, L"<", s_scroll > 0);
+        Draw::Button(next, L"> ", s_scroll < pages - 1);
+        swprintf(text, std::size(text), L"%d/%d", s_scroll + 1, pages);
+        Draw::PutTextCentered(bold, prev.x + prev.w, prev.y + 3, next.x - prev.x - prev.w, text, 235, 235, 235);
     }
 
-    Draw::PutTextLeft(body, panel.x + PAD, panel.y + panel.h - FOOTER_H + 2, panel.w - 2 * PAD - 150,
+    Draw::PutTextLeft(body, panel.x + PAD, panel.y + panel.h - FOOTER_H + 2, panel.w - 2 * PAD - 120,
         L"Clic: comprar.  Vender: clic derecho en tu inventario.", 200, 205, 215);
 }
 
