@@ -5,6 +5,7 @@
 #include "Data/Translation/MultiLanguage.h"   // CMultiLanguage::ConvertFromUtf8
 #include "Network/Server/WSclient.h"           // g_MyMobaTeam
 #include "World/Moba/MobaBanner.h"
+#include "World/Moba/MobaMusic.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -16,14 +17,6 @@ namespace World::Moba::Announcer
 
 namespace
 {
-    // The events, as MobaAnnouncement on the server (never renumber, only append).
-    enum Kind : unsigned char
-    {
-        KIND_KILL = 1, KIND_FIRST_BLOOD, KIND_DOUBLE, KIND_TRIPLE, KIND_QUADRA, KIND_PENTA, KIND_ACE, KIND_SHUTDOWN,
-        KIND_SPREE, KIND_DOMINATING, KIND_UNSTOPPABLE, KIND_LEGENDARY, KIND_TURRET, KIND_NEXUS_ATTACK, KIND_MATCH_START,
-        KIND_VICTORY, KIND_DEFEAT, KIND_GOLDEN_FLYOVER, KIND_GOLDEN_INVADERS, KIND_DRAGON_SLAIN,
-    };
-
     // The voice lines, in the order of their sound buffers (SOUND_MOBA_ANN_FIRST + index).
     enum Voice : int
     {
@@ -231,6 +224,7 @@ void Receive(const unsigned char* ReceiveBuffer)
     if (!cue.banner.empty())
         Banner::Show(cue.banner.c_str(), BANNER_MS);
     Say(cue.voice);
+    Music::OnAnnouncement(kind);
 }
 
 void Pump()

@@ -10,6 +10,14 @@
 // a more important one interrupts, the rest wait their turn. The kill feed is drawn by CMobaKillFeedHud.
 namespace World::Moba::Announcer
 {
+    // The events, as MobaAnnouncement on the server (never renumber, only append).
+    enum Kind : unsigned char
+    {
+        KIND_KILL = 1, KIND_FIRST_BLOOD, KIND_DOUBLE, KIND_TRIPLE, KIND_QUADRA, KIND_PENTA, KIND_ACE, KIND_SHUTDOWN,
+        KIND_SPREE, KIND_DOMINATING, KIND_UNSTOPPABLE, KIND_LEGENDARY, KIND_TURRET, KIND_NEXUS_ATTACK, KIND_MATCH_START,
+        KIND_VICTORY, KIND_DEFEAT, KIND_GOLDEN_FLYOVER, KIND_GOLDEN_INVADERS, KIND_DRAGON_SLAIN,
+    };
+
     struct FeedLine
     {
         std::wstring text;

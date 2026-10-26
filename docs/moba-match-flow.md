@@ -89,3 +89,44 @@ champion (class, level, kills/deaths/assists, minions, gold, damage dealt and ta
 - **VOLVER A LORENCIA** sends you back to your real character right away; otherwise the server does it after 90 seconds.
   The client reconnects by itself, as it does when a match starts.
 - The arena is taken down once the last player has left.
+
+## The announcer and the kill feed
+
+The server tells the client the notable events of the match and the client turns them into a **voice line, a banner and a kill feed line**
+(upper right corner: "X mató a Y", with "(Doble muerte)" and the like; the colour is the team that did it, 6 lines, 8 seconds each).
+
+| Event | When |
+|---|---|
+| First Blood | the first champion kill of the match |
+| Double / Triple / Quadra / Penta Kill | 2, 3, 4 or 5+ kills of the same champion within 10 seconds |
+| Equipo eliminado / Todos han caído | the last living champion of a team (3 or more players) died: yours won / lost the fight |
+| Shutdown | you ended the kill streak (3+) of an enemy |
+| Killing Spree / Dominating / Unstoppable / Legendary | 3 / 5 / 7 / 9 kills in a row without dying |
+| Torre caída | a turret fell (yours or the enemy's: the voice says whose) |
+| Nexo bajo ataque | your nexus is losing life (at most every 30 seconds) |
+| Start of the match, victory, defeat | the countdown ended / a nexus fell |
+| Golden dragons, golden invasion, Great Golden Dragon slain | the golden invasion events |
+
+One voice line is heard at a time: a more important one interrupts the current one, the others wait their turn (up to 4 seconds).
+The voice lines are the WAV files of `Data\Sound\MobaAnn` (see `tools/anunciador` in the server repo to regenerate or replace them).
+
+## Music
+
+In the arena the music follows the match: **preparation** (countdown) → **early game** (from the start) → **battle** (10 minutes after the start)
+→ **golden invasion** (from the dragons' fly-over until the end) → the Crywolf **victory / defeat** music and silence. Tracks fade out when they
+change and loop on their own. The music volume and the music on / off option of the options window apply. The files are
+`Data\Music\moba_prep.ogg`, `moba_early.ogg`, `moba_mid.ogg` and `moba_golden.ogg` (see `tools/musica` in the server repo).
+A client that joins a match already running starts on the preparation track until the first event of play.
+
+## Other HUD pieces
+
+- **Active pets:** a row of small badges to the right of the Elf's creature strip, one per extra pet switched on from the inventory (hover for the name).
+- **Golden monsters:** while the invasion lasts they are gold dots on the minimap (bigger the stronger) and the TAB scoreboard ends with
+  "Dorados vivos: N (grandes y dragones: M)".
+- **Shop:** the panel shows under "TIENDA" the name of the menu page you picked ("Sets - Tier 2"...).
+
+## Surrendering
+
+After 15 minutes of match, any human of a team can type `/rendirse` to propose giving up; the rest of the team votes with the same command.
+**75 % of the humans** of the team (5 players: 4) must agree within 60 seconds and then the nexus of that team falls and the match ends.
+A vote that does not pass cannot be repeated for 2 minutes. Bots do not vote.

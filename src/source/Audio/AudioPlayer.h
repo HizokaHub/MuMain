@@ -28,6 +28,9 @@ namespace AudioPlayer
 
     int ClampVolume(int level);
 
+    // Fades the music out over <milliseconds> and stops it (the track stays loaded until another one starts). Does nothing when nothing plays.
+    void FadeOutMusic(int milliseconds);
+
     // The shared SDL mixer device, so other audio consumers (the sound-effect
     // backend) reuse it instead of opening a second device.  Null before
     // Initialize(), after Shutdown(), or when initialization failed.

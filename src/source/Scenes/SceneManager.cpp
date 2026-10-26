@@ -3,6 +3,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "World/Moba/MobaMusic.h"
 #include "Core/Input/KeyState.h"
 #include <vector>
 #include <algorithm>
@@ -1135,6 +1136,8 @@ static void ManageBackgroundMusic()
 #ifdef ASG_ADD_MAP_KARUTAN
     g_Karutan1.PlayBGM();
 #endif	// ASG_ADD_MAP_KARUTAN
+
+    World::Moba::Music::Update();
 }
 
 /**

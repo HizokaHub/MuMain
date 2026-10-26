@@ -146,6 +146,14 @@ namespace AudioPlayer
         MIX_SetTrackGain(g_MusicTrack, gain);
     }
 
+    void FadeOutMusic(int milliseconds)
+    {
+        if (!IsReady() || !g_CurrentAudio)
+            return;
+
+        MIX_StopTrack(g_MusicTrack, MIX_TrackMSToFrames(g_MusicTrack, milliseconds));
+    }
+
     MIX_Mixer* GetMixer()
     {
         return g_Mixer;
