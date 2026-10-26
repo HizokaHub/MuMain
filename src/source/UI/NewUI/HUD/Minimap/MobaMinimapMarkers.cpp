@@ -76,6 +76,7 @@ namespace
     constexpr BYTE KIND_TURRET = 2;
     constexpr BYTE KIND_NEXUS = 3;
     constexpr BYTE KIND_WARD = 4;
+    constexpr BYTE KIND_INHIBITOR = 5;   // the entry's 'recalling' bit means the inhibitor is down (its hp byte is then the seconds left / 2)
     constexpr BYTE TEAM_BLUE_ID = 1;
     constexpr BYTE TEAM_RED_ID = 2;
     constexpr int CHANNEL_RECALL = 1;                       // g_MobaChannelKind
@@ -115,6 +116,9 @@ namespace
     constexpr float FOUNTAIN_SIZE = 8.4f;
     constexpr float TURRET_SIZE = 7.f;
     constexpr float NEXUS_SIZE = 11.f;
+    constexpr float INHIBITOR_SIZE = 8.f;
+    constexpr float INHIBITOR_DOWN_SHADE = 0.45f;
+    constexpr float INHIBITOR_X_SCALE = 1.1f;
     constexpr float WARD_SIZE = 5.5f;
     constexpr float CHAMPION_SIZE = 9.4f;
     constexpr float HERO_SIZE = 11.3f;
@@ -523,13 +527,22 @@ namespace
         case KIND_TURRET: cell = ICON_TURRET; size = TURRET_SIZE; color = TeamColor(e.team); break;
         case KIND_NEXUS:  cell = ICON_NEXUS;  size = NEXUS_SIZE;  color = TeamColor(e.team); break;
         case KIND_WARD:   cell = ICON_WARD;   size = WARD_SIZE;   color = COLOR_WARD;        break;
+        case KIND_INHIBITOR: cell = ICON_NEXUS; size = INHIBITOR_SIZE; color = TeamColor(e.team); break;
         default: return;
         }
         float mx, my;
         if (!f.TileToRef((float)e.x, (float)e.y, mx, my))
             return;
+        const bool down = e.kind == KIND_INHIBITOR && e.recalling;
+        if (down)
+            color = { color.r * INHIBITOR_DOWN_SHADE, color.g * INHIBITOR_DOWN_SHADE, color.b * INHIBITOR_DOWN_SHADE };
         SetColor(color);
         DrawCell(f, icons, cell, mx, my, size * f.markers);
+        if (down)
+        {
+            SetColor(COLOR_WHITE);
+            DrawCell(f, icons, ICON_DEAD_X, mx, my, size * INHIBITOR_X_SCALE * f.markers);
+        }
     }
 
     // Old flat squares for the champions or for everything else in the feed.
@@ -998,6 +1011,7 @@ float EntrySize(const MobaMinimapEntry& e, float champion, float structure, floa
     case KIND_CHAMPION: return champion;
     case KIND_TURRET:   return structure;
     case KIND_NEXUS:    return nexus;
+    case KIND_INHIBITOR: return structure;
     default:            return ward;
     }
 }

@@ -152,3 +152,12 @@ In the arena **G** and **V** belong to the pings (they no longer open the guild 
 
 When your champion takes damage, a **red wedge** appears around it pointing at the attacker (blue when only the shield took it; the stronger the hit, the brighter it is).
 Damage without a source (poison, burning) pulses a red ring instead.
+
+## Inhibitors and super-minions
+
+Each lane has a chain of structures for each team: **outer turret → middle turret → base turret → inhibitor**. The inhibitor (a small crystal, on the minimap in your team colour) stands on the road of the lane, behind the base turret toward the nexus; it cannot be hit until the base turret of its lane has fallen.
+
+- **A fallen inhibitor** (a) makes the **nexus of its team attackable** for as long as it stays down (when it comes back, 5 minutes later, the nexus is protected again), and (b) sends **super-minions** down that lane with every wave of the enemy team: one per wave (two in every lane if all three inhibitors are down).
+- The attackers get the EXP of a turret and **100 gold each**. The announcer tells when an inhibitor falls and when it is back; the owner team is warned 30 seconds before the respawn.
+- A super-minion is a big (35 % larger) creep with 5 times the life, 2.5 times the damage and double the defense of a normal creep; it is worth three creeps.
+- On the minimap a fallen inhibitor shows a dark crystal with a cross; the TAB scoreboard says how many are down and when yours comes back.

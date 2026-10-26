@@ -45,8 +45,8 @@ namespace
     };
 
     constexpr const wchar_t* KIND_NAME[KIND_COUNT + 1] = {
-        L"", L"Señal", L"Peligro", L"Retirada", L"Empujar", L"Voy en camino", L"Todo o nada", L"Ayúdame", L"Falta visión",
-        L"Enemigo desaparecido", L"Visión enemiga",
+        L"", L"Se\u00f1al", L"Peligro", L"Retirada", L"Empujar", L"Voy en camino", L"Todo o nada", L"Ay\u00fadame", L"Falta visi\u00f3n",
+        L"Enemigo desaparecido", L"Visi\u00f3n enemiga",
     };
 
     bool s_soundsLoaded = false;

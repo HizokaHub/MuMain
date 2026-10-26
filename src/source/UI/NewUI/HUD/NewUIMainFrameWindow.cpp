@@ -204,6 +204,41 @@ static void RenderMobaGoldenCounter(float x, float y)
     g_pRenderText->RenderText(static_cast<int>(x), static_cast<int>(y), line, 0, 0, RT3_SORT_LEFT);
 }
 
+// The inhibitors that are down, read from the minimap feed (kind 5; the 'recalling' bit = down, the hp byte = seconds left / 2): one line on the scoreboard.
+static void RenderMobaInhibitorLine(float x, float y)
+{
+    constexpr BYTE INHIBITOR_KIND = 5;
+    constexpr int SECONDS_PER_HP_UNIT = 2;
+    int ownDown = 0, enemyDown = 0, ownSoonest = 0;
+    for (int i = 0; i < g_MobaMinimapCount; ++i)
+    {
+        const MobaMinimapEntry& e = g_MobaMinimap[i];
+        if (e.kind != INHIBITOR_KIND || !e.recalling)
+            continue;
+
+        if (e.team == g_MyMobaTeam)
+        {
+            const int seconds = e.hp * SECONDS_PER_HP_UNIT;
+            ownSoonest = ownDown == 0 ? seconds : std::min(ownSoonest, seconds);
+            ++ownDown;
+        }
+        else
+        {
+            ++enemyDown;
+        }
+    }
+    if (ownDown == 0 && enemyDown == 0)
+        return;
+
+    wchar_t line[128];
+    if (ownDown > 0)
+        swprintf(line, std::size(line), L"Inhibidores ca\u00eddos: tuyos %d (vuelve en %d:%02d)   rivales %d", ownDown, ownSoonest / 60, ownSoonest % 60, enemyDown);
+    else
+        swprintf(line, std::size(line), L"Inhibidores ca\u00eddos: tuyos 0   rivales %d", enemyDown);
+    g_pRenderText->SetTextColor(255, 150, 215, 255);
+    g_pRenderText->RenderText(static_cast<int>(x), static_cast<int>(y), line, 0, 0, RT3_SORT_LEFT);
+}
+
 static void RenderMobaScoreboard()
 {
     if (g_MobaLevel <= 0 || g_MobaScoreboardCount <= 0)
@@ -215,7 +250,7 @@ static void RenderMobaScoreboard()
 
     const float rowH = 18.f;
     const float w = 420.f;
-    const float h = 44.f + (g_MobaScoreboardCount + 1) * rowH;
+    const float h = 44.f + (g_MobaScoreboardCount + 2) * rowH;
     const float x = (REFERENCE_WIDTH - w) * 0.5f;
     const float y = 70.f;
 
@@ -258,7 +293,8 @@ static void RenderMobaScoreboard()
         ry += rowH;
     }
 
-    RenderMobaGoldenCounter(x + 14.f, ry);
+    RenderMobaInhibitorLine(x + 14.f, ry);
+    RenderMobaGoldenCounter(x + 14.f, ry + rowH);
     g_pRenderText->SetTextColor(255, 255, 255, 255);
 }
 

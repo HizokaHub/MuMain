@@ -25,6 +25,7 @@ namespace
         VOICE_SPREE, VOICE_DOMINATING, VOICE_UNSTOPPABLE, VOICE_LEGENDARY, VOICE_TURRET_ALLY, VOICE_TURRET_ENEMY,
         VOICE_NEXUS_ATTACK, VOICE_MATCH_START, VOICE_VICTORY, VOICE_DEFEAT, VOICE_GOLDEN_FLYOVER, VOICE_GOLDEN_INVADERS,
         VOICE_DRAGON_ALLY, VOICE_DRAGON_ENEMY,
+        VOICE_INHIBITOR_ALLY_LOST, VOICE_INHIBITOR_ENEMY_DOWN, VOICE_INHIBITOR_ALLY_BACK, VOICE_INHIBITOR_ENEMY_BACK, VOICE_SUPER_ALLY, VOICE_SUPER_ENEMY,
         VOICE_COUNT
     };
 
@@ -33,6 +34,7 @@ namespace
         L"spree", L"dominating", L"unstoppable", L"legendary", L"turret_ally", L"turret_enemy",
         L"nexus_attack", L"match_start", L"victory", L"defeat", L"golden_flyover", L"golden_invaders",
         L"dragon_ally", L"dragon_enemy",
+        L"inhibitor_ally_lost", L"inhibitor_enemy_down", L"inhibitor_ally_back", L"inhibitor_enemy_back", L"super_ally", L"super_enemy",
     };
     static_assert(VOICE_COUNT <= SOUND_MOBA_ANN_LAST - SOUND_MOBA_ANN_FIRST + 1, "grow SOUND_MOBA_ANN_LAST");
 
@@ -42,6 +44,7 @@ namespace
         40, 45, 47, 49, 30, 30,
         70, 20, 100, 100, 35, 35,
         45, 45,
+        75, 65, 55, 40, 65, 72,
     };
 
     constexpr wchar_t SOUND_FOLDER[] = L"Data\\Sound\\MobaAnn\\";
@@ -153,25 +156,28 @@ namespace
         switch (kind)
         {
         case KIND_KILL:            return { VOICE_NONE, L"", L"", true };
-        case KIND_FIRST_BLOOD:     return { VOICE_FIRST_BLOOD, by + L"¡PRIMERA SANGRE!", L" (Primera sangre)", true };
-        case KIND_DOUBLE:          return { VOICE_DOUBLE, by + L"¡DOBLE MUERTE!", L" (Doble muerte)", true };
-        case KIND_TRIPLE:          return { VOICE_TRIPLE, by + L"¡TRIPLE MUERTE!", L" (Triple muerte)", true };
-        case KIND_QUADRA:          return { VOICE_QUADRA, by + L"¡CUÁDRUPLE MUERTE!", L" (Cuádruple muerte)", true };
-        case KIND_PENTA:           return { VOICE_PENTA, by + L"¡PENTA MUERTE!", L" (Penta muerte)", true };
-        case KIND_ACE:             return { mine ? VOICE_ACE : VOICE_ACE_LOST, mine ? L"¡MASACRE!" : L"EQUIPO ANIQUILADO", L"", false };
-        case KIND_SHUTDOWN:        return { VOICE_SHUTDOWN, by + L"¡RACHA CORTADA!", L" (Racha cortada)", true };
+        case KIND_FIRST_BLOOD:     return { VOICE_FIRST_BLOOD, by + L"\u00a1PRIMERA SANGRE!", L" (Primera sangre)", true };
+        case KIND_DOUBLE:          return { VOICE_DOUBLE, by + L"\u00a1DOBLE MUERTE!", L" (Doble muerte)", true };
+        case KIND_TRIPLE:          return { VOICE_TRIPLE, by + L"\u00a1TRIPLE MUERTE!", L" (Triple muerte)", true };
+        case KIND_QUADRA:          return { VOICE_QUADRA, by + L"\u00a1CU\u00c1DRUPLE MUERTE!", L" (Cu\u00e1druple muerte)", true };
+        case KIND_PENTA:           return { VOICE_PENTA, by + L"\u00a1PENTA MUERTE!", L" (Penta muerte)", true };
+        case KIND_ACE:             return { mine ? VOICE_ACE : VOICE_ACE_LOST, mine ? L"\u00a1MASACRE!" : L"EQUIPO ANIQUILADO", L"", false };
+        case KIND_SHUTDOWN:        return { VOICE_SHUTDOWN, by + L"\u00a1RACHA CORTADA!", L" (Racha cortada)", true };
         case KIND_SPREE:           return { VOICE_SPREE, by + L"RACHA DE MUERTES", L" (Racha de muertes)", true };
-        case KIND_DOMINATING:      return { VOICE_DOMINATING, by + L"¡DOMINANDO!", L" (Dominando)", true };
-        case KIND_UNSTOPPABLE:     return { VOICE_UNSTOPPABLE, by + L"¡IMPARABLE!", L" (Imparable)", true };
-        case KIND_LEGENDARY:       return { VOICE_LEGENDARY, by + L"¡LEGENDARIO!", L" (Legendario)", true };
+        case KIND_DOMINATING:      return { VOICE_DOMINATING, by + L"\u00a1DOMINANDO!", L" (Dominando)", true };
+        case KIND_UNSTOPPABLE:     return { VOICE_UNSTOPPABLE, by + L"\u00a1IMPARABLE!", L" (Imparable)", true };
+        case KIND_LEGENDARY:       return { VOICE_LEGENDARY, by + L"\u00a1LEGENDARIO!", L" (Legendario)", true };
         case KIND_TURRET:          return { mine ? VOICE_TURRET_ALLY : VOICE_TURRET_ENEMY, mine ? L"HAS PERDIDO UNA TORRE" : L"TORRE ENEMIGA DESTRUIDA", L"", false };
-        case KIND_NEXUS_ATTACK:    return mine ? Cue{ VOICE_NEXUS_ATTACK, L"¡TU NEXO ESTÁ BAJO ATAQUE!", L"", false } : Cue{};
+        case KIND_NEXUS_ATTACK:    return mine ? Cue{ VOICE_NEXUS_ATTACK, L"\u00a1TU NEXO EST\u00c1 BAJO ATAQUE!", L"", false } : Cue{};
         case KIND_MATCH_START:     return { VOICE_MATCH_START, L"", L"", false };
         case KIND_VICTORY:         return { VOICE_VICTORY, L"", L"", false };
         case KIND_DEFEAT:          return { VOICE_DEFEAT, L"", L"", false };
         case KIND_GOLDEN_FLYOVER:  return { VOICE_GOLDEN_FLYOVER, L"", L"", false };
         case KIND_GOLDEN_INVADERS: return { VOICE_GOLDEN_INVADERS, L"", L"", false };
         case KIND_DRAGON_SLAIN:    return { mine ? VOICE_DRAGON_ALLY : VOICE_DRAGON_ENEMY, L"", L"", false };
+        case KIND_INHIBITOR_DESTROYED: return { mine ? VOICE_INHIBITOR_ALLY_LOST : VOICE_INHIBITOR_ENEMY_DOWN, mine ? L"TU INHIBIDOR HA CA\u00cdDO" : L"INHIBIDOR ENEMIGO DESTRUIDO", L"", false };
+        case KIND_INHIBITOR_RESTORED:  return { mine ? VOICE_INHIBITOR_ALLY_BACK : VOICE_INHIBITOR_ENEMY_BACK, L"", L"", false };
+        case KIND_SUPER_MINIONS:       return { mine ? VOICE_SUPER_ALLY : VOICE_SUPER_ENEMY, mine ? L"\u00a1SUPERMINIONS EN CAMINO!" : L"\u00a1SUPERMINIONS ENEMIGOS!", L"", false };
         default:                   return {};
         }
     }
@@ -188,13 +194,13 @@ namespace
     {
         if (cue.feed && !killer.empty() && !victim.empty())
         {
-            AddFeedLine(killer + L" mató a " + victim + cue.feedSuffix, team);
+            AddFeedLine(killer + L" mat\u00f3 a " + victim + cue.feedSuffix, team);
             return;
         }
 
-        if (kind == KIND_TURRET || kind == KIND_DRAGON_SLAIN || kind == KIND_ACE)
+        if (kind == KIND_TURRET || kind == KIND_DRAGON_SLAIN || kind == KIND_ACE || kind == KIND_INHIBITOR_DESTROYED || kind == KIND_INHIBITOR_RESTORED)
         {
-            const std::wstring text = kind == KIND_TURRET ? L"Cayó una torre" : (kind == KIND_ACE ? L"Equipo aniquilado" : L"Cayó un Gran Dragón Dorado");
+            const std::wstring text = kind == KIND_TURRET ? L"Cay\u00f3 una torre" : kind == KIND_ACE ? L"Equipo aniquilado" : kind == KIND_INHIBITOR_DESTROYED ? L"Cay\u00f3 un inhibidor" : kind == KIND_INHIBITOR_RESTORED ? L"Un inhibidor reapareci\u00f3" : L"Cay\u00f3 un Gran Drag\u00f3n Dorado";
             AddFeedLine(text, team);
         }
     }
