@@ -103,6 +103,7 @@
 #include "World/Moba/MobaPuppet.h"
 #include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
+#include "World/Moba/MobaClientBuild.h"
 
 #define MAX_DEBUG_MAX 10
 
@@ -14543,6 +14544,7 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
                 CurrentProtocolState = RECEIVE_LOG_IN_SUCCESS;
                 LogIn = 2;
                 CheckHack();
+                World::Moba::ClientBuild::SendToServer();
                 break;
             case 0x00:
                 CUIMng::Instance().PopUpMsgWin(RECEIVE_LOG_IN_FAIL_PASSWORD);
@@ -14551,6 +14553,7 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
                 CurrentProtocolState = RECEIVE_LOG_IN_SUCCESS;
                 LogIn = 2;
                 CheckHack();
+                World::Moba::ClientBuild::SendToServer();
                 break;
             case 0x02:
                 CUIMng::Instance().PopUpMsgWin(RECEIVE_LOG_IN_FAIL_ID);
