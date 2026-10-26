@@ -20,6 +20,7 @@
 #include "Network/MoveCommandData.h"
 #include "UI/Legacy/UIMng.h"
 #include "Data/DataHandler/LoadData.h"
+#include "Character/RuneWizardModels.h"
 #include "World/MapInfra/MapManager.h"
 #include "GameLogic/Events/Event.h"
 #include "GameLogic/Items/ChangeRingManager.h"
@@ -133,6 +134,8 @@ void OpenPlayers()
         gLoadData.AccessModel(MODEL_BODY_GLOVES + (MAX_CLASS * 2) + i, L"Data\\Player\\", L"GloveClass3", i + 1);
         gLoadData.AccessModel(MODEL_BODY_BOOTS + (MAX_CLASS * 2) + i, L"Data\\Player\\", L"BootClass3", i + 1);
     }
+
+    Character::RuneWizard::OpenBodyModels();
 
     for (int i = 0; i < 10; i++)
     {
@@ -463,6 +466,8 @@ void OpenPlayerTextures()
             gLoadData.OpenTexture(MODEL_BODY_BOOTS + nIndex, L"Player\\");
         }
     }
+
+    Character::RuneWizard::OpenBodyTextures();
 
     for (int i = 0; i <= CLASS_END; i++)
     {

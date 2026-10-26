@@ -3237,6 +3237,10 @@ enum CLASS_TYPE : BYTE
     CLASS_DIMENSIONMASTER,
     CLASS_TEMPLENIGHT,
 
+    // Imported from Season 21. Not part of the class range which the item/skill tables are indexed by:
+    // CCharacterManager::GetBaseClass() maps it to CLASS_WIZARD for them.
+    CLASS_RUNEWIZARD,
+
     CLASS_END = CLASS_TEMPLENIGHT
 };
 
@@ -3260,6 +3264,11 @@ enum CLASS_SKIN_INDEX : BYTE
     SKIN_CLASS_LORDEMPEROR,
     SKIN_CLASS_DIMENSIONMASTER,
     SKIN_CLASS_TEMPLENIGHT,
+
+    // Rune wizard (Season 21): its three looks use the free slots of MODEL_BODY_NUM.
+    SKIN_CLASS_RUNEWIZARD,       // HelmClass09... (1st and 2nd class look)
+    SKIN_CLASS_RUNEWIZARD_3RD,   // HelmClass309...
+    SKIN_CLASS_RUNEWIZARD_4TH,   // HelmClass409...
 };
 
 enum SERVER_CLASS_TYPE : BYTE
@@ -3282,6 +3291,7 @@ enum SERVER_CLASS_TYPE : BYTE
     DimensionMaster = 23,
     RageFighter = 24,
     FistMaster = 25,
+    RuneWizard = 28,
 };
 
 enum MonsterSkillType

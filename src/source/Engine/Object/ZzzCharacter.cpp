@@ -12346,6 +12346,13 @@ void SetCharacterScale(CHARACTER* c)
             case CLASS_RAGEFIGHTER:	c->Object.Scale = 1.03f; break;
             }
         }
+
+        // The rune wizard shares the wizard row of the tables above, but it is a different (smaller) body.
+        if (c->Class == CLASS_RUNEWIZARD)
+        {
+            constexpr float kRuneWizardScale = 0.9f;
+            c->Object.Scale = kRuneWizardScale;
+        }
     }
 }
 

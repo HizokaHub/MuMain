@@ -35,6 +35,12 @@ namespace
     constexpr int kDefaultClassTextIndex = 2305;
     constexpr int kMasterExperienceUnlockLevel = 400;
 
+    // The Season 21 class has no entry in the S6 text table; the name is not translated yet.
+    constexpr const wchar_t* kRuneWizardClassText = L"Rune Wizard";
+
+    // Which of the rune wizard looks every rune wizard wears. The 4th class one is the "level 400" look the MOBA uses.
+    constexpr CLASS_SKIN_INDEX kRuneWizardSkin = SKIN_CLASS_RUNEWIZARD_4TH;
+
     constexpr std::array<ClassTextEntry, 18> kClassTextEntries{{
         { CLASS_WIZARD, 20 },
         { CLASS_SOULMASTER, 25 },
@@ -157,6 +163,8 @@ CLASS_TYPE CCharacterManager::ChangeServerClassTypeToClientClassType(const SERVE
         return CLASS_RAGEFIGHTER;
     case FistMaster:
         return CLASS_TEMPLENIGHT;
+    case RuneWizard:
+        return CLASS_RUNEWIZARD;
     }
 
     return CLASS_WIZARD;
@@ -184,6 +192,9 @@ CLASS_TYPE CCharacterManager::GetBaseClass(CLASS_TYPE iClass)
         return CLASS_DARK_LORD;
     case CLASS_TEMPLENIGHT:
         return CLASS_RAGEFIGHTER;
+    case CLASS_RUNEWIZARD:
+        // A magician: it uses the wizard rows of the item and skill tables, which only have MAX_CLASS entries.
+        return CLASS_WIZARD;
     }
 
     return iClass;
@@ -232,6 +243,11 @@ bool CCharacterManager::IsMasterExperienceActive(const CLASS_TYPE byClass, const
 
 const wchar_t* CCharacterManager::GetCharacterClassText(const CLASS_TYPE byCharacterClass)
 {
+    if (byCharacterClass == CLASS_RUNEWIZARD)
+    {
+        return kRuneWizardClassText;
+    }
+
     const auto it = std::find_if(kClassTextEntries.begin(), kClassTextEntries.end(),
         [byCharacterClass](const ClassTextEntry& entry) { return entry.type == byCharacterClass; });
     return (it != kClassTextEntries.end()) ? I18N::Game::Lookup(it->textIndex) : I18N::Game::Lookup(kDefaultClassTextIndex);
@@ -249,6 +265,7 @@ CLASS_SKIN_INDEX CCharacterManager::GetSkinModelIndex(const CLASS_TYPE byClass)
     case CLASS_LORDEMPEROR: return SKIN_CLASS_LORDEMPEROR;
     case CLASS_DIMENSIONMASTER: return SKIN_CLASS_DIMENSIONMASTER;
     case CLASS_TEMPLENIGHT: return SKIN_CLASS_TEMPLENIGHT;
+    case CLASS_RUNEWIZARD: return kRuneWizardSkin;
     }
 
     return static_cast<CLASS_SKIN_INDEX>(byClass);
