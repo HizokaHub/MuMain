@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "World/Moba/MobaMinimapCreeps.h"
 #include "World/Moba/MobaGoldenDots.h"
+#include "World/Moba/MobaPing.h"
+#include "UI/NewUI/Dialogs/MobaPingArt.h"
 #include "World/Moba/MobaSummon.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
 
@@ -876,6 +878,47 @@ void RenderGoldens(const Frame& frame, const Atlases& atlases)
     if (!atlases.portraitsLoaded)
         EndRenderColor();
     SetColor(COLOR_WHITE);
+}
+
+void RenderPings(const Frame& frame)
+{
+    namespace Ping = World::Moba::Ping;
+    namespace Art = UI::Moba::PingArt;
+    constexpr float ICON_SIZE = 13.f;           // reference px, before the marker size of the options panel
+    constexpr float RING_MIN = 8.f;
+    constexpr float RING_MAX = 40.f;
+    constexpr double RING_PERIOD_MS = 1100.0;
+    constexpr double ICON_MS = 2500.0;
+    constexpr double POP_MS = 200.0;
+    const std::vector<Ping::Mark>& marks = Ping::Marks();
+    if (marks.empty() || !Art::Loaded())
+        return;
+
+    Art::Begin();
+    for (const Ping::Mark& mark : marks)
+    {
+        float mx, my;
+        if (!frame.TileToRef(static_cast<float>(mark.tileX) + 0.5f, static_cast<float>(mark.tileY) + 0.5f, mx, my))
+            continue;
+
+        const double age = WorldTime - mark.atMs;
+        const Art::Tint tint = Art::KindColor(mark.kind);
+        const float life = 1.f - static_cast<float>(std::clamp(age / Ping::MINIMAP_MS, 0.0, 1.0));
+        for (int k = 0; k < 2; ++k)
+        {
+            const double phase = fmod(age / RING_PERIOD_MS + 0.5 * k, 1.0);
+            const float size = (RING_MIN + (RING_MAX - RING_MIN) * static_cast<float>(phase)) * frame.markers;
+            Art::DrawCell(Art::CELL_RING, mx, my, size, 0.f, tint, (1.f - static_cast<float>(phase)) * 0.9f * life);
+        }
+
+        if (age < ICON_MS)
+        {
+            const float pop = static_cast<float>(std::clamp(age / POP_MS, 0.0, 1.0));
+            const float size = ICON_SIZE * frame.markers * (0.5f + 0.5f * pop + 0.25f * sinf(pop * 3.14159265f));
+            Art::DrawKind(mark.kind, mx, my, size, 1.f);
+        }
+    }
+    Art::End();
 }
 
 void RenderSummon(const Frame& frame, const Atlases& atlases)

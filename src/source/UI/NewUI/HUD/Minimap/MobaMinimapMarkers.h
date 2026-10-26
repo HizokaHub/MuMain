@@ -59,6 +59,8 @@ namespace UI::Minimap::MobaMarkers
     // The Elf's creature: a bigger gold dot (white ring while the player commands it).
     void RenderSummon(const Frame& frame, const Atlases& atlases);
     void RenderFeed(const Frame& frame, const Atlases& atlases);
+    // The pings of the team: an icon (while it is fresh) and an expanding ring on the tile (World::Moba::Ping).
+    void RenderPings(const Frame& frame);
     // Returns false when the portrait atlas is missing (the caller then draws the old arrow).
     bool RenderOwnHero(const Frame& frame, const Atlases& atlases);
 

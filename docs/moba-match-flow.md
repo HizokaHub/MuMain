@@ -130,3 +130,25 @@ A client that joins a match already running starts on the preparation track unti
 After 15 minutes of match, any human of a team can type `/rendirse` to propose giving up; the rest of the team votes with the same command.
 **75 % of the humans** of the team (5 players: 4) must agree within 60 seconds and then the nexus of that team falls and the match ends.
 A vote that does not pass cannot be repeated for 2 minutes. Bots do not vote.
+
+## Pings
+
+Mark a spot for your team the way League of Legends does (the teammates see it, the enemy does not):
+
+| You do | Result |
+|---|---|
+| hold **G** or **Alt** and click | a plain ping |
+| hold **V** or **Ctrl** and click | a caution ping |
+| hold one of those keys, keep the mouse button down and wait a moment | the **wheel of nine pings** opens around the click: drag toward one and let go (the right mouse button closes it without pinging) |
+
+Wheel, clockwise from the top: **Retirada**, **Empujar**, **Voy en camino**, **Todo o nada**, **Ayúdame**, **Falta visión**, **Enemigo desaparecido**, **Visión enemiga**; the centre is **Peligro**.
+It works on the ground and on the minimap (hold the key and click on the minimap).
+
+The ping shows on the ground of your teammates as an icon with expanding rings (2.5 seconds, with the sender's name) and, when it is out of view, as an arrow at the
+edge of the screen; on the minimap it shows a ring for 5 seconds. Each kind has its own sound. You can send at most **5 pings in 5 seconds**; past that you cannot ping for 6 seconds.
+In the arena **G** and **V** belong to the pings (they no longer open the guild window and the inventory); the inventory is still on **I**.
+
+## Damage direction
+
+When your champion takes damage, a **red wedge** appears around it pointing at the attacker (blue when only the shield took it; the stronger the hit, the brighter it is).
+Damage without a source (poison, burning) pulses a red ring instead.

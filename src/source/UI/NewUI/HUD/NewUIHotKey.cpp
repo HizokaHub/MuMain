@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "World/Moba/MobaPing.h"
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaPuppet.h"
 #include "GameLogic/Commands/ChatCommandCatalog.h"
@@ -167,7 +168,7 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
 
     if (CanUpdateKeyEventRelatedMyInventory() == true)
     {
-        if (SEASON3B::IsPress('I') || SEASON3B::IsPress('V'))
+        if (SEASON3B::IsPress('I') || (SEASON3B::IsPress('V') && !World::Moba::Ping::KeysReserved()))
         {
             if (g_pNPCShop->IsSellingItem() == false)
             {
@@ -208,7 +209,7 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         PlayBuffer(SOUND_CLICK01);
         return false;
     }
-    else if (SEASON3B::IsPress('I') || SEASON3B::IsPress('V'))
+    else if (SEASON3B::IsPress('I') || (SEASON3B::IsPress('V') && !World::Moba::Ping::KeysReserved()))
     {
         if (g_pNPCShop->IsSellingItem() == false)
         {
@@ -235,7 +236,7 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         PlayBuffer(SOUND_CLICK01);
         return false;
     }
-    else if (SEASON3B::IsPress('G'))
+    else if (SEASON3B::IsPress('G') && !World::Moba::Ping::KeysReserved())
     {
         g_pNewUISystem->Toggle(SEASON3B::INTERFACE_GUILDINFO);
         PlayBuffer(SOUND_CLICK01);

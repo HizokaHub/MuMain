@@ -68,6 +68,9 @@ namespace SEASON3B
         void SetBtnPos(int Num, float x, float y, float nx, float ny);
 
         bool UpdateMouseEvent();
+
+        // The map tile under the mouse on the MOBA corner minimap (false when the mouse is not over the visible map): where a ping is aimed.
+        bool MobaMouseTile(float& tileX, float& tileY);
         bool UpdateKeyEvent();
         bool Update();
         bool Render();

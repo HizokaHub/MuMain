@@ -7,6 +7,7 @@
 
 #include "UI/NewUI/HUD/NewUIMiniMap.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
+#include "World/Moba/MobaPing.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapFog.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "UI/NewUI/Dialogs/NewUICommonMessageBox.h"
@@ -910,6 +911,9 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     if (g_MobaLevel > 0)
         MobaMarkers::RenderFeed(frame, atlases);
 
+    if (mobaArena)
+        MobaMarkers::RenderPings(frame);
+
     if (!MobaMarkers::RenderOwnHero(frame, atlases))
     {
         // No portrait atlas: the old arrow, drawn with the alpha test like the art.
@@ -1199,8 +1203,8 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     }
 
     // Clicks on the map itself: the walk button walks there (or goes after an enemy marker), the other button points the
-    // camera at that spot.
-    if (!m_bOptionsOpen)
+    // camera at that spot. With a ping key held (G, V, Alt, Ctrl) the click is a ping: the ping HUD takes it.
+    if (!m_bOptionsOpen && !World::Moba::Ping::ModifierHeld())
     {
         float tileX, tileY, tilesPerRef;
         if (MouseToMapTile(L, tileX, tileY, tilesPerRef))
@@ -1429,6 +1433,12 @@ bool SEASON3B::CNewUIMiniMap::UpdateMouseEvent()
     }
 
     return ret;
+}
+
+bool SEASON3B::CNewUIMiniMap::MobaMouseTile(float& tileX, float& tileY)
+{
+    float tilesPerRef = 0.f;
+    return MouseToMapTile(ComputeCornerLayout(), tileX, tileY, tilesPerRef);
 }
 
 bool SEASON3B::CNewUIMiniMap::Check_Mouse(int mx, int my)

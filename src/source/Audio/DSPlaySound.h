@@ -1014,6 +1014,9 @@ enum ESound
     SOUND_MOBA_ANN_FIRST,								// MobaAnn\*.wav: the voice lines of the MOBA announcer (World/Moba/MobaAnnouncer.cpp), in its order
     SOUND_MOBA_ANN_LAST = SOUND_MOBA_ANN_FIRST + 31,
 
+    SOUND_MOBA_PING_FIRST,								// MobaPing\*.wav: the sounds of the pings and of the ping wheel (World/Moba/MobaPing.cpp), in its order
+    SOUND_MOBA_PING_LAST = SOUND_MOBA_PING_FIRST + 15,
+
     MAX_BUFFER
 };
 

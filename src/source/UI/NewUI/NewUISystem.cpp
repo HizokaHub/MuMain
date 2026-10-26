@@ -12,6 +12,8 @@
 #include "UI/NewUI/Dialogs/MobaSummonHud.h"
 #include "UI/NewUI/Dialogs/MobaPetHud.h"
 #include "UI/NewUI/Dialogs/MobaKillFeedHud.h"
+#include "UI/NewUI/Dialogs/MobaPingHud.h"
+#include "UI/NewUI/Dialogs/MobaDamageHud.h"
 #include "UI/NewUI/Dialogs/MobaPuppetHud.h"
 
 #include "GameLogic/Items/PersonalShopTitleImp.h"
@@ -458,6 +460,8 @@ bool CNewUISystem::LoadMainSceneInterface()
     CMobaSummonHud::Create(m_pNewUIMng);
     CMobaPetHud::Create(m_pNewUIMng);
     CMobaKillFeedHud::Create(m_pNewUIMng);
+    CMobaPingHud::Create(m_pNewUIMng);
+    CMobaDamageHud::Create(m_pNewUIMng);
     CMobaPuppetHud::Create(m_pNewUIMng);
 
     m_pNewMiniMap = new CNewUIMiniMap;
