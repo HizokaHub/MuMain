@@ -94,6 +94,7 @@
 #include "World/Moba/MobaRoomList.h"
 #include "World/Moba/MobaMinimapCreeps.h"
 #include "World/Moba/MobaGoldenDots.h"
+#include "World/Moba/MobaAnnouncer.h"
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaExtraPets.h"
 #include "World/Moba/MobaCityFire.h"
@@ -15176,6 +15177,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x31:
             ReceiveMobaGoldenDots(received_span);
+            break;
+        case 0x32:
+            World::Moba::Announcer::Receive(ReceiveBuffer);
             break;
         }
     }

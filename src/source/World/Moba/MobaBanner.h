@@ -7,6 +7,9 @@ namespace World::Moba::Banner
     // Handles the packet C1 len D5 14.
     void Receive(const unsigned char* ReceiveBuffer);
 
+    // Shows a banner made by the client (the announcer), replacing the one on screen.
+    void Show(const wchar_t* text, double durationMs);
+
     // Draws the banner, if one is showing (once per frame, in the 2D pass).
     void Render();
 }

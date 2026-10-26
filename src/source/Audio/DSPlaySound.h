@@ -1011,6 +1011,9 @@ enum ESound
     SOUND_MOBA_GOD_HIT,
     SOUND_MOBA_GOD_MOVE,
 
+    SOUND_MOBA_ANN_FIRST,								// MobaAnn\*.wav: the voice lines of the MOBA announcer (World/Moba/MobaAnnouncer.cpp), in its order
+    SOUND_MOBA_ANN_LAST = SOUND_MOBA_ANN_FIRST + 31,
+
     MAX_BUFFER
 };
 

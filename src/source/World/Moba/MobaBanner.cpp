@@ -60,6 +60,14 @@ void Receive(const unsigned char* ReceiveBuffer)
     s_durationMs = std::clamp(durationMs, BANNER_MIN_MS, BANNER_MAX_MS);
 }
 
+void Show(const wchar_t* text, double durationMs)
+{
+    memset(s_text, 0, sizeof(s_text));
+    wcsncpy_s(s_text, std::size(s_text), text, _TRUNCATE);
+    s_startMs = WorldTime;
+    s_durationMs = std::clamp(durationMs, BANNER_MIN_MS, BANNER_MAX_MS);
+}
+
 void Render()
 {
     if (s_durationMs <= 0.0)
