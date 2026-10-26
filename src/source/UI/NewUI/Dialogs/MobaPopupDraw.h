@@ -45,6 +45,12 @@ namespace UI::Moba::Draw
     // Whether the press of a click used by a popup is still held (the popups return "mouse used" while it is).
     bool HeldClickSwallowed();
 
+    // Loads the atlas of the class portraits (Data\Interface\MobaPortraits.tga, also used by the minimap) into its slot; call it when a panel with portraits opens.
+    void LoadPortraits();
+
+    // Draws the portrait of a base class (0 Dark Wizard .. 6 Rage Fighter) in a frame coloured by team (blue or red).
+    void Portrait(const Rect& frame, int baseClass, bool blue);
+
     // A button: a filled rectangle (green when positive, red otherwise) with a gold frame and a centered label.
     void Button(const Rect& r, const wchar_t* label, bool positive);
 }

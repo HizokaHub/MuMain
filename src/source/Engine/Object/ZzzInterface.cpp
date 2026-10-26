@@ -71,6 +71,7 @@ const unsigned char* MobaRoadCoverageForRouting();   // MapManager.cpp: the draw
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MyMobaTeam (MOBA auto-target)
 #include "World/Moba/MobaFog.h"    // IsTileHidden (a minimap-targeted enemy leaving sight)
 #include "World/Moba/MobaSummon.h"  // creature of the Elf: orders with the right click
+#include "World/Moba/MobaPuppet.h"  // disconnected teammate: orders with the right click, its skills with the number keys
 
 // Whether the hero is in a MOBA match: the click navigation (chase a clicked target into skill range, walk the whole way,
 // minimap clicks) works with every camera, not only with the MOBA one.
@@ -600,6 +601,75 @@ static void MobaSummonRightClick()
     RenderTerrain(true);
     if (SelectFlag)
         World::Moba::Summon::OrderMove(static_cast<int>(CollisionPosition[0] / TERRAIN_SCALE), static_cast<int>(CollisionPosition[1] / TERRAIN_SCALE));
+}
+
+// The character under the mouse when it can be the target of a command of the MOBA match, or nullptr.
+static const CHARACTER* MobaCharacterUnderMouse()
+{
+    if (SelectedCharacter == -1 || SelectedCharacter >= MAX_CHARACTERS_CLIENT)
+        return nullptr;
+
+    const CHARACTER* character = &CharactersClient[SelectedCharacter];
+    const bool inMatch = character->Dead == 0 && character->MobaTeam != 0;
+    const bool targetable = character->Object.Kind == KIND_PLAYER || character->Object.Kind == KIND_MONSTER || character->Object.Kind == KIND_NPC;
+    return (inMatch && targetable) ? character : nullptr;
+}
+
+// The tile under the mouse (in the world), or false when the mouse is not over the ground.
+static bool MobaTileUnderMouse(int& tileX, int& tileY)
+{
+    RenderTerrain(true);
+    if (!SelectFlag)
+        return false;
+
+    tileX = static_cast<int>(CollisionPosition[0] / TERRAIN_SCALE);
+    tileY = static_cast<int>(CollisionPosition[1] / TERRAIN_SCALE);
+    return true;
+}
+
+// MOBA control of a disconnected teammate: the right click orders it, like the summon of the Elf. On an enemy it attacks; on the ground it walks there.
+static void MobaPuppetRightClick()
+{
+    MouseRButtonPush = false;
+    MouseRButton = false;
+    MouseRButtonPop = false;
+
+    const CHARACTER* target = MobaCharacterUnderMouse();
+    if (target != nullptr && target != Hero && target->MobaTeam != g_MyMobaTeam)
+    {
+        World::Moba::Puppet::OrderAttack(static_cast<unsigned short>(target->Key));
+        return;
+    }
+
+    int tileX = 0;
+    int tileY = 0;
+    if (MobaTileUnderMouse(tileX, tileY))
+        World::Moba::Puppet::OrderMove(tileX, tileY);
+}
+
+// The skill key pressed in the UI phase; it is cast in the world phase, where the mouse picking of the frame (the object and the tile under the mouse) is valid.
+static int s_pendingPuppetSkill = 0;
+
+void MobaPuppetCastAtCursor(int skillNumber)
+{
+    s_pendingPuppetSkill = skillNumber;
+}
+
+static void RunPendingPuppetCast()
+{
+    constexpr unsigned short NO_TARGET = 0xFFFF;
+    const int skillNumber = s_pendingPuppetSkill;
+    s_pendingPuppetSkill = 0;
+    if (skillNumber == 0)
+        return;
+
+    const CHARACTER* target = MobaCharacterUnderMouse();
+    const unsigned short key = (target != nullptr) ? static_cast<unsigned short>(target->Key) : NO_TARGET;
+
+    int tileX = World::Moba::Puppet::Get().x;
+    int tileY = World::Moba::Puppet::Get().y;
+    MobaTileUnderMouse(tileX, tileY);
+    World::Moba::Puppet::Cast(skillNumber, key, tileX, tileY);
 }
 
 bool CheckAttack_Fenrir(CHARACTER* c)
@@ -3989,8 +4059,13 @@ void MoveHero()
         MouseUpdateTime++;
     }
 
-    if (MobaMatchActive() && World::Moba::Summon::Controlling() && MouseRButtonPush && !MouseOnWindow
-        && SEASON3B::CheckMouseIn(0, 0, GetScreenWidth(), 429))
+    RunPendingPuppetCast();
+    const bool mobaCommandClick = MobaMatchActive() && MouseRButtonPush && !MouseOnWindow && SEASON3B::CheckMouseIn(0, 0, GetScreenWidth(), 429);
+    if (mobaCommandClick && World::Moba::Puppet::Controlling())
+    {
+        MobaPuppetRightClick();
+    }
+    else if (mobaCommandClick && World::Moba::Summon::Controlling())
     {
         MobaSummonRightClick();
     }

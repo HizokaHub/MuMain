@@ -28,6 +28,7 @@
 #include "GameLogic/Skills/SkillManager.h"
 #include "UI/NewUI/HUD/Skills/SkillTooltip.h"
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MobaExp (MOBA HUD exp bar)
+#include "World/Moba/MobaPuppet.h"   // control of a disconnected teammate: Ctrl tap and number keys
 #include "UI/Legacy/UIControls.h"    // g_pRenderText (MOBA TAB scoreboard)
 #include "App/Platform/Windows/Winmain.h" // g_hFontBold
 #include "Core/Time/CTimCheck.h"
@@ -2202,6 +2203,12 @@ bool SEASON3B::CNewUISkillList::UpdateKeyEvent()
     {
         m_bSkillList = !m_bSkillList;
         PlayBuffer(SOUND_CLICK01);
+    }
+
+    // MOBA: the Ctrl tap that takes a disconnected teammate, and (while controlling him) the number keys cast HIS skills instead of the hero's.
+    if (g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus() && World::Moba::Puppet::UpdateKeys())
+    {
+        return false;
     }
 
     for (int i = 0; i < 9; ++i)

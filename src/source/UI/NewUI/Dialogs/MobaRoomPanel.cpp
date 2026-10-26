@@ -66,10 +66,6 @@ namespace
     constexpr int TAB_X = 6;
     constexpr int TAB_Y = 44;
 
-    constexpr int ATLAS_COLS = 8;
-    constexpr int ATLAS_ROWS = 2;
-    constexpr int PORTRAIT_CLASS_COUNT = 7;
-
     constexpr float LAYER_DEPTH = 10.6f;
     constexpr float KEY_EVENT_ORDER = 100.0f;
     constexpr DWORD UI_KEY_OFFSET = 5;
@@ -267,24 +263,12 @@ namespace
             return;
 
         s_portraitsLoadedFor = version;
-        LoadBitmap(L"Interface\\MobaPortraits.tga", CNewUIMiniMap::IMAGE_MINIMAP_MOBA_PORTRAITS, GL_LINEAR, GL_CLAMP_TO_EDGE, false);
+        Draw::LoadPortraits();
     }
 
     void RenderPortrait(const Rect& frame, int baseClass, bool blue)
     {
-        Draw::FillRect(frame, 0.02f, 0.03f, 0.05f, 1.f);
-        EndRenderColor();
-        if (baseClass >= 0 && baseClass < PORTRAIT_CLASS_COUNT)
-        {
-            const float cellU = 1.f / ATLAS_COLS;
-            const float cellV = 1.f / ATLAS_ROWS;
-            RenderBitmap(CNewUIMiniMap::IMAGE_MINIMAP_MOBA_PORTRAITS, static_cast<float>(frame.x), static_cast<float>(frame.y),
-                static_cast<float>(frame.w), static_cast<float>(frame.h), (baseClass % ATLAS_COLS) * cellU, (baseClass / ATLAS_COLS) * cellV, cellU, cellV);
-        }
-
-        Draw::FrameRect(frame, blue ? 0.43f : 0.92f, blue ? 0.67f : 0.39f, blue ? 0.98f : 0.39f, 1.f);
-        Draw::FrameRect({ frame.x + 1, frame.y + 1, frame.w - 2, frame.h - 2 }, blue ? 0.43f : 0.92f, blue ? 0.67f : 0.39f, blue ? 0.98f : 0.39f, 1.f);
-        EndRenderColor();
+        Draw::Portrait(frame, baseClass, blue);
     }
 
     // The three small buttons of the host on another player's slot: move to the other team, kick, make host.

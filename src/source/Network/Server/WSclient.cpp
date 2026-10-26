@@ -96,6 +96,7 @@
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaExtraPets.h"
 #include "World/Moba/MobaCityFire.h"
+#include "World/Moba/MobaPuppet.h"
 #include "World/Moba/MobaMenu.h"
 #include "World/Moba/MobaLaneWalls.h"
 
@@ -13561,6 +13562,46 @@ void SendMobaSummonOrder(unsigned char kind, unsigned char x, unsigned char y, u
     SocketClient->Send(buf, 9);
 }
 
+// MOBA: take a disconnected teammate (action 1 + object id) or let it go (action 0): C1 07 D5 31 action keyLo keyHi.
+void SendMobaPuppetSelect(unsigned char action, unsigned short key)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[7] = { 0xC1, 7, 0xD5, 0x31, action, static_cast<BYTE>(key & 0xFF), static_cast<BYTE>(key >> 8) };
+    SocketClient->Send(buf, 7);
+}
+
+// MOBA: an order for the controlled teammate (C1 09 D5 32 kind x y keyLo keyHi).
+void SendMobaPuppetOrder(unsigned char kind, unsigned char x, unsigned char y, unsigned short key)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[9] = { 0xC1, 9, 0xD5, 0x32, kind, x, y, static_cast<BYTE>(key & 0xFF), static_cast<BYTE>(key >> 8) };
+    SocketClient->Send(buf, 9);
+}
+
+// MOBA: a skill of the controlled teammate (C1 0A D5 33 skillLo skillHi keyLo keyHi x y).
+void SendMobaPuppetCast(unsigned short skill, unsigned short key, unsigned char x, unsigned char y)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[10] = { 0xC1, 10, 0xD5, 0x33, static_cast<BYTE>(skill & 0xFF), static_cast<BYTE>(skill >> 8), static_cast<BYTE>(key & 0xFF), static_cast<BYTE>(key >> 8), x, y };
+    SocketClient->Send(buf, 10);
+}
+
+// MOBA: the recall of the controlled teammate (C1 04 D5 34).
+void SendMobaPuppetRecall()
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[4] = { 0xC1, 4, 0xD5, 0x34 };
+    SocketClient->Send(buf, 4);
+}
+
 // Slot 10 (ward, subCode 0x0D) and slot 11 (sweeper, subCode 0x0E) of the MOBA HUD.
 void SendMobaVisionAction(BYTE subCode)
 {
@@ -14114,6 +14155,74 @@ static void ReceiveMobaRoomInvite(std::span<const BYTE> packet)
         return;
 
     World::Moba::Room::ShowInvite(id, std::move(roomName), std::move(from), seconds);
+}
+
+// Handles packet C2 D5 30: the disconnected teammates the player may control and the skills of the controlled one. Layout after the header: controlling, x, y,
+// candidateCount, count * (keyLo keyHi baseClass hp% mp% selected nameLen name), skillCount, count * (skillLo skillHi rank|0x80 buff, leftDs u16, fullDs u16).
+static bool ReadPuppetCandidate(MobaPacketReader& reader, World::Moba::Puppet::Candidate& candidate)
+{
+    WORD key = 0;
+    BYTE baseClass = 0, hp = 0, mp = 0, selected = 0, nameLength = 0;
+    if (!reader.ReadWord(key) || !reader.ReadByte(baseClass) || !reader.ReadByte(hp) || !reader.ReadByte(mp) || !reader.ReadByte(selected)
+        || !reader.ReadByte(nameLength) || !reader.ReadUtf8(nameLength, candidate.name))
+        return false;
+
+    candidate.key = key;
+    candidate.baseClass = baseClass;
+    candidate.hpPercent = hp;
+    candidate.mpPercent = mp;
+    candidate.selected = selected != 0;
+    return true;
+}
+
+static bool ReadPuppetSkill(MobaPacketReader& reader, World::Moba::Puppet::Skill& skill)
+{
+    constexpr double MILLISECONDS_PER_TENTH = 100.0;
+    constexpr BYTE BUFF_FLAG = 0x80;
+    WORD number = 0, leftTenths = 0, fullTenths = 0;
+    BYTE rank = 0;
+    if (!reader.ReadWord(number) || !reader.ReadByte(rank) || !reader.ReadWord(leftTenths) || !reader.ReadWord(fullTenths))
+        return false;
+
+    skill.number = number;
+    skill.rank = rank & ~BUFF_FLAG;
+    skill.isBuff = (rank & BUFF_FLAG) != 0;
+    skill.cooldownEndMs = WorldTime + leftTenths * MILLISECONDS_PER_TENTH;
+    skill.cooldownFullMs = fullTenths * MILLISECONDS_PER_TENTH;
+    return true;
+}
+
+static void ReceiveMobaPuppet(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    World::Moba::Puppet::State state;
+    BYTE controlling = 0, x = 0, y = 0, candidateCount = 0, skillCount = 0;
+    if (!reader.ReadByte(controlling) || !reader.ReadByte(x) || !reader.ReadByte(y) || !reader.ReadByte(candidateCount))
+        return;
+
+    state.controlling = controlling != 0;
+    state.x = x;
+    state.y = y;
+    for (int i = 0; i < candidateCount; ++i)
+    {
+        World::Moba::Puppet::Candidate candidate;
+        if (!ReadPuppetCandidate(reader, candidate))
+            return;
+        state.candidates.push_back(std::move(candidate));
+    }
+
+    if (!reader.ReadByte(skillCount))
+        return;
+
+    for (int i = 0; i < skillCount; ++i)
+    {
+        World::Moba::Puppet::Skill skill;
+        if (!ReadPuppetSkill(reader, skill))
+            return;
+        state.skills.push_back(skill);
+    }
+
+    World::Moba::Puppet::Set(std::move(state));
 }
 
 // Handles packet C2 D5 25: the lane minions for the minimap. Layout after the header: count(u16 LE), count * (tileX, tileY, team).
@@ -15038,6 +15147,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x26:
             ReceiveMobaRoomInvite(received_span);
+            break;
+        case 0x30:
+            ReceiveMobaPuppet(received_span);
             break;
         }
     }

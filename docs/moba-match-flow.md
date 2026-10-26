@@ -39,6 +39,27 @@ A champion whose player gives no input (or is disconnected) for **15 s** is anno
 it channels the recall and goes back to its base. Any input clears it. It does not run during the pre-match countdown or while
 the champion is dead.
 
+## Controlling a disconnected teammate
+
+When a teammate disconnects, his champion stays in the match, and **any other player of his team can control it** (only while its
+player is disconnected: an idle but connected champion is only sent back to its base). A card with the portrait, the name, the
+life and the mana of each of these champions appears on the left of the screen.
+
+- **Take / release:** a short tap of **Ctrl** (without clicking or pressing another key) takes the nearest one, or lets go of the
+  controlled one; a click on a card takes that one. A player controls one champion at a time and a champion has one controller.
+- **Orders:** like the creature of the Elf, the **right click** on the ground (or on the minimap) walks the champion there and on
+  an enemy it attacks. **B** sends it back to its base.
+- **Skills:** the **number keys 1-9** cast **its** skills (with its own ranks, mana and cooldowns) on the object or the point
+  under the mouse. The skill bar of the controlled champion appears above the skill bar of the hero, with the rank and the
+  cooldown of each skill. To change a key, click a skill of that bar and then press the number key: the setting lives only in your
+  client, the owner's keys are never touched.
+- **The owner comes back:** the control ends at once and he finds his champion as he left it, with his own key setup.
+
+## Base aura
+
+Around the blacksmith (the vendor) of each base there is a green aura: the living champions of the team inside it recover **20 %
+of their life, mana and shield every second**, in or out of combat.
+
 ## End of the match: results table
 
 When a nexus falls the banner shows **VICTORIA** or **DERROTA** and, a few seconds later, the results table: one line per

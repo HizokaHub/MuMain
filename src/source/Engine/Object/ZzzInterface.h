@@ -44,6 +44,9 @@ extern int  TalkNPC;
 extern int  SelectedItem;
 extern int  SelectedNpc;
 extern int  SelectedCharacter;
+
+// MOBA: casts a skill of the controlled teammate (World::Moba::Puppet) on the object and the tile under the mouse.
+void MobaPuppetCastAtCursor(int skillNumber);
 extern int  SelectedOperate;
 extern int  Attacking;
 extern int  ActionTarget;

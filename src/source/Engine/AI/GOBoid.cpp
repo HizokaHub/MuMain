@@ -19,6 +19,7 @@
 #include "Audio/DSPlaySound.h"
 #include "World/MapInfra/MapManager.h"
 #include "World/Moba/MobaCityFire.h"
+#include "World/Moba/MobaBaseAura.h"
 #include "Camera/CameraMove.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "Scenes/MainScene.h"
@@ -1206,6 +1207,7 @@ double g_MobaFlyoverUntilMs = 0.0;
 void MoveBoids()
 {
     World::Moba::CityFire::Update();
+    World::Moba::BaseAura::Update();
 
     if (g_MobaFlyoverUntilMs > 0.0 && WorldTime > g_MobaFlyoverUntilMs)
     {

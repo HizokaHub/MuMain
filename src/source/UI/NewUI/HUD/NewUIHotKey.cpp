@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "World/Moba/MobaSummon.h"
+#include "World/Moba/MobaPuppet.h"
 #include "GameLogic/Commands/ChatCommandCatalog.h"
 #include "I18N/All.h"
 
@@ -376,8 +377,11 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
     }
     else if (SEASON3B::IsPress('B') && g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus())
     {
-        // In a MOBA match B is the recall (channelled teleport to base), not the Gens ranking.
-        SendMobaRecall();
+        // In a MOBA match B is the recall (channelled teleport to base), not the Gens ranking. While controlling a teammate it is his recall.
+        if (World::Moba::Puppet::Controlling())
+            World::Moba::Puppet::Recall();
+        else
+            SendMobaRecall();
         return false;
     }
     else if (SEASON3B::IsPress('B'))

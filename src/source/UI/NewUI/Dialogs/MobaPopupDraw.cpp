@@ -7,6 +7,8 @@
 #include "Render/Textures/ZzzOpenglUtil.h"    // RenderColor, EndRenderColor
 #include "Engine/Object/ZzzInterface.h"        // FontHeight
 #include "Data/GameConfig/GameConfig.h"        // the UI font face
+#include "UI/NewUI/HUD/NewUIMiniMap.h"          // the portrait atlas index
+#include "Render/Textures/ZzzTexture.h"       // LoadBitmap
 
 namespace UI::Moba::Draw
 {
@@ -20,6 +22,10 @@ namespace
     constexpr float IDLE_SHADE = 0.75f;
     constexpr float FRAME_HOT_ALPHA = 1.f;
     constexpr float FRAME_IDLE_ALPHA = 0.6f;
+
+    constexpr int PORTRAIT_ATLAS_COLS = 8;
+    constexpr int PORTRAIT_ATLAS_ROWS = 2;
+    constexpr int PORTRAIT_CLASS_COUNT = 7;
 }
 
 namespace
@@ -160,6 +166,31 @@ void PutTextCentered(HFONT font, int x, int y, int width, const wchar_t* text, B
 void PutTextLeft(HFONT font, int x, int y, int width, const wchar_t* text, BYTE red, BYTE green, BYTE blue)
 {
     PutText(font, x, y, width, text, red, green, blue, RT3_SORT_LEFT);
+}
+
+void LoadPortraits()
+{
+    LoadBitmap(L"Interface\\MobaPortraits.tga", SEASON3B::CNewUIMiniMap::IMAGE_MINIMAP_MOBA_PORTRAITS, GL_LINEAR, GL_CLAMP_TO_EDGE, false);
+}
+
+void Portrait(const Rect& frame, int baseClass, bool blue)
+{
+    FillRect(frame, 0.02f, 0.03f, 0.05f, 1.f);
+    EndRenderColor();
+    if (baseClass >= 0 && baseClass < PORTRAIT_CLASS_COUNT)
+    {
+        const float cellU = 1.f / PORTRAIT_ATLAS_COLS;
+        const float cellV = 1.f / PORTRAIT_ATLAS_ROWS;
+        RenderBitmap(SEASON3B::CNewUIMiniMap::IMAGE_MINIMAP_MOBA_PORTRAITS, static_cast<float>(frame.x), static_cast<float>(frame.y),
+            static_cast<float>(frame.w), static_cast<float>(frame.h), (baseClass % PORTRAIT_ATLAS_COLS) * cellU, (baseClass / PORTRAIT_ATLAS_COLS) * cellV, cellU, cellV);
+    }
+
+    const float red = blue ? 0.43f : 0.92f;
+    const float green = blue ? 0.67f : 0.39f;
+    const float blueShade = blue ? 0.98f : 0.39f;
+    FrameRect(frame, red, green, blueShade, 1.f);
+    FrameRect({ frame.x + BORDER, frame.y + BORDER, frame.w - 2 * BORDER, frame.h - 2 * BORDER }, red, green, blueShade, 1.f);
+    EndRenderColor();
 }
 
 void Button(const Rect& r, const wchar_t* label, bool positive)

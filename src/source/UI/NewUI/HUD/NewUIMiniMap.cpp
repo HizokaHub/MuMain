@@ -21,6 +21,7 @@
 #include "Render/Terrain/ZzzLodTerrain.h" // TerrainWall (MOBA wall overlay)
 #include "Network/Server/WSclient.h" // g_MobaMinimap (MOBA minimap feed)
 #include "World/Moba/MobaSummon.h"
+#include "World/Moba/MobaPuppet.h"
 #include "Engine/Object/ZzzInterface.h" // MobaMinimapWalkTo / MobaMinimapAttack
 #include "Camera/CameraManager.h"       // glide the MOBA camera to a minimap click
 #include "Engine/Object/ZzzCharacter.h" // CharactersClient
@@ -1252,8 +1253,10 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
 
             if (SEASON3B::IsPress(VK_RBUTTON))
             {
-                // While the Elf commands her creature, the right click on the map sends it there (anywhere on the map).
-                if (World::Moba::Summon::Controlling())
+                // While a disconnected teammate is controlled, the right click on the map sends him there; while the Elf commands her creature, it goes there.
+                if (World::Moba::Puppet::Controlling())
+                    World::Moba::Puppet::OrderMove(static_cast<int>(tileX), static_cast<int>(tileY));
+                else if (World::Moba::Summon::Controlling())
                     World::Moba::Summon::OrderMove(static_cast<int>(tileX), static_cast<int>(tileY));
                 else
                     CameraManager::Instance().FocusMobaCameraOn((tileX) * TERRAIN_SCALE, (tileY) * TERRAIN_SCALE);

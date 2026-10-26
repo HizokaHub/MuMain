@@ -171,6 +171,11 @@ void SendMobaSummonControl(unsigned char mode);
 void SendMobaPetToggle(unsigned char inventorySlot);
 void SendMobaSummonOrder(unsigned char kind, unsigned char x, unsigned char y, unsigned short key);
 void SendMobaVisionAction(BYTE subCode); // 0x0D ward, 0x0E sweeper
+// The control of a disconnected teammate (World::Moba::Puppet): take / release (C1 07 D5 31), order (C1 09 D5 32), cast (C1 0A D5 33), recall (C1 04 D5 34).
+void SendMobaPuppetSelect(unsigned char action, unsigned short key);
+void SendMobaPuppetOrder(unsigned char kind, unsigned char x, unsigned char y, unsigned short key);
+void SendMobaPuppetCast(unsigned short skill, unsigned short key, unsigned char x, unsigned char y);
+void SendMobaPuppetRecall();
 // Teleport scroll: while true, a left click on an allied minion sends it to the server (C1 06 D5 0B).
 extern bool g_MobaTeleportTargeting;
 void SendMobaTeleportTarget(WORD monsterKey);
