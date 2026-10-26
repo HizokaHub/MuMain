@@ -108,6 +108,7 @@ namespace GameLogic::Items::MobaShopPrices
     {
         constexpr uint8_t LAST_TIER_KIND = 5;        // kinds 1-5 carry whole percents; the archetype kinds (6 and up) carry tenths of a percent
         constexpr int TENTHS_PER_PERCENT = 10;
+        constexpr uint8_t GAUGE_REGEN_KIND = 14;      // AG regeneration of the accessories (whole percent)
 
         const wchar_t* TierTraitFormat(uint8_t kind)
         {
@@ -118,6 +119,7 @@ namespace GameLogic::Items::MobaShopPrices
             case 3: return L"Reduccion de enfriamiento: -%d%%";
             case 4: return L"Oro por asistencia: +%d%%";
             case 5: return L"Oro pasivo: +%d%%";
+            case GAUGE_REGEN_KIND: return L"Regeneracion de AG: +%d%% (teletransporte del Soul Master)";
             default: return nullptr;
             }
         }
@@ -149,7 +151,7 @@ namespace GameLogic::Items::MobaShopPrices
                 continue;
 
             wchar_t text[120];
-            if (trait.Kind <= LAST_TIER_KIND)
+            if (trait.Kind <= LAST_TIER_KIND || trait.Kind == GAUGE_REGEN_KIND)
             {
                 const wchar_t* format = TierTraitFormat(trait.Kind);
                 if (format == nullptr)

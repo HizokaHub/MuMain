@@ -66,6 +66,16 @@ second one the *attack* set (skill power and critical chance), so you can build 
 single set in a tier gets a balanced one (half of each). The weapons of the third tier work the same way (the second one is the
 attack weapon), and the three mixes of the first two tiers differ by their excellent options.
 
+Every class is offered two sets in every tier. Where a class has a single set of its own, it wears a set of a related class: the
+Magic Gladiator (no helm) can be a mage with the sets of the Soul Master or a tank with the sets of the Blade Knight, the Summoner
+completes its third tier with a set of the Soul Master, and the Rage Fighter its second and third tiers with sets of the Blade Knight.
+
+## Teleport of the Soul Master
+
+The Soul Master and Grand Master have the **Teleport** skill (a jump of up to 6 tiles, cooldown 1 s). Each jump costs AG: a full AG
+gauge pays **three jumps**, the gauge refills a jump every 4.5 s, and the rings and the pendant add AG regeneration (the tooltip says
+how much) up to a jump every 2.5 s with three tier 3 pieces. The jump is refused before the match starts and onto the enemy base.
+
 ## Base aura
 
 Around the blacksmith (the vendor) of each base there is a green aura: the living champions of the team inside it recover **20 %
