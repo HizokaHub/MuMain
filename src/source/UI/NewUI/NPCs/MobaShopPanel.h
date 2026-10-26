@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace SEASON3B
 {
     class CNewUIInventoryCtrl;
@@ -26,6 +28,11 @@ namespace UI::Moba::ShopPanel
 
     // Forgets the tab and the scroll (the shop opened or closed).
     void Reset();
+
+    // The name of the vendor menu page being shown (the option the player picked), drawn under the title. It is set before the shop opens, so Reset() keeps
+    // it; ClearPageTitle() drops it when the shop closes.
+    void SetPageTitle(const std::wstring& title);
+    void ClearPageTitle();
 
     // Whether the point is over the panel.
     bool Contains(int x, int y);

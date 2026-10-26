@@ -12,7 +12,7 @@ namespace World::Moba::ExtraPets
 
 namespace
 {
-    constexpr int BIT_COUNT = 9;
+    constexpr int BIT_COUNT = PET_COUNT;
     constexpr int BIT_ANGEL = 0;
     constexpr int BIT_IMP = 1;
     constexpr int BIT_RAVEN = 8;
@@ -90,6 +90,11 @@ namespace
             ThePetProcess().DeletePet(c, ITEM_HELPER + PET_ITEM_NUMBER[bit], false);
         }
     }
+}
+
+unsigned short MaskOf(unsigned short key)
+{
+    return DesiredMask(key);
 }
 
 void SetAll(const std::vector<std::pair<unsigned short, unsigned short>>& pets)

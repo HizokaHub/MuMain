@@ -28,6 +28,7 @@
 #include "GameLogic/Skills/SkillManager.h"
 #include "UI/NewUI/HUD/Skills/SkillTooltip.h"
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MobaExp (MOBA HUD exp bar)
+#include "World/Moba/MobaGoldenDots.h"   // golden monsters alive (scoreboard counter)
 #include "World/Moba/MobaPuppet.h"   // control of a disconnected teammate: Ctrl tap and number keys
 #include "UI/Legacy/UIControls.h"    // g_pRenderText (MOBA TAB scoreboard)
 #include "App/Platform/Windows/Winmain.h" // g_hFontBold
@@ -190,6 +191,19 @@ static const wchar_t* MobaClassTag(BYTE classNumber)
     }
 }
 
+// The last line of the scoreboard while the golden invasion lasts: how many golden monsters are alive and how many of them are dragon-class.
+static void RenderMobaGoldenCounter(float x, float y)
+{
+    const int alive = static_cast<int>(World::Moba::GoldenDots::Get().size());
+    if (alive <= 0)
+        return;
+
+    wchar_t line[96];
+    swprintf(line, std::size(line), L"Dorados vivos: %d   (grandes y dragones: %d)", alive, World::Moba::GoldenDots::BigCount());
+    g_pRenderText->SetTextColor(255, 205, 70, 255);
+    g_pRenderText->RenderText(static_cast<int>(x), static_cast<int>(y), line, 0, 0, RT3_SORT_LEFT);
+}
+
 static void RenderMobaScoreboard()
 {
     if (g_MobaLevel <= 0 || g_MobaScoreboardCount <= 0)
@@ -244,6 +258,7 @@ static void RenderMobaScoreboard()
         ry += rowH;
     }
 
+    RenderMobaGoldenCounter(x + 14.f, ry);
     g_pRenderText->SetTextColor(255, 255, 255, 255);
 }
 

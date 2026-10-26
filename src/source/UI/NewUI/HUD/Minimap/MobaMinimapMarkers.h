@@ -54,6 +54,8 @@ namespace UI::Minimap::MobaMarkers
     void RenderFountains(const Frame& frame, const Atlases& atlases);
     // The lane minions as small dots in the colour of their team (the server sends the ones the team knows).
     void RenderCreeps(const Frame& frame, const Atlases& atlases);
+    // The golden invasion: gold dots, bigger the stronger the monster (the server sends all of them to every team).
+    void RenderGoldens(const Frame& frame, const Atlases& atlases);
     // The Elf's creature: a bigger gold dot (white ring while the player commands it).
     void RenderSummon(const Frame& frame, const Atlases& atlases);
     void RenderFeed(const Frame& frame, const Atlases& atlases);

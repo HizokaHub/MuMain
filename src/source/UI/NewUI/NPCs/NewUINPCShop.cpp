@@ -501,6 +501,7 @@ void SEASON3B::CNewUINPCShop::OpenningProcess()
 void SEASON3B::CNewUINPCShop::ClosingProcess()
 {
     UI::Moba::ShopPanel::Reset();
+    UI::Moba::ShopPanel::ClearPageTitle();
     SocketClient->ToGameServer()->SendCloseNpcRequest();
     GameLogic::Items::MobaShopPrices::Clear();
 

@@ -10,6 +10,12 @@ struct CHARACTER;
 // 0 Guardian Angel, 1 Imp, 2 Demon, 3 Spirit of Guardian, 4 Rudolf, 5 Panda, 6 Unicorn, 7 Skeleton, 8 Dark Raven.
 namespace World::Moba::ExtraPets
 {
+    // How many pets the mask has bits for.
+    constexpr int PET_COUNT = 9;
+
+    // The mask of pets the server says the champion has on (0 when none).
+    unsigned short MaskOf(unsigned short key);
+
     // Replaces the list of the champions which have extra pets with what the server sent.
     void SetAll(const std::vector<std::pair<unsigned short, unsigned short>>& pets);
 

@@ -93,6 +93,7 @@
 #include "World/Moba/MobaRoom.h"
 #include "World/Moba/MobaRoomList.h"
 #include "World/Moba/MobaMinimapCreeps.h"
+#include "World/Moba/MobaGoldenDots.h"
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaExtraPets.h"
 #include "World/Moba/MobaCityFire.h"
@@ -14247,6 +14248,28 @@ static void ReceiveMobaMinimapCreeps(std::span<const BYTE> packet)
     World::Moba::MinimapCreeps::Set(std::move(dots));
 }
 
+// Handles packet C2 D5 31: the living golden monsters for the minimap and the scoreboard. Layout after the header: count(u16 LE), count * (tileX, tileY, tier).
+static void ReceiveMobaGoldenDots(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    WORD count = 0;
+    if (!reader.ReadWord(count))
+        return;
+
+    std::vector<World::Moba::GoldenDots::Dot> dots;
+    dots.reserve(count);
+    for (int i = 0; i < count; ++i)
+    {
+        World::Moba::GoldenDots::Dot dot;
+        if (!reader.ReadByte(dot.x) || !reader.ReadByte(dot.y) || !reader.ReadByte(dot.tier))
+            return;
+
+        dots.push_back(dot);
+    }
+
+    World::Moba::GoldenDots::Set(std::move(dots));
+}
+
 // Handles packet C2 D5 23: a line of the chat of the room. Layout after the header: kind (1 = notice), nameLen name,
 // textLen(u16 LE) text.
 static void ReceiveMobaRoomChat(std::span<const BYTE> packet)
@@ -15150,6 +15173,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x30:
             ReceiveMobaPuppet(received_span);
+            break;
+        case 0x31:
+            ReceiveMobaGoldenDots(received_span);
             break;
         }
     }

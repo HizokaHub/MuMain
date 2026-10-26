@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "World/Moba/MobaMinimapCreeps.h"
+#include "World/Moba/MobaGoldenDots.h"
 #include "World/Moba/MobaSummon.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
 
@@ -838,6 +839,38 @@ void RenderCreeps(const Frame& frame, const Atlases& atlases)
             DrawCell(frame, portraits, PORTRAIT_DISC, mx, my, CREEP_DOT_SIZE * frame.markers);
         else
             FlatSquare(frame, mx, my, CREEP_FLAT_SIZE * frame.markers);
+    }
+
+    if (!atlases.portraitsLoaded)
+        EndRenderColor();
+    SetColor(COLOR_WHITE);
+}
+
+void RenderGoldens(const Frame& frame, const Atlases& atlases)
+{
+    constexpr float GOLDEN_DOT_SIZE[] = { 2.4f, 2.4f, 3.2f, 4.2f, 5.4f };   // by tier (index 0 unused), reference px before the options panel factor
+    constexpr float GOLDEN_FLAT_SIZE_FACTOR = 0.6f;
+    constexpr Rgb COLOR_GOLDEN = { 1.f, 205 / 255.f, 40 / 255.f };
+    const std::vector<World::Moba::GoldenDots::Dot>& dots = World::Moba::GoldenDots::Get();
+    if (dots.empty())
+        return;
+
+    if (atlases.portraitsLoaded)
+        EnableAlphaBlend3();
+
+    const AtlasGrid portraits = PortraitGrid(atlases);
+    SetColor(COLOR_GOLDEN);
+    for (const World::Moba::GoldenDots::Dot& dot : dots)
+    {
+        float mx, my;
+        if (!frame.TileToRef((float)dot.x, (float)dot.y, mx, my))
+            continue;
+
+        const float size = GOLDEN_DOT_SIZE[std::clamp<int>(dot.tier, 1, 4)] * frame.markers;
+        if (atlases.portraitsLoaded)
+            DrawCell(frame, portraits, PORTRAIT_DISC, mx, my, size);
+        else
+            FlatSquare(frame, mx, my, size * GOLDEN_FLAT_SIZE_FACTOR);
     }
 
     if (!atlases.portraitsLoaded)

@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "UI/NewUI/Dialogs/MobaPopupDraw.h"
 #include "UI/NewUI/NPCs/NewUINPCDialogue.h"
+#include "UI/NewUI/NPCs/MobaShopPanel.h"
 #include "I18N/All.h"
 
 #include "Core/Platform/CrtDbg.h"
@@ -689,7 +690,11 @@ void CNewUINPCDialogue::ProcessServerMenuSelTextResult()
     if (m_nSelSelText <= 0 || m_nSelSelText > m_nSelTextCount)
         return;
 
-    SendMobaNpcMenuSelect(m_byServerMenuId, (BYTE)(m_nSelSelText - 1));
+    const int optionIndex = m_nSelSelText - 1;
+    if (optionIndex < static_cast<int>(m_ServerMenuOptions.size()))
+        UI::Moba::ShopPanel::SetPageTitle(m_ServerMenuOptions[optionIndex]);
+
+    SendMobaNpcMenuSelect(m_byServerMenuId, (BYTE)optionIndex);
     m_bServerMenuAnswered = true;
     g_pNewUISystem->Hide(SEASON3B::INTERFACE_NPC_DIALOGUE);
 }

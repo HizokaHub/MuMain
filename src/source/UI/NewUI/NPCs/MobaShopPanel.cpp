@@ -33,7 +33,8 @@ namespace
     constexpr int CELL_H = 62;
     constexpr int CELL_GAP = 4;
     constexpr int PAD = 12;
-    constexpr int HEADER_H = 32;
+    constexpr int HEADER_H = 48;
+    constexpr int SUBTITLE_OFFSET_Y = 28;
     constexpr int TABS_H = 26;
     constexpr int FOOTER_H = 34;
     constexpr int CLOSE_SIZE = 18;
@@ -63,6 +64,7 @@ namespace
     ITEM* s_hoverItem = nullptr;
     int s_hoverX = 0;
     int s_hoverY = 0;
+    std::wstring s_pageTitle;
 
     Rect Panel() { return { PANEL_X, PANEL_Y, PANEL_W, PANEL_H }; }
 
@@ -156,6 +158,16 @@ void Reset()
     s_scroll = 0;
     s_hoverCell = -1;
     s_hoverItem = nullptr;
+}
+
+void SetPageTitle(const std::wstring& title)
+{
+    s_pageTitle = title;
+}
+
+void ClearPageTitle()
+{
+    s_pageTitle.clear();
 }
 
 bool Contains(int x, int y)
@@ -290,6 +302,8 @@ void Render(CNewUIInventoryCtrl* store)
     const HFONT body = Draw::Body();
     const HFONT bold = Draw::Bold();
     Draw::PutTextLeft(Draw::Title(), panel.x + PAD, panel.y + 6, 200, L"TIENDA", 255, 226, 150);
+    if (!s_pageTitle.empty())
+        Draw::PutTextLeft(body, panel.x + PAD, panel.y + SUBTITLE_OFFSET_Y, panel.w - 2 * PAD, s_pageTitle.c_str(), 200, 205, 215);
     wchar_t text[64] = {};
     swprintf(text, std::size(text), L"Oro: %u", gold);
     Draw::PutText(bold, panel.x + 150, panel.y + 9, panel.w - 150 - CLOSE_SIZE - 14, text, 255, 214, 80, RT3_SORT_RIGHT);
