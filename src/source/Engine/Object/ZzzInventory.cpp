@@ -2249,11 +2249,10 @@ void RenderItemInfo(int sx, int sy, ITEM* ip, bool Sell, int Inventype, bool bIt
     }
 
     {
-        // MOBA-only option of the item (anti-heal, CC resistance, cooldown reduction, gold), see MobaShopPrices.
-        wchar_t mobaTraitText[100];
-        if (GameLogic::Items::MobaShopPrices::TryGetTraitText((uint16_t)ip->Type, mobaTraitText, 100))
+        // MOBA-only options of the item (anti-heal, CC resistance, cooldown reduction, gold, and the bonuses of the piece for its class), see MobaShopPrices.
+        for (const auto& traitLine : GameLogic::Items::MobaShopPrices::GetTraitTexts((uint16_t)ip->Type))
         {
-            mu_swprintf(TextList[TextNum], L"%s", mobaTraitText);
+            mu_swprintf(TextList[TextNum], L"%s", traitLine.c_str());
             TextListColor[TextNum] = TEXT_COLOR_BLUE;
             TextNum++;
             mu_swprintf(TextList[TextNum], L"\n"); TextNum++; SkipNum++;

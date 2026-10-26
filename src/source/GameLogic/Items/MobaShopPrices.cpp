@@ -104,29 +104,72 @@ namespace GameLogic::Items::MobaShopPrices
         return lines;
     }
 
-    bool TryGetTraitText(uint16_t itemType, wchar_t* text, size_t textLength)
+    namespace
     {
+        constexpr uint8_t LAST_TIER_KIND = 5;        // kinds 1-5 carry whole percents; the archetype kinds (6 and up) carry tenths of a percent
+        constexpr int TENTHS_PER_PERCENT = 10;
+
+        const wchar_t* TierTraitFormat(uint8_t kind)
+        {
+            switch (kind)
+            {
+            case 1: return L"Anti-curacion: los golpes reducen %d%% la curacion del objetivo (3 s)";
+            case 2: return L"Resistencia a control: -%d%% duracion del control";
+            case 3: return L"Reduccion de enfriamiento: -%d%%";
+            case 4: return L"Oro por asistencia: +%d%%";
+            case 5: return L"Oro pasivo: +%d%%";
+            default: return nullptr;
+            }
+        }
+
+        // The archetype bonuses of the pieces (what a set gives to the class it is sold to); the value is in tenths of a percent.
+        const wchar_t* ArchetypeTraitFormat(uint8_t kind)
+        {
+            switch (kind)
+            {
+            case 6: return L"Vida maxima: +%d.%d%%";
+            case 7: return L"Durabilidad: -%d.%d%% al dano recibido";
+            case 8: return L"Mana maximo: +%d.%d%%";
+            case 9: return L"Regeneracion de mana: +%d.%d%%";
+            case 10: return L"Potencia de habilidades: +%d.%d%%";
+            case 11: return L"Potencia de curacion y escudos: +%d.%d%%";
+            case 12: return L"Probabilidad de critico: +%d.%d%%";
+            case 13: return L"Regeneracion de vida: +%d.%d%% de la vida por segundo";
+            default: return nullptr;
+            }
+        }
+    }
+
+    std::vector<std::wstring> GetTraitTexts(uint16_t itemType)
+    {
+        std::vector<std::wstring> lines;
         for (const auto& trait : s_traits)
         {
             if (trait.Type != itemType)
                 continue;
 
-            const wchar_t* format = nullptr;
-            switch (trait.Kind)
+            wchar_t text[120];
+            if (trait.Kind <= LAST_TIER_KIND)
             {
-            case 1: format = L"Anti-curacion: los golpes reducen %d%% la curacion del objetivo (3 s)"; break;
-            case 2: format = L"Resistencia a control: -%d%% duracion del control"; break;
-            case 3: format = L"Reduccion de enfriamiento: -%d%%"; break;
-            case 4: format = L"Oro por asistencia: +%d%%"; break;
-            case 5: format = L"Oro pasivo: +%d%%"; break;
-            default: return false;
+                const wchar_t* format = TierTraitFormat(trait.Kind);
+                if (format == nullptr)
+                    continue;
+
+                swprintf(text, std::size(text), format, (int)trait.Percent);
+            }
+            else
+            {
+                const wchar_t* format = ArchetypeTraitFormat(trait.Kind);
+                if (format == nullptr)
+                    continue;
+
+                swprintf(text, std::size(text), format, (int)trait.Percent / TENTHS_PER_PERCENT, (int)trait.Percent % TENTHS_PER_PERCENT);
             }
 
-            swprintf(text, textLength, format, (int)trait.Percent);
-            return true;
+            lines.emplace_back(text);
         }
 
-        return false;
+        return lines;
     }
 
     void Set(std::vector<Entry> entries, uint8_t sellPercent)

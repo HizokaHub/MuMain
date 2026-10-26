@@ -55,6 +55,17 @@ life and the mana of each of these champions appears on the left of the screen.
   client, the owner's keys are never touched.
 - **The owner comes back:** the control ends at once and he finds his champion as he left it, with his own key setup.
 
+## Gear by class and by set
+
+The pieces of the shop give a bonus that depends on the class that wears them (the tooltip of each piece lists it, in blue):
+Blade Knight and Rage Fighter get life, life regeneration and durability; Soul Master and Summoner mana, mana regeneration and
+skill power; the Elf healing power and critical chance; the Dark Lord and the Magic Gladiator a mix.
+
+Where a class is offered **two sets of the same tier**, the first one is the *recovery* set (life or mana, and recovery) and the
+second one the *attack* set (skill power and critical chance), so you can build against the style of your class. A class with a
+single set in a tier gets a balanced one (half of each). The weapons of the third tier work the same way (the second one is the
+attack weapon), and the three mixes of the first two tiers differ by their excellent options.
+
 ## Base aura
 
 Around the blacksmith (the vendor) of each base there is a green aura: the living champions of the team inside it recover **20 %

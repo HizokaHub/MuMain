@@ -54,8 +54,9 @@ namespace GameLogic::Items::MobaShopPrices
     // The tooltip lines of the shield options of the item (empty if it has none).
     std::vector<std::wstring> GetShieldOptionTexts(const tagITEM& item);
 
-    // The tooltip line of the item's trait (e.g. "Anti-curacion 20%"), if it has one.
-    bool TryGetTraitText(uint16_t itemType, wchar_t* text, size_t textLength);
+    // The tooltip lines of the item's traits (e.g. "Anti-curacion 20%", "Durabilidad: -5.0%"); empty if it has none. Kinds 6 and up (the bonuses of the
+    // piece for the class it is sold to) carry tenths of a percent.
+    std::vector<std::wstring> GetTraitTexts(uint16_t itemType);
 
     // Whether the server sent the prices of a MOBA shop (the own shop panel is used instead of the native window).
     bool HasPrices();
