@@ -112,7 +112,7 @@ The voice lines are the WAV files of `Data\Sound\MobaAnn` (see `tools/anunciador
 
 ## Music
 
-In the arena the music follows the match: **preparation** (countdown) → **early game** (from the start) → **battle** (10 minutes after the start)
+In the arena the music follows the match: **preparation** (countdown) → **early game** (from the start) → **battle** (3 minutes after the start)
 → **golden invasion** (from the dragons' fly-over until the end) → the Crywolf **victory / defeat** music and silence. Tracks fade out when they
 change and loop on their own. The music volume and the music on / off option of the options window apply. The files are
 `Data\Music\moba_prep.ogg`, `moba_early.ogg`, `moba_mid.ogg` and `moba_golden.ogg` (see `tools/musica` in the server repo).
@@ -120,7 +120,8 @@ A client that joins a match already running starts on the preparation track unti
 
 ## Other HUD pieces
 
-- **Active pets:** a row of small badges to the right of the Elf's creature strip, one per extra pet switched on from the inventory (hover for the name).
+- **Active pets:** a row of small badges centered right over the skill bar, one per extra pet switched on from the inventory (hover for the name). The skill window (**K**) and the Elf's creature strip are drawn above that row.
+- **Elf's creature skills:** with the command mode on (**X**) the creature's one or two skills show next to its strip; **1** and **2** (or a click on the button) cast them on the enemy under the cursor (the nearest one if there is none), with cooldown sweep. Without the command mode the creature uses them by itself.
 - **Golden monsters:** while the invasion lasts they are gold dots on the minimap (bigger the stronger) and the TAB scoreboard ends with
   "Dorados vivos: N (grandes y dragones: M)".
 - **Shop:** the panel shows under "TIENDA" the name of the menu page you picked ("Sets - Tier 2"...).
@@ -138,7 +139,7 @@ Mark a spot for your team the way League of Legends does (the teammates see it, 
 | You do | Result |
 |---|---|
 | hold **G** or **Alt** and click | a plain ping |
-| hold **V** or **Ctrl** and click | a caution ping |
+| hold **Ctrl** and click | a caution ping |
 | hold one of those keys, keep the mouse button down and wait a moment | the **wheel of nine pings** opens around the click: drag toward one and let go (the right mouse button closes it without pinging) |
 
 Wheel, clockwise from the top: **Retirada**, **Empujar**, **Voy en camino**, **Todo o nada**, **Ayúdame**, **Falta visión**, **Enemigo desaparecido**, **Visión enemiga**; the centre is **Peligro**.
@@ -146,7 +147,7 @@ It works on the ground and on the minimap (hold the key and click on the minimap
 
 The ping shows on the ground of your teammates as an icon with expanding rings (2.5 seconds, with the sender's name) and, when it is out of view, as an arrow at the
 edge of the screen; on the minimap it shows a ring for 5 seconds. Each kind has its own sound. You can send at most **5 pings in 5 seconds**; past that you cannot ping for 6 seconds.
-In the arena **G** and **V** belong to the pings (they no longer open the guild window and the inventory); the inventory is still on **I**.
+In the arena **G** belongs to the pings (it no longer opens the guild window); **V** and **I** open the inventory as usual.
 
 ## Damage direction
 

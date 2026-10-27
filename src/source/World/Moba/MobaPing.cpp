@@ -4,6 +4,7 @@
 #include "Audio/DSPlaySound.h"
 #include "Data/Translation/MultiLanguage.h"   // CMultiLanguage::ConvertFromUtf8
 #include "Network/Server/WSclient.h"           // g_MyMobaTeam
+#include "UI/NewUI/NewUISystem.h"               // g_pOption
 #include "World/MapInfra/MapManager.h"         // gMapManager, WD_200_MOBA_ARENA
 
 #include <algorithm>
@@ -69,6 +70,7 @@ namespace
     void Play(int index)
     {
         LoadSounds();
+        SetCueVolume(static_cast<ESound>(SOUND_MOBA_PING_FIRST + index), g_pOption->GetVolumeLevel());
         PlayBuffer(static_cast<ESound>(SOUND_MOBA_PING_FIRST + index));
     }
 
@@ -142,13 +144,13 @@ bool KeysReserved()
 
 bool ModifierHeld()
 {
-    return Down('G') || Down('V') || Down(VK_MENU) || Down(VK_CONTROL);
+    return Down('G') || Down(VK_MENU) || Down(VK_CONTROL);
 }
 
 Kind DefaultKind()
 {
-    // V and Ctrl mean caution; G and Alt a plain ping (when both groups are held, caution wins: it is the safer message).
-    if (Down('V') || Down(VK_CONTROL))
+    // Ctrl means caution; G and Alt a plain ping (when both are held, caution wins: it is the safer message). V stays the inventory key.
+    if (Down(VK_CONTROL))
         return KIND_CAUTION;
     return KIND_GENERIC;
 }

@@ -47,6 +47,9 @@ extern int  SelectedCharacter;
 
 // MOBA: casts a skill of the controlled teammate (World::Moba::Puppet) on the object and the tile under the mouse.
 void MobaPuppetCastAtCursor(int skillNumber);
+
+// MOBA: casts a skill (slot 0 or 1) of the Elf's creature on the object under the mouse.
+void MobaSummonCastAtCursor(int slot);
 extern int  SelectedOperate;
 extern int  Attacking;
 extern int  ActionTarget;

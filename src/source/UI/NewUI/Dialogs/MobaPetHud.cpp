@@ -16,11 +16,13 @@ using Draw::Rect;
 
 namespace
 {
-    // Layout, in the 640x480 reference screen: on the line of the creature strip, to its right.
-    constexpr int ROW_X = 428;
-    constexpr int ROW_Y = 400;
+    // Layout, in the 640x480 reference screen: centered over the skill bar (slots at x = 222 + 32 * i, i = 0..10, from y = 431), right above it.
+    constexpr int BAR_CENTER_X = 222 + 32 * 11 / 2;
+    constexpr int BAR_Y = 431;
     constexpr int BADGE_SIZE = 22;
     constexpr int BADGE_GAP = 3;
+    constexpr int ROW_Y = BAR_Y - BADGE_SIZE - 3;
+    constexpr int RESERVED_HEIGHT = BADGE_SIZE + 3 + 2;
 
     constexpr float LAYER_DEPTH = 10.2f;
     constexpr float KEY_EVENT_ORDER = 50.0f;
@@ -46,9 +48,19 @@ namespace
         { L"Dark Raven", L"Cu", 0.35f, 0.35f, 0.55f },
     };
 
-    Rect BadgeRect(int slot)
+    int CountOf(unsigned short mask)
     {
-        return { ROW_X + slot * (BADGE_SIZE + BADGE_GAP), ROW_Y, BADGE_SIZE, BADGE_SIZE };
+        int count = 0;
+        for (int bit = 0; bit < ExtraPets::PET_COUNT; ++bit)
+            count += (mask & (1 << bit)) != 0 ? 1 : 0;
+        return count;
+    }
+
+    // The slot-th badge of a row of <count> badges, centered on the bar.
+    Rect BadgeRect(int slot, int count)
+    {
+        const int rowWidth = count * BADGE_SIZE + (count - 1) * BADGE_GAP;
+        return { BAR_CENTER_X - rowWidth / 2 + slot * (BADGE_SIZE + BADGE_GAP), ROW_Y, BADGE_SIZE, BADGE_SIZE };
     }
 
     unsigned short OwnMask()
@@ -71,12 +83,18 @@ void CMobaPetHud::Create(CNewUIManager* pNewUIMng)
         pNewUIMng->AddUIObj(INTERFACE_END + UI_KEY_OFFSET, &s_hud);
 }
 
+int CMobaPetHud::ReservedHeight()
+{
+    return OwnMask() != 0 ? RESERVED_HEIGHT : 0;
+}
+
 bool CMobaPetHud::Render()
 {
     const unsigned short mask = OwnMask();
     if (mask == 0)
         return true;
 
+    const int count = CountOf(mask);
     int slot = 0;
     for (int bit = 0; bit < ExtraPets::PET_COUNT; ++bit)
     {
@@ -84,7 +102,7 @@ bool CMobaPetHud::Render()
             continue;
 
         const PetLook& look = PET_LOOK[bit];
-        const Rect badge = BadgeRect(slot++);
+        const Rect badge = BadgeRect(slot++, count);
         Draw::FillRect(badge, look.r * 0.35f, look.g * 0.35f, look.b * 0.35f, 1.f);
         Draw::FrameRect(badge, look.r, look.g, look.b, 1.f);
     }
@@ -99,7 +117,7 @@ bool CMobaPetHud::Render()
             continue;
 
         const PetLook& look = PET_LOOK[bit];
-        const Rect badge = BadgeRect(slot++);
+        const Rect badge = BadgeRect(slot++, count);
         Draw::PutTextCentered(Draw::Bold(), badge.x, badge.y + 5, badge.w, look.tag, 240, 240, 240);
         if (Draw::MouseInRect(badge))
             hoveredName = look.name;

@@ -4,6 +4,7 @@
 #include "Audio/DSPlaySound.h"
 #include "Data/Translation/MultiLanguage.h"   // CMultiLanguage::ConvertFromUtf8
 #include "Network/Server/WSclient.h"           // g_MyMobaTeam
+#include "UI/NewUI/NewUISystem.h"               // g_pOption
 #include "World/Moba/MobaBanner.h"
 #include "World/Moba/MobaMusic.h"
 
@@ -117,6 +118,7 @@ namespace
         if (s_playing != VOICE_NONE && WorldTime < s_busyUntilMs)
             StopBuffer(SoundOf(s_playing), TRUE);
 
+        SetCueVolume(SoundOf(voice), g_pOption->GetVolumeLevel());
         PlayBuffer(SoundOf(voice));
         s_playing = voice;
         s_busyUntilMs = WorldTime + s_durationMs[voice];

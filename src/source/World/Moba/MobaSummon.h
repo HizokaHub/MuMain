@@ -23,6 +23,7 @@ namespace World::Moba::Summon
         int rank = 0;             // rank of the skill, 1-5
         int level = 1;            // level of the creature itself, 1-10 (it levels up with what it kills)
         int progress = 0;         // percent towards the next level (100 at the highest)
+        int appearance = 0;       // skill number 30-36 of the creature (0 = unknown)
     };
 
     // Replaces the state with what the server sent.
@@ -49,6 +50,35 @@ namespace World::Moba::Summon
 
     // The factor on the size of the monster with that object id: the level of an Elf's creature or the growth of a golden dragon (1 when it is on neither list).
     float SizeFactor(unsigned short key);
+
+    // The skills of the creature: one or two, on the keys 1 and 2 while the player commands it (C1 08 D5 38 slot keyLo keyHi casts one on the object under the
+    // cursor; the server sends the cooldowns in tenths of a second at the end of the state packet).
+    struct SkillInfo
+    {
+        const wchar_t* name;
+        int iconSkill;            // the skill whose icon is drawn
+        int cooldownSeconds;
+        int minRank;              // rank of the summon skill from which the creature has it
+    };
+
+    // The number of skills of the creature (0 when unknown).
+    int SkillCount();
+
+    // The skill of a slot (0 or 1); only valid for slot < SkillCount().
+    const SkillInfo& Skill(int slot);
+
+    // Milliseconds left until the skill is ready again (0 when ready).
+    double SkillRemainingMs(int slot);
+
+    // Called with the cooldowns of the server (tenths of a second).
+    void SetCooldowns(int firstTenths, int secondTenths);
+
+    // The keys 1 and 2 while commanding the creature: asks for the skill to be cast on the object under the cursor (done in the world phase, see
+    // MobaSummonCastAtCursor). Returns true when the key was taken.
+    bool UpdateKeys();
+
+    // Sends the cast of a skill on the object with that key (0xFFFF = none) and starts its cooldown at once.
+    void Cast(int slot, unsigned short key);
 
     // Orders: walk to a tile, or attack the enemy with that object id.
     void OrderMove(int tileX, int tileY);

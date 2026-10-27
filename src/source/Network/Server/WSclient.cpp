@@ -13357,7 +13357,11 @@ static void ReceiveMobaSummon(const BYTE* ReceiveBuffer)
     state.rank = ReceiveBuffer[11];
     state.level = std::max<int>(1, ReceiveBuffer[12]);
     state.progress = ReceiveBuffer[13];
+    const bool hasSkills = ReceiveBuffer[1] >= 17;
+    state.appearance = hasSkills ? ReceiveBuffer[14] : 0;
     World::Moba::Summon::Set(state);
+    if (hasSkills)
+        World::Moba::Summon::SetCooldowns(ReceiveBuffer[15], ReceiveBuffer[16]);
 }
 
 // Handles packet C1 D5 2E: the size in percent of every growing golden dragon: count, then [keyLo keyHi percent] per dragon.
@@ -13555,6 +13559,16 @@ void SendMobaPetToggle(unsigned char inventorySlot)
 
     BYTE buf[5] = { 0xC1, 5, 0xD5, 0x2A, inventorySlot };
     SocketClient->Send(buf, 5);
+}
+
+// MOBA: a skill of the summon on the object with that key, 0xFFFF for none (C1 08 D5 38 slot keyLo keyHi).
+void SendMobaSummonSkill(unsigned char slot, unsigned short key)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[8] = { 0xC1, 8, 0xD5, 0x38, slot, static_cast<BYTE>(key & 0xFF), static_cast<BYTE>(key >> 8), 0 };
+    SocketClient->Send(buf, 8);
 }
 
 // MOBA: an order for the summon (C1 09 D5 28 kind x y keyLo keyHi).

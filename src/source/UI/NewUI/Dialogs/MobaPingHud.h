@@ -6,7 +6,7 @@ namespace SEASON3B
 {
     class CNewUIManager;
 
-    // The ping gesture and the marks of the pings on the ground (World::Moba::Ping): hold G / Alt (a plain ping) or V / Ctrl (caution) and click; keep the
+    // The ping gesture and the marks of the pings on the ground (World::Moba::Ping): hold G / Alt (a plain ping) or Ctrl (caution; V is the inventory) and click; keep the
     // button down and the wheel of nine pings opens around the click (drag toward one and let go, the right button closes it). The pings of the team show on
     // the ground as an icon with an expanding ring, and as an arrow at the edge of the screen when they are out of view. The minimap draws its own marks.
     class CMobaPingHud : public CNewUIObj

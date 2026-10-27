@@ -29,6 +29,8 @@
 #include "UI/NewUI/HUD/Skills/SkillTooltip.h"
 #include "Network/Server/WSclient.h" // g_MobaLevel / g_MobaExp (MOBA HUD exp bar)
 #include "World/Moba/MobaGoldenDots.h"   // golden monsters alive (scoreboard counter)
+#include "UI/NewUI/Dialogs/MobaPetHud.h"   // CMobaPetHud::ReservedHeight (the skill window moves over the pet badges)
+#include "World/Moba/MobaSummon.h"   // the keys 1 and 2 cast the skills of the Elf's creature while she commands it
 #include "World/Moba/MobaPuppet.h"   // control of a disconnected teammate: Ctrl tap and number keys
 #include "UI/Legacy/UIControls.h"    // g_pRenderText (MOBA TAB scoreboard)
 #include "App/Platform/Windows/Winmain.h" // g_hFontBold
@@ -2081,7 +2083,7 @@ bool SEASON3B::CNewUISkillList::UpdateMouseEvent()
     int iSkillCount = 0;
     bool bMouseOnSkillList = false;
 
-    x = 385.f; y = 390; width = 32; height = 38;
+    x = 385.f; y = 390.f - (g_MobaLevel > 0 ? CMobaPetHud::ReservedHeight() : 0); width = 32; height = 38;
     float fOrigX = 385.f;
 
     EVENT_STATE PrevEventState = m_EventState;
@@ -2257,7 +2259,7 @@ bool SEASON3B::CNewUISkillList::UpdateKeyEvent()
     }
 
     // MOBA: the Ctrl tap that takes a disconnected teammate, and (while controlling him) the number keys cast HIS skills instead of the hero's.
-    if (g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus() && World::Moba::Puppet::UpdateKeys())
+    if (g_MobaLevel > 0 && !g_pChatInputBox->HaveFocus() && (World::Moba::Puppet::UpdateKeys() || World::Moba::Summon::UpdateKeys()))
     {
         return false;
     }
@@ -2668,7 +2670,7 @@ bool SEASON3B::CNewUISkillList::Render()
     {
         if (m_bSkillList == true)
         {
-            x = 385; y = 390; width = 32; height = 38;
+            x = 385; y = 390.f - (g_MobaLevel > 0 ? CMobaPetHud::ReservedHeight() : 0); width = 32; height = 38;
             float fOrigX = 385.f;
             int iSkillType = 0;
             int iSkillCount = 0;

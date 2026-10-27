@@ -655,6 +655,27 @@ void MobaPuppetCastAtCursor(int skillNumber)
     s_pendingPuppetSkill = skillNumber;
 }
 
+// The same for the skills of the Elf's creature (keys 1 and 2 while she commands it).
+static int s_pendingSummonSkill = -1;
+
+void MobaSummonCastAtCursor(int slot)
+{
+    s_pendingSummonSkill = slot;
+}
+
+static void RunPendingSummonCast()
+{
+    constexpr unsigned short NO_TARGET = 0xFFFF;
+    const int slot = s_pendingSummonSkill;
+    s_pendingSummonSkill = -1;
+    if (slot < 0)
+        return;
+
+    const CHARACTER* target = MobaCharacterUnderMouse();
+    const bool enemy = target != nullptr && target != Hero && target->MobaTeam != g_MyMobaTeam;
+    World::Moba::Summon::Cast(slot, enemy ? static_cast<unsigned short>(target->Key) : NO_TARGET);
+}
+
 static void RunPendingPuppetCast()
 {
     constexpr unsigned short NO_TARGET = 0xFFFF;
@@ -4060,6 +4081,7 @@ void MoveHero()
     }
 
     RunPendingPuppetCast();
+    RunPendingSummonCast();
     const bool mobaCommandClick = MobaMatchActive() && MouseRButtonPush && !MouseOnWindow && SEASON3B::CheckMouseIn(0, 0, GetScreenWidth(), 429);
     if (mobaCommandClick && World::Moba::Puppet::Controlling())
     {

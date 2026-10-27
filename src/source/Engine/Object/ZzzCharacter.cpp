@@ -6442,8 +6442,8 @@ namespace
     // The lag is how many tiles the monster is from the target tile beyond the length of the last walk packet: the server walks a
     // packet of N steps from where the monster was, so being N tiles from its end is on time (a 16-step jungle walk is not lag).
     constexpr float MOBA_MONSTER_HURRY_TILES = 1.0f;    // more lag than this: walks at double speed
-    constexpr float MOBA_MONSTER_HURRY_FAR_TILES = 3.0f; // more lag than this: triple speed
-    constexpr float MOBA_MONSTER_SNAP_TILES = 6.0f;     // more lag than this: goes straight to the target tile
+    constexpr float MOBA_MONSTER_HURRY_FAR_TILES = 4.0f; // more lag than this: triple speed
+    constexpr float MOBA_MONSTER_SNAP_TILES = 12.0f;    // more lag than this: goes straight to the target tile (6 made monsters vanish and reappear)
     constexpr double MOBA_LAG_LOG_EVERY_MS = 4000.0;
 
     struct MobaLagStats

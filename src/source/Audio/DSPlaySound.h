@@ -1034,4 +1034,10 @@ HRESULT RestoreBuffers(int Buffer, int Channel);
 void	SetVolume(int Buffer, long vol);
 void	SetMasterVolume(long vol);
 
+// Gameplay cues (MOBA announcer voices and pings) must be heard even with a low effects slider: -12 dB at level 1 up to 0 dB at level 9; level 0 mutes.
+inline void SetCueVolume(ESound Buffer, int EffectsLevel)
+{
+    SetVolume(Buffer, EffectsLevel <= 0 ? -10000 : -1200 + 150 * ((EffectsLevel > 9 ? 9 : EffectsLevel) - 1));
+}
+
 #endif //__DSPLAYSOUND_H__

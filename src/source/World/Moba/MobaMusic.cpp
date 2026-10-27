@@ -38,7 +38,7 @@ namespace
     constexpr const char* JINGLE_VICTORY = "data\\sound\\w35\\CW_win.wav";
     constexpr const char* JINGLE_DEFEAT = "data\\sound\\w35\\CW_lose.wav";
 
-    constexpr double MID_AFTER_MS = 10.0 * 60.0 * 1000.0;   // the battle music starts this long after the match start
+    constexpr double MID_AFTER_MS = 3.0 * 60.0 * 1000.0;   // the battle music starts this long after the match start
     constexpr int FADE_MS = 1500;                            // fade out of the track that leaves
     constexpr int FADE_FAST_MS = 400;                        // before a jingle
     constexpr double FADE_MARGIN_MS = 100.0;                 // wait a little longer than the fade before starting the next track

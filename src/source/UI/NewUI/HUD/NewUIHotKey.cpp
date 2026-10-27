@@ -168,7 +168,7 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
 
     if (CanUpdateKeyEventRelatedMyInventory() == true)
     {
-        if (SEASON3B::IsPress('I') || (SEASON3B::IsPress('V') && !World::Moba::Ping::KeysReserved()))
+        if (SEASON3B::IsPress('I') || SEASON3B::IsPress('V'))
         {
             if (g_pNPCShop->IsSellingItem() == false)
             {
@@ -209,7 +209,7 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
         PlayBuffer(SOUND_CLICK01);
         return false;
     }
-    else if (SEASON3B::IsPress('I') || (SEASON3B::IsPress('V') && !World::Moba::Ping::KeysReserved()))
+    else if (SEASON3B::IsPress('I') || SEASON3B::IsPress('V'))
     {
         if (g_pNPCShop->IsSellingItem() == false)
         {

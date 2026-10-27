@@ -863,7 +863,7 @@ void RenderCreeps(const Frame& frame, const Atlases& atlases)
 
 void RenderGoldens(const Frame& frame, const Atlases& atlases)
 {
-    constexpr float GOLDEN_DOT_SIZE[] = { 2.4f, 2.4f, 3.2f, 4.2f, 5.4f };   // by tier (index 0 unused), reference px before the options panel factor
+    constexpr float GOLDEN_DOT_SIZE[] = { 1.2f, 1.2f, 1.6f, 2.1f, 2.7f };   // by tier (index 0 unused), reference px before the options panel factor
     constexpr float GOLDEN_FLAT_SIZE_FACTOR = 0.6f;
     constexpr Rgb COLOR_GOLDEN = { 1.f, 205 / 255.f, 40 / 255.f };
     const std::vector<World::Moba::GoldenDots::Dot>& dots = World::Moba::GoldenDots::Get();
