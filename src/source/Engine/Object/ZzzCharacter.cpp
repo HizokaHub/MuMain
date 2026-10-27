@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "Character/RuneWizardSkills.h"
 #include <execution>
 #include <algorithm>
 #include <span>
@@ -4180,7 +4181,7 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
         c->LastAttackEffectTime = -1;
         o->PKKey = getTargetCharacterKey(c, SelectedCharacter);
 
-        switch ((c->Skill))
+        switch (Character::RuneWizard::Skills::VisualSkillOf(c->Skill))
         {
         case AT_SKILL_SUMMON:
         case AT_SKILL_SUMMON + 1:
@@ -4926,7 +4927,7 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
             vec3_t Angle;
             VectorCopy(o->Angle, Angle);
             Angle[2] = CreateAngle2D(o->Position, to->Position);
-            switch ((c->Skill))
+            switch (Character::RuneWizard::Skills::VisualSkillOf(c->Skill))
             {
             case AT_SKILL_TRIPLE_SHOT:
             case AT_SKILL_TRIPLE_SHOT_STR:
@@ -5285,7 +5286,7 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
                 break;
             }
 
-            switch ((c->Skill))
+            switch (Character::RuneWizard::Skills::VisualSkillOf(c->Skill))
             {
             case AT_SKILL_HEALING:
             case AT_SKILL_HEALING_STR:

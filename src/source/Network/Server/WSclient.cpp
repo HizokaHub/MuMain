@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "Character/RuneWizardSkills.h"
 #include "UI/Chat/Chat.h"
 #include <memory>
 #include "UI/Legacy/UIManager.h"
@@ -4146,7 +4147,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         CreateEffect(MODEL_CURSEDTEMPLE_PRODECTION_SKILL, so->Position, bubbleAngle, bubbleLight, 8, so);
     }
 
-    switch (MagicNumber)
+    switch (Character::RuneWizard::Skills::VisualSkillOf(MagicNumber))
     {
     case AT_SKILL_MONSTER_SUMMON:
         SetPlayerAttack(sc);
@@ -5204,7 +5205,7 @@ BOOL ReceiveMagicContinue(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
         // so this per-skill cast-pose / particle switch must run for the hero as well.
         if (sc != Hero || g_MobaLevel > 0)
         {
-            switch (MagicNumber)
+            switch (Character::RuneWizard::Skills::VisualSkillOf(MagicNumber))
             {
             case AT_SKILL_TRIPLE_SHOT:
             case AT_SKILL_TRIPLE_SHOT_STR:

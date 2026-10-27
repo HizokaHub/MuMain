@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "Character/RuneWizardSkills.h"
 #include "GameLogic/Combat/SkillExecution.h"
 #include "GameLogic/Combat/ClassAttack.h"
 #include "GameLogic/Combat/CombatTarget.h"
@@ -300,7 +301,7 @@ static bool MobaIsAreaSkill(int Skill)
         // CMonkSystem effect path (which needs sc->TargetCharacter) drives them.
         return true;
     default:
-        return false;
+        return Character::RuneWizard::Skills::IsAreaSkill(Skill);
     }
 }
 
@@ -553,7 +554,7 @@ int ExecuteSkill(CHARACTER* c, ActionSkillType Skill, float Distance)
             }
         }
     }
-    if (g_MobaLevel > 0)
+    if (g_MobaLevel > 0 || Character::RuneWizard::Skills::IsRuneSkill(Skill))
     {
         MobaCastSkill(c, Skill);
         return (int) ExecuteSkillComplete(c);

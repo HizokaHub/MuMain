@@ -629,6 +629,15 @@ enum ActionSkillType
     AT_SKILL_IncreaseMinimumAttackPower = 607,
     AT_SKILL_RecoverManaMonsterKills = 608,
     AT_SKILL_MASTER_END = 608,
+
+    // Rune wizard (imported from Season 21). Own numbers because the client tables hold 650 skills; same numbers as the server.
+    AT_SKILL_RUNE_MAGIC_ARROW = 630,
+    AT_SKILL_RUNE_PLASMA_BALL = 631,
+    AT_SKILL_RUNE_LIGHTNING_STORM = 632,
+    AT_SKILL_RUNE_BURST = 633,
+    AT_SKILL_RUNE_HASTE = 634,
+    AT_SKILL_RUNE_RUNIC_SPEAR = 635,
+    AT_SKILL_RUNE_PHRASE = 636,
 };
 
 const std::map<ActionSkillType, ActionSkillType> SKILL_REPLACEMENTS = {
