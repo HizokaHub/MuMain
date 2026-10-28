@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "UI/NewUI/HUD/Skills/SkillIcon.h"
 
+#include "Character/RuneWizardSkills.h"
 #include "UI/NewUI/HUD/NewUIMainFrameWindow.h"  // KOS_* kinds of skill atlas
 
 using namespace SEASON3B;
@@ -12,6 +13,9 @@ void Render(int skill, float x, float y, float width, float height)
 {
     float fU, fV;
     int iKindofSkill = 0;
+    bool kindIsSkill2 = false;
+    int iconColumn = 0;
+    int iconRow = 0;
 
     BYTE bySkillUseType = SkillAttribute[skill].SkillUseType;
     int Skill_Icon = SkillAttribute[skill].Magic_Icon;
@@ -117,6 +121,12 @@ void Render(int skill, float x, float y, float width, float height)
         fU = 8 * width / 256.f;
         fV = 2 * height / 256.f;
         iKindofSkill = KOS_SKILL2;
+    }
+    else if (Character::RuneWizard::Skills::IconCell(skill, kindIsSkill2, iconColumn, iconRow))
+    {
+        fU = iconColumn * width / 256.f;
+        fV = iconRow * height / 256.f;
+        iKindofSkill = kindIsSkill2 ? KOS_SKILL2 : KOS_SKILL1;
     }
     else if (bySkillUseType == 4)
     {

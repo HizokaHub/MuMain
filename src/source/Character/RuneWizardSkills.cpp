@@ -27,6 +27,21 @@ namespace Character::RuneWizard::Skills
         }
     }
 
+    bool IconCell(int skill, bool& inSkill2Atlas, int& column, int& row)
+    {
+        switch (skill)
+        {
+        case AT_SKILL_RUNE_MAGIC_ARROW: inSkill2Atlas = false; column = 7; row = 2; return true;
+        case AT_SKILL_RUNE_PLASMA_BALL: inSkill2Atlas = false; column = 0; row = 2; return true;
+        case AT_SKILL_RUNE_LIGHTNING_STORM: inSkill2Atlas = false; column = 2; row = 0; return true;
+        case AT_SKILL_RUNE_BURST: inSkill2Atlas = false; column = 1; row = 5; return true;
+        case AT_SKILL_RUNE_HASTE: inSkill2Atlas = true; column = 5; row = 5; return true;
+        case AT_SKILL_RUNE_RUNIC_SPEAR: inSkill2Atlas = false; column = 6; row = 5; return true;
+        case AT_SKILL_RUNE_PHRASE: inSkill2Atlas = true; column = 4; row = 1; return true;
+        default: return false;
+        }
+    }
+
     int VisualSkillOf(int skill)
     {
         switch (skill)

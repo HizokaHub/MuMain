@@ -8,6 +8,7 @@
 
 #include "UI/NewUI/HUD/NewUIMainFrameWindow.h"	// self
 #include "UI/NewUI/Options/NewUIOptionWindow.h"
+#include "Character/RuneWizardSkills.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "UI/Widgets/UIBaseDef.h"
 #include "Audio/DSPlaySound.h"
@@ -3045,6 +3046,9 @@ void SEASON3B::CNewUISkillList::RenderSkillIcon(int iIndex, float x, float y, fl
 
     float fU, fV;
     int iKindofSkill = 0;
+    bool kindIsSkill2 = false;
+    int iconColumn = 0;
+    int iconRow = 0;
 
     if (!g_csItemOption.IsNonWeaponSkillOrIsSkillEquipped(bySkillType))
     {
@@ -3167,6 +3171,12 @@ void SEASON3B::CNewUISkillList::RenderSkillIcon(int iIndex, float x, float y, fl
         fU = 8 * width / 256.f;
         fV = 2 * height / 256.f;
         iKindofSkill = KOS_SKILL2;
+    }
+    else if (Character::RuneWizard::Skills::IconCell(bySkillType, kindIsSkill2, iconColumn, iconRow))
+    {
+        fU = iconColumn * width / 256.f;
+        fV = iconRow * height / 256.f;
+        iKindofSkill = kindIsSkill2 ? KOS_SKILL2 : KOS_SKILL1;
     }
     else if (bySkillUseType == 4)
     {
