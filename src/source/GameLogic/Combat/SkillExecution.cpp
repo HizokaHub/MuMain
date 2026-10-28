@@ -310,7 +310,8 @@ static void MobaCastSkill(CHARACTER* c, int Skill)
     OBJECT* o = &c->Object;
 
     CheckTarget(c);
-    const bool hasTarget = CheckAttack() && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT;
+    const bool hasTarget = CheckAttack() && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT
+        && !Character::RuneWizard::Skills::IsSelfBuff(Skill);
     const WORD targetKey = hasTarget ? (WORD)getTargetCharacterKey(c, SelectedCharacter) : (WORD)HeroKey;
 
     g_MovementSkill.m_bMagic = TRUE;

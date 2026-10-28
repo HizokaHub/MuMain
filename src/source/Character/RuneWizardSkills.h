@@ -6,6 +6,9 @@ namespace Character::RuneWizard::Skills
     // Whether the skill is one of the rune wizard's own.
     bool IsRuneSkill(int skill);
 
+    // Whether the skill is a buff the rune wizard always casts on itself (Burst, Haste), whatever character is selected.
+    bool IsSelfBuff(int skill);
+
     // Whether the skill is cast on a place of the ground (it travels the area packet) and not on a target.
     bool IsAreaSkill(int skill);
 

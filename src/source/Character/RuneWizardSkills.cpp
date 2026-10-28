@@ -8,6 +8,11 @@ namespace Character::RuneWizard::Skills
         return skill >= AT_SKILL_RUNE_MAGIC_ARROW && skill <= AT_SKILL_RUNE_PHRASE;
     }
 
+    bool IsSelfBuff(int skill)
+    {
+        return skill == AT_SKILL_RUNE_BURST || skill == AT_SKILL_RUNE_HASTE;
+    }
+
     bool IsAreaSkill(int skill)
     {
         switch (skill)
