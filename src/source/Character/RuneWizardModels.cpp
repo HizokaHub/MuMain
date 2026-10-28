@@ -14,7 +14,7 @@ namespace Character::RuneWizard
         constexpr wchar_t kPlayerTextureDir[] = L"Player\\";
 
         // NewFace09.bmd of Season 21 (converted with tools/bmd_convert.py); the other classes use NewFace01..07.
-        constexpr wchar_t kCreationFaceDir[] = L"Data\Logo\\";
+        constexpr wchar_t kCreationFaceDir[] = L"Data\\Logo\\";
         constexpr wchar_t kCreationFaceFile[] = L"NewFaceRuneWizard";
         constexpr wchar_t kCreationFaceTextureDir[] = L"Logo\\";
 
@@ -79,6 +79,7 @@ namespace Character::RuneWizard
         gLoadData.OpenTexture(MODEL_FACE_RUNEWIZARD, kCreationFaceTextureDir);
 
         BMD& face = Models[MODEL_FACE_RUNEWIZARD];
+        g_ErrorReport.Write(L"> Rune wizard creation model: %d meshes, %d bones, %d actions.\r\n", face.NumMeshs, face.NumBones, face.NumActions);
         for (int action = 0; action < kCreationFaceActionCount && action < face.NumActions; ++action)
         {
             face.Actions[action].PlaySpeed = kCreationFacePlaySpeed;

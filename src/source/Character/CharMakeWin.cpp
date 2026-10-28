@@ -137,7 +137,8 @@ namespace
         case CLASS_RAGEFIGHTER:
             return { false, 0.0f, 0.0f, 0.0f, 6.0f, 9.8f, -7.5f };
         case CLASS_RUNEWIZARD:
-            return { false, 0.0f, 0.0f, 0.0f, 6.0f, 0.0f, 0.0f };
+            // About the size of the elf model (same facing and camera), a bit smaller so the wider shoulders fit.
+            return { true, 8.0f, 0.0f, 5.0f, 8.5f, 4.8f, 0.0f };
         default:
             return { false, 0.0f, 0.0f, 0.0f, 6.0f, 0.0f, 0.0f };
         }
@@ -500,6 +501,8 @@ void CCharMakeWin::SelectCreateCharacter()
 {
     CharacterView.Class = m_nSelJob;
     CreateCharacterPointer(&CharacterView, Character::CreationFace::ModelOf(CharacterView.Class), 0, 0);
+    if (CharacterView.Class == CLASS_RUNEWIZARD)
+        g_ErrorReport.Write(L"> Creation screen: rune wizard model %d, %d meshes.\r\n", CharacterView.Object.Type, Models[CharacterView.Object.Type].NumMeshs);
     CharacterView.Object.Kind = 0;
     SetAction(&CharacterView.Object, 1);
 }
