@@ -19,6 +19,7 @@
 
 #include "App/Platform/Windows/Local.h"
 #include "CharacterManager.h"
+#include "CreationFaceModels.h"
 
 #include <algorithm>
 #include <array>
@@ -38,6 +39,27 @@ namespace
         20, 21, 22, 23, 24, 1687, 3150
     };
 
+    // The rune wizard has no text in the S6 table (see CCharacterManager::GetCharacterClassText); its button comes after the 7 classes.
+    constexpr int kRuneWizardButton = MAX_CLASS;
+    constexpr const wchar_t* kRuneWizardDescription =
+        L"The Rune Wizard casts runic magic: arrows, plasma and storms, and strengthens the whole party with its buffs.";
+
+    // The classes in the order the buttons are listed, from top to bottom.
+    constexpr std::array<CLASS_TYPE, CMW_JOB_COUNT> kJobButtonOrder{
+        CLASS_WIZARD, CLASS_KNIGHT, CLASS_ELF, CLASS_SUMMONER,
+        CLASS_RAGEFIGHTER, CLASS_DARK, CLASS_DARK_LORD, CLASS_RUNEWIZARD
+    };
+
+    constexpr int ButtonOf(CLASS_TYPE classType)
+    {
+        return classType == CLASS_RUNEWIZARD ? kRuneWizardButton : static_cast<int>(classType);
+    }
+
+    constexpr CLASS_TYPE ClassOfButton(int button)
+    {
+        return button == kRuneWizardButton ? CLASS_RUNEWIZARD : static_cast<CLASS_TYPE>(button);
+    }
+
     constexpr std::size_t kMinCharacterNameLength = 4;
 
     constexpr int kSummonerDescriptionTextId = 1690;
@@ -54,9 +76,9 @@ namespace
     constexpr const wchar_t* kDarkLordLeadershipStatValue = L"25";
     constexpr int kDarkLordLeadershipTextId = 1738;
 
-    constexpr int kJobButtonStartY = 131;
-    constexpr int kJobButtonSummonerRow = 3;
-    constexpr int kJobButtonRageFighterY = 246;
+    // The list starts under the tallest stat box (the dark lord one) and has to end above the OK button.
+    constexpr int kJobButtonStartY = 122;
+    constexpr int kJobButtonPitch = 25;
     constexpr int kOkButtonOffsetY = 325;
     constexpr int kCancelButtonOffsetX = 400;
     constexpr int kInputSpriteOffsetY = 317;
@@ -73,14 +95,16 @@ namespace
         std::array<const wchar_t*, 4> values;
     };
 
-    constexpr std::array<ClassStats, MAX_CLASS> kClassStatTable{ {
-        ClassStats{ { L"18", L"18", L"15", L"30" } }, // Knight
-        ClassStats{ { L"28", L"20", L"25", L"10" } }, // Wizard
+    // Indexed by the button (see ButtonOf()). The rune wizard starts with the stats of the dark wizard.
+    constexpr std::array<ClassStats, CMW_JOB_COUNT> kClassStatTable{ {
+        ClassStats{ { L"18", L"18", L"15", L"30" } }, // Dark Wizard
+        ClassStats{ { L"28", L"20", L"25", L"10" } }, // Dark Knight
         ClassStats{ { L"22", L"25", L"20", L"15" } }, // Elf
         ClassStats{ { L"26", L"26", L"26", L"26" } }, // Magic Gladiator
         ClassStats{ { L"26", L"20", L"20", L"15" } }, // Dark Lord
         ClassStats{ { L"21", L"21", L"18", L"23" } }, // Summoner
         ClassStats{ { L"32", L"27", L"25", L"20" } }, // Rage Fighter
+        ClassStats{ { L"18", L"18", L"15", L"30" } }, // Rune Wizard
     } };
 
     struct ClassRenderParameters
@@ -112,6 +136,8 @@ namespace
             return { true, 2.0f, 0.0f, 2.0f, 9.1f, 4.8f, 4.0f };
         case CLASS_RAGEFIGHTER:
             return { false, 0.0f, 0.0f, 0.0f, 6.0f, 9.8f, -7.5f };
+        case CLASS_RUNEWIZARD:
+            return { false, 0.0f, 0.0f, 0.0f, 6.0f, 0.0f, 0.0f };
         default:
             return { false, 0.0f, 0.0f, 0.0f, 6.0f, 0.0f, 0.0f };
         }
@@ -124,6 +150,28 @@ namespace
         if (selectedClass == CLASS_RAGEFIGHTER)
             return kRageFighterDescriptionTextId;
         return kDefaultDescriptionBase + selectedClass;
+    }
+
+    const wchar_t* ResolveDescription(CLASS_TYPE selectedClass)
+    {
+        if (selectedClass == CLASS_RUNEWIZARD)
+            return kRuneWizardDescription;
+        return I18N::Game::Lookup(ResolveDescriptionTextId(selectedClass));
+    }
+
+    const wchar_t* ResolveButtonText(int button)
+    {
+        if (button == kRuneWizardButton)
+            return gCharacterManager.GetCharacterClassText(CLASS_RUNEWIZARD);
+        return I18N::Game::Lookup(kClassButtonTextIds[button]);
+    }
+
+    // The class number the server knows: the S6 classes travel as (class << 2) + skin, the rune wizard has its own number.
+    CharacterClassNumber ResolveServerClass(CLASS_TYPE classType, int skin)
+    {
+        if (classType == CLASS_RUNEWIZARD)
+            return static_cast<CharacterClassNumber>(RuneWizard);
+        return static_cast<CharacterClassNumber>((classType << 2) + skin);
     }
 }
 
@@ -165,12 +213,11 @@ void CCharMakeWin::Create()
     }
 
     std::array<DWORD, BTN_IMG_MAX> jobButtonColors = kJobButtonColors;
-    for (int classIndex = 0; classIndex < MAX_CLASS; ++classIndex)
+    for (int button = 0; button < CMW_JOB_COUNT; ++button)
     {
-        m_abtnJob[classIndex].Create(108, 26, BITMAP_LOG_IN + 1, 4, 2, 1, 0, 3, 3, 3, 0);
-        const int textId = kClassButtonTextIds[classIndex];
-        m_abtnJob[classIndex].SetText(I18N::Game::Lookup(textId), jobButtonColors.data());
-        CWin::RegisterButton(&m_abtnJob[classIndex]);
+        m_abtnJob[button].Create(108, 26, BITMAP_LOG_IN + 1, 4, 2, 1, 0, 3, 3, 3, 0);
+        m_abtnJob[button].SetText(ResolveButtonText(button), jobButtonColors.data());
+        CWin::RegisterButton(&m_abtnJob[button]);
     }
 
     for (int i = 0; i < 2; ++i)
@@ -203,24 +250,13 @@ void CCharMakeWin::SetPosition(int nXCoord, int nYCoord)
     const int baseX = nXCoord + 346;
     m_asprBack[CMW_SPR_STAT].SetPosition(baseX, nYCoord + kStatSpriteOffsetY);
 
-    const int buttonHeight = m_abtnJob[0].GetHeight();
-    int baseY = nYCoord + kJobButtonStartY;
-
-    for (int classIndex = 0; classIndex < 3; ++classIndex)
-        m_abtnJob[classIndex].SetPosition(baseX, baseY + classIndex * buttonHeight);
-
-    m_abtnJob[CLASS_SUMMONER].SetPosition(baseX, baseY + kJobButtonSummonerRow * buttonHeight);
-
-    baseY = nYCoord + kJobButtonRageFighterY;
-    m_abtnJob[CLASS_RAGEFIGHTER].SetPosition(baseX, baseY);
-
-    for (int classIndex = CLASS_DARK; classIndex <= CLASS_DARK_LORD; ++classIndex)
+    for (std::size_t row = 0; row < kJobButtonOrder.size(); ++row)
     {
-        const int row = (classIndex - CLASS_DARK) + 1;
-        m_abtnJob[classIndex].SetPosition(baseX, baseY + row * buttonHeight);
+        const int rowY = nYCoord + kJobButtonStartY + static_cast<int>(row) * kJobButtonPitch;
+        m_abtnJob[ButtonOf(kJobButtonOrder[row])].SetPosition(baseX, rowY);
     }
 
-    baseY = nYCoord + kOkButtonOffsetY;
+    const int baseY = nYCoord + kOkButtonOffsetY;
     m_aBtn[CMW_OK].SetPosition(baseX, baseY);
     m_aBtn[CMW_CANCEL].SetPosition(nXCoord + kCancelButtonOffsetX, baseY);
 
@@ -244,7 +280,7 @@ void CCharMakeWin::Show(bool bShow)
     for (i = 0; i < CMW_SPR_MAX; ++i)
         m_asprBack[i].Show(bShow);
 
-    for (i = 0; i < MAX_CLASS; ++i)
+    for (i = 0; i < CMW_JOB_COUNT; ++i)
         m_abtnJob[i].Show(bShow);
     for (i = 0; i < 2; ++i)
         m_aBtn[i].Show(bShow);
@@ -307,9 +343,8 @@ void CCharMakeWin::UpdateDisplay()
     const bool isDarkLord = (m_nSelJob == CLASS_DARK_LORD);
     m_asprBack[CMW_SPR_STAT].SetSize(0, isDarkLord ? kDarkLordStatHeight : kDefaultStatHeight, Y);
 
-    const int descriptionTextId = ResolveDescriptionTextId(m_nSelJob);
     m_nDescLine = ::SeparateTextIntoLines(
-        I18N::Game::Lookup(descriptionTextId),
+        ResolveDescription(m_nSelJob),
         m_aszJobDesc[0],
         CMW_DESC_LINE_MAX,
         CMW_DESC_ROW_MAX);
@@ -319,18 +354,19 @@ void CCharMakeWin::UpdateDisplay()
 
 void CCharMakeWin::UpdateWhileActive(double dDeltaTick)
 {
-    for (int classIndex = 0; classIndex < MAX_CLASS; ++classIndex)
+    for (int button = 0; button < CMW_JOB_COUNT; ++button)
     {
-        if (!m_abtnJob[classIndex].IsClick())
+        if (!m_abtnJob[button].IsClick())
             continue;
 
-        for (auto& button : m_abtnJob)
-            button.SetCheck(false);
-        m_abtnJob[classIndex].SetCheck(true);
+        for (auto& jobButton : m_abtnJob)
+            jobButton.SetCheck(false);
+        m_abtnJob[button].SetCheck(true);
 
-        if (m_nSelJob != classIndex)
+        const CLASS_TYPE clickedClass = ClassOfButton(button);
+        if (m_nSelJob != clickedClass)
         {
-            m_nSelJob = static_cast<CLASS_TYPE>(classIndex);
+            m_nSelJob = clickedClass;
             UpdateDisplay();
         }
         break;
@@ -378,7 +414,7 @@ void CCharMakeWin::RequestCreateCharacter()
         rUIMng.PopUpMsgWin(MESSAGE_SPECIAL_NAME);
     else
     {
-        const auto classByte = static_cast<CharacterClassNumber>((CharacterView.Class << 2) + CharacterView.Skin);
+        const auto classByte = ResolveServerClass(CharacterView.Class, CharacterView.Skin);
         CurrentProtocolState = REQUEST_CREATE_CHARACTER;
         SocketClient->ToGameServer()->SendCreateCharacter(InputText[0], classByte);
         //SendRequestCreateCharacter(InputText[0], CharacterView.Class, CharacterView.Skin);
@@ -402,7 +438,7 @@ void CCharMakeWin::RenderControls()
     g_pRenderText->SetTextColor(CLRDW_WHITE);
     g_pRenderText->SetBgColor(0);
 
-    const auto& stats = kClassStatTable[static_cast<std::size_t>(m_nSelJob)];
+    const auto& stats = kClassStatTable[static_cast<std::size_t>(ButtonOf(m_nSelJob))];
     const int statBaseX = m_asprBack[CMW_SPR_STAT].GetXPos() + kStatTextOffsetX;
     for (std::size_t statIndex = 0; statIndex < stats.values.size(); ++statIndex)
     {
@@ -463,7 +499,7 @@ void CCharMakeWin::RenderControls()
 void CCharMakeWin::SelectCreateCharacter()
 {
     CharacterView.Class = m_nSelJob;
-    CreateCharacterPointer(&CharacterView, static_cast<int>(MODEL_FACE) + CharacterView.Class, 0, 0);
+    CreateCharacterPointer(&CharacterView, Character::CreationFace::ModelOf(CharacterView.Class), 0, 0);
     CharacterView.Object.Kind = 0;
     SetAction(&CharacterView.Object, 1);
 }

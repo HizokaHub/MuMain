@@ -5134,6 +5134,8 @@ void OpenCharacterSceneData()
         Models[MODEL_FACE + i].Actions[1].PlaySpeed = 0.3f;
     }
     Models[static_cast<int>(MODEL_FACE) + CLASS_SUMMONER].Actions[0].PlaySpeed = 0.25f;
+
+    Character::RuneWizard::OpenCreationFace();
 }
 
 void ReleaseCharacterSceneData()
@@ -5148,6 +5150,8 @@ void ReleaseCharacterSceneData()
 
     for (int i = 0; i < MAX_CLASS; i++)
         Models[MODEL_FACE + i].Release();
+
+    Character::RuneWizard::ReleaseCreationFace();
 
     ClearCharacters();
 }

@@ -15,6 +15,8 @@
 #define	CMW_SPR_DESC		2
 #define	CMW_SPR_MAX			3
 
+#define	CMW_JOB_COUNT		(MAX_CLASS + 1)	// the 7 classes of the item tables + the rune wizard
+
 #define	CMW_DESC_LINE_MAX	2
 #define	CMW_DESC_ROW_MAX	75
 
@@ -23,7 +25,7 @@ class CCharMakeWin : public CWin
 protected:
     CWin	m_winBack;
     CSprite	m_asprBack[CMW_SPR_MAX];
-    CButton	m_abtnJob[MAX_CLASS];
+    CButton	m_abtnJob[CMW_JOB_COUNT];
     CButton	m_aBtn[2];
 
     CLASS_TYPE		m_nSelJob;

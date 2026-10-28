@@ -8,4 +8,10 @@ namespace Character::RuneWizard
 
     // Opens the textures of the models opened by OpenBodyModels().
     void OpenBodyTextures();
+
+    // Opens the model and the textures the character creation screen shows the class with (MODEL_FACE_RUNEWIZARD).
+    void OpenCreationFace();
+
+    // Frees the model opened by OpenCreationFace().
+    void ReleaseCreationFace();
 }

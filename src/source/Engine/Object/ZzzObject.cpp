@@ -36,6 +36,7 @@
 #include "Render/Models/BoneManager.h"
 #include "GameLogic/Events/w_CursedTemple.h"
 #include "Character/CharacterManager.h"
+#include "Character/CreationFaceModels.h"
 #include "World/MapInfra/w_MapHeaders.h"
 #include "GameLogic/Social/MonkSystem.h"
 #include "UI/NewUI/NewUISystem.h"
@@ -1002,7 +1003,7 @@ void Draw_RenderObject(OBJECT* o, bool Translate, int Select, int ExtraMon)
                     }
                 }
             }
-            else if (o->Type >= MODEL_FACE && o->Type <= MODEL_FACE + 6)
+            else if (Character::CreationFace::IsModel(o->Type))
             {
                 Vector(4.8f, 4.8f, 4.8f, b->BodyLight);
                 b->RenderBody(RENDER_TEXTURE, o->Alpha, o->BlendMesh, o->BlendMeshLight, o->BlendMeshTexCoordU, o->BlendMeshTexCoordV, o->HiddenMesh);

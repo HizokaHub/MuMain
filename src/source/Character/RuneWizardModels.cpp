@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "RuneWizardModels.h"
 #include "Data/DataHandler/LoadData.h"
+#include "Render/Models/ZzzBMD.h"
 
 namespace Character::RuneWizard
 {
@@ -11,6 +12,15 @@ namespace Character::RuneWizard
 
         constexpr wchar_t kPlayerModelDir[] = L"Data\\Player\\";
         constexpr wchar_t kPlayerTextureDir[] = L"Player\\";
+
+        // NewFace09.bmd of Season 21 (converted with tools/bmd_convert.py); the other classes use NewFace01..07.
+        constexpr wchar_t kCreationFaceDir[] = L"Data\Logo\\";
+        constexpr wchar_t kCreationFaceFile[] = L"NewFaceRuneWizard";
+        constexpr wchar_t kCreationFaceTextureDir[] = L"Logo\\";
+
+        // The same animation speed the creation screen models of the other classes have.
+        constexpr float kCreationFacePlaySpeed = 0.3f;
+        constexpr int kCreationFaceActionCount = 2;
 
         struct BodyPart
         {
@@ -61,5 +71,22 @@ namespace Character::RuneWizard
                 gLoadData.OpenTexture(part.firstModel + look.skin, kPlayerTextureDir);
             }
         }
+    }
+
+    void OpenCreationFace()
+    {
+        gLoadData.AccessModel(MODEL_FACE_RUNEWIZARD, kCreationFaceDir, kCreationFaceFile);
+        gLoadData.OpenTexture(MODEL_FACE_RUNEWIZARD, kCreationFaceTextureDir);
+
+        BMD& face = Models[MODEL_FACE_RUNEWIZARD];
+        for (int action = 0; action < kCreationFaceActionCount && action < face.NumActions; ++action)
+        {
+            face.Actions[action].PlaySpeed = kCreationFacePlaySpeed;
+        }
+    }
+
+    void ReleaseCreationFace()
+    {
+        Models[MODEL_FACE_RUNEWIZARD].Release();
     }
 }

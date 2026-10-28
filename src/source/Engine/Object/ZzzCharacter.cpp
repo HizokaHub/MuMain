@@ -7,6 +7,7 @@
 
 #include "stdafx.h"
 #include "Character/RuneWizardSkills.h"
+#include "Character/CreationFaceModels.h"
 #include <execution>
 #include <algorithm>
 #include <span>
@@ -2577,6 +2578,7 @@ bool CharacterAnimation(CHARACTER* c, OBJECT* o)
             case MODEL_FACE + 4:
             case MODEL_FACE + 5:
             case MODEL_FACE + 6:
+            case MODEL_FACE_RUNEWIZARD:
                 PlaySpeed *= powf(2.0f, FPS_ANIMATION_FACTOR);
                 break;
             }
@@ -3614,6 +3616,7 @@ void EtcStopAnimationSetting(CHARACTER* c, OBJECT* o)
                 case MODEL_FACE + 4:
                 case MODEL_FACE + 5:
                 case MODEL_FACE + 6:
+                case MODEL_FACE_RUNEWIZARD:
                     break;
                 case MODEL_ELBELAND_SILVIA:
                 case MODEL_ELBELAND_RHEA:
@@ -8858,8 +8861,7 @@ void RenderCharacter(CHARACTER* c, OBJECT* o, int Select)
                 o->HiddenMesh = 2;
 
             if (o->Type != MODEL_STATUE_OF_SAINT && o->Type != MODEL_CASTLE_GATE
-                && !(o->Type >= MODEL_FACE
-                    && o->Type <= MODEL_FACE + 6))
+                && !Character::CreationFace::IsModel(o->Type))
             {
                 o->EnableShadow = true;
                 RenderPartObject(&c->Object, o->Type, NULL, c->Light, o->Alpha, 0, 0, 0, false, false, Translate);
@@ -11913,7 +11915,7 @@ void CreateCharacterPointer(CHARACTER* c, int Type, unsigned char PositionX, uns
     c->MobaHealth = -1.f;
     c->MobaStatusTime = 0.0;
 
-    if (Type < MODEL_FACE || Type > MODEL_FACE + 6)
+    if (!Character::CreationFace::IsModel(Type))
     {
         c->Class = CLASS_WIZARD;
     }

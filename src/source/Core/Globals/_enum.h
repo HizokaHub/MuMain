@@ -862,6 +862,8 @@ enum
     MODEL_LOGOSUN,
     MODEL_CARD,
     MODEL_FACE = MODEL_CARD + 4,
+    // Creation screen model of the rune wizard (Season 21 class), in the free slot in front of MODEL_FACE so no model index moves.
+    MODEL_FACE_RUNEWIZARD = MODEL_CARD + 1,
     //animal
     MODEL_BIRD01 = MODEL_FACE + MAX_CLASS,
 
