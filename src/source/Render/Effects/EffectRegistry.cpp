@@ -69,18 +69,26 @@ namespace Render::Effects
 
                 // Rune Wizard own effects (see Behaviors/RuneWizardEffects.cpp): the Runic Spear
                 // strike and the Rune Phrase circle of runes.
-                add({ MODEL_RW_SPEAR }, {
-                    .onCreate = &RuneWizard::InitSpear,
-                    .move = &RuneWizard::MoveSpear,
+                add({ MODEL_RW_SPHERE_CASTER }, {
+                    .onCreate = &RuneWizard::InitSphereCaster,
+                    .move = &RuneWizard::MoveSphereCaster,
                     .render = &RuneWizard::DrawAdditive });
-                add({ MODEL_RW_SPEAR_BEAM }, {
-                    .onCreate = &RuneWizard::InitBeam,
-                    .move = &RuneWizard::MoveBeam,
+                add({ MODEL_RW_SPHERE_INNER }, {
+                    .onCreate = &RuneWizard::InitSphereInner,
+                    .move = &RuneWizard::MoveSphereInner,
                     .render = &RuneWizard::DrawAdditive });
-                add({ MODEL_RW_PHRASE }, {
-                    .onCreate = &RuneWizard::InitPhrase,
-                    .move = &RuneWizard::MovePhrase,
-                    .render = &RuneWizard::DrawPhrase });
+                add({ MODEL_RW_SPHERE_OUTER }, {
+                    .onCreate = &RuneWizard::InitSphereOuter,
+                    .move = &RuneWizard::MoveSphereOuter,
+                    .render = &RuneWizard::DrawAdditive });
+                add({ MODEL_RW_LANCE }, {
+                    .onCreate = &RuneWizard::InitLance,
+                    .move = &RuneWizard::MoveLance,
+                    .render = &RuneWizard::DrawAdditive });
+                add({ MODEL_RW_FIELD }, {
+                    .onCreate = &RuneWizard::InitField,
+                    .move = &RuneWizard::MoveField,
+                    .render = &RuneWizard::DrawField });
 
                 // --- Effects with creation parameters and a move handler ----
                 add({ MODEL_MAGIC_CAPSULE2 }, { .create = CreateParams{ .lifeTime = 20.f, .blendMesh = 0, .blendMeshLight = 1.0f }, .move = &Behaviors::MoveMagicCapsule2 });

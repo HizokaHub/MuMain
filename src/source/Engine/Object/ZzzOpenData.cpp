@@ -4176,17 +4176,17 @@ static void OpenMobaAegisModels()
 // Skill\ texture pass for the same reason as OpenMobaAegisModels.
 static void OpenRuneWizardEffects()
 {
-    gLoadData.AccessModel(MODEL_RW_SPEAR, L"Data\\Effect\\", L"judgement_spear_a01");
-    gLoadData.OpenTexture(MODEL_RW_SPEAR, L"Effect\\");
-    gLoadData.AccessModel(MODEL_RW_SPEAR_BEAM, L"Data\\Effect\\", L"judgement_spear_a02");
-    gLoadData.OpenTexture(MODEL_RW_SPEAR_BEAM, L"Effect\\");
+    gLoadData.AccessModel(MODEL_RW_SPHERE_CASTER, L"Data\\Effect\\", L"RunicSphereCasterExternalString");
+    gLoadData.OpenTexture(MODEL_RW_SPHERE_CASTER, L"Effect\\");
+    gLoadData.AccessModel(MODEL_RW_SPHERE_INNER, L"Data\\Effect\\", L"RunicSphereInnerSphere");
+    gLoadData.OpenTexture(MODEL_RW_SPHERE_INNER, L"Effect\\");
+    gLoadData.AccessModel(MODEL_RW_SPHERE_OUTER, L"Data\\Effect\\", L"RunicSphereOutSideSphere");
+    gLoadData.OpenTexture(MODEL_RW_SPHERE_OUTER, L"Effect\\");
+    gLoadData.AccessModel(MODEL_RW_LANCE, L"Data\\Effect\\", L"judgement_spear_a01");
+    gLoadData.OpenTexture(MODEL_RW_LANCE, L"Effect\\");
 
-    LoadBitmap(L"Effect\\runeH_mark.jpg", BITMAP_RW_RUNE_H, GL_LINEAR, GL_CLAMP_TO_EDGE);
-    LoadBitmap(L"Effect\\runeM_mark.jpg", BITMAP_RW_RUNE_M, GL_LINEAR, GL_CLAMP_TO_EDGE);
-    LoadBitmap(L"Effect\\runeR_mark.jpg", BITMAP_RW_RUNE_R, GL_LINEAR, GL_CLAMP_TO_EDGE);
-    LoadBitmap(L"Effect\\runeT_mark.jpg", BITMAP_RW_RUNE_T, GL_LINEAR, GL_CLAMP_TO_EDGE);
-    LoadBitmap(L"Effect\\runeY_mark.jpg", BITMAP_RW_RUNE_Y, GL_LINEAR, GL_CLAMP_TO_EDGE);
-    LoadBitmap(L"Effect\\RuneMA01_mono.jpg", BITMAP_RW_RUNE_CIRCLE, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    LoadBitmap(L"Effect\\m_zine_05_1.jpg", BITMAP_RW_FIELD, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    LoadBitmap(L"Effect\\mhoujin_R.jpg", BITMAP_RW_FIELD_RING, GL_LINEAR, GL_CLAMP_TO_EDGE);
 }
 
 void OpenSkills()

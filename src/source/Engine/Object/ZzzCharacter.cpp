@@ -4603,7 +4603,7 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
             Position[2] = RequestTerrainHeight(Position[0], Position[1]);
             if (c->Skill == AT_SKILL_RUNE_RUNIC_SPEAR)
             {
-                Render::Effects::RuneWizard::CastRunicSpear(Position[0], Position[1], Position[2]);
+                Render::Effects::RuneWizard::CastRunicSpear(o, Position[0], Position[1], Position[2]);
             }
             else
             {

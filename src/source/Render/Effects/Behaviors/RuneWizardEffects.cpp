@@ -16,63 +16,95 @@ namespace Render::Effects::RuneWizard
     namespace
     {
         constexpr float EffectLifeTime = 9999999.f;
-        constexpr float DegreesToRadians = 3.14159265f / 180.f;
 
-        // --- Runic Spear -----------------------------------------------------------------------------------------
+        // --- Runic Spear: the fiery rune sphere ------------------------------------------------------------------
 
-        // The spear model is 760 units long with its tip 240 units below its origin.
-        constexpr float SpearScale = 0.7f;
-        constexpr float SpearTipOffset = 240.f * SpearScale;
-        constexpr float SpearDropHeight = 650.f;
+        // Ring of rune ribbons at the caster (126 units of radius at scale 1): fades in, holds, fades out.
+        constexpr float CasterTicks = 30.f;
+        constexpr float CasterFadeInTicks = 4.f;
+        constexpr float CasterFadeOutStart = 14.f;
+        constexpr float CasterSpinDegrees = 6.f;
+        constexpr float CasterHeight = 10.f;
 
-        // Ticks the spear takes to fall, and ticks it stays stuck in the ground (fading) afterwards.
-        constexpr float SpearFallTicks = 9.f;
-        constexpr float SpearLingerTicks = 22.f;
+        // Rune cage over the target (51 units of radius at scale 1): grows fast, then fades.
+        constexpr float InnerTicks = 40.f;
+        constexpr float InnerGrowTicks = 12.f;
+        constexpr float InnerFadeOutStart = 26.f;
+        constexpr float InnerStartScale = 0.8f;
+        constexpr float InnerEndScale = 3.0f;
+        constexpr float InnerSpinDegrees = 12.f;
+        constexpr float InnerAnimationSpeed = 0.3f;
+        constexpr float SphereHeight = 90.f;
 
-        // The light column grows from BeamStartScale to BeamEndScale while it fades out.
-        constexpr float BeamStartScale = 2.2f;
-        constexpr float BeamEndScale = 3.6f;
-        constexpr float BeamTicks = 20.f;
+        // Fire shell around it (345 units of radius at scale 1): swells while it spins, then fades.
+        constexpr float OuterTicks = 36.f;
+        constexpr float OuterGrowTicks = 10.f;
+        constexpr float OuterFadeOutStart = 14.f;
+        constexpr float OuterStartScale = 0.15f;
+        constexpr float OuterEndScale = 0.7f;
+        constexpr float OuterSpinDegrees = 20.f;
+        constexpr float OuterAlpha = 0.85f;
 
-        constexpr wchar_t SpearSoundPath[] = L"Data\\Sound\\RuneWizard\\runic_spear.wav";
+        // --- Rune Phrase: the crimson field and the lances -------------------------------------------------------
 
-        // --- Rune Phrase -----------------------------------------------------------------------------------------
+        constexpr float FieldTicks = 150.f;
+        constexpr float FieldGrowTicks = 18.f;
+        constexpr float FieldFadeInTicks = 10.f;
+        constexpr float FieldFadeOutTicks = 30.f;
 
-        constexpr float PhraseTicks = 72.f;
-        constexpr float PhraseRiseTicks = 18.f;
-        constexpr float PhraseConvergeStart = 48.f;
-        constexpr float PhraseConvergeEnd = 60.f;
-        constexpr float PhraseFadeInTicks = 10.f;
-        constexpr float PhraseFadeOutTicks = 10.f;
+        // Width (in terrain tiles) of the field at full size, and of the violet ring turning in it.
+        constexpr float FieldTiles = 8.f;
+        constexpr float FieldRingRatio = 0.9f;
+        constexpr float FieldSpinDegrees = 0.6f;
+        constexpr float FieldRingSpinDegrees = -1.5f;
 
-        constexpr int RuneCount = 5;
-        constexpr float OrbitRadius = 120.f;
-        constexpr float OrbitHeight = 110.f;
-        constexpr float OrbitDegreesPerTick = 7.f;
-        constexpr float RuneSpriteScale = 1.1f;
+        // A blue lance lands every LanceInterval ticks between LanceStart and LanceEnd, inside LanceRadius.
+        constexpr float LanceStart = 6.f;
+        constexpr float LanceEnd = 100.f;
+        constexpr float LanceInterval = 3.f;
+        constexpr int LanceRadius = 280;
 
-        // Size (in terrain tiles) of the rune circle on the ground.
-        constexpr float CircleTiles = 3.4f;
-        constexpr float CircleDegreesPerTick = 1.2f;
+        // The lance model is 760 units long with its tip 240 units below its origin.
+        constexpr float LanceScale = 0.45f;
+        constexpr float LanceTipOffset = 240.f * LanceScale;
+        constexpr float LanceDropHeight = 500.f;
+        constexpr float LanceFallTicks = 6.f;
+        constexpr float LanceLingerTicks = 10.f;
 
-        // Colour of each rune glyph (H, M, R, T, Y).
-        const float RuneColors[RuneCount][3] = {
-            { 1.0f, 0.55f, 0.35f },
-            { 0.45f, 0.7f, 1.0f },
-            { 1.0f, 0.85f, 0.4f },
-            { 0.6f, 1.0f, 0.65f },
-            { 0.8f, 0.55f, 1.0f },
-        };
-
-        const int RuneTextures[RuneCount] = {
-            BITMAP_RW_RUNE_H, BITMAP_RW_RUNE_M, BITMAP_RW_RUNE_R, BITMAP_RW_RUNE_T, BITMAP_RW_RUNE_Y,
-        };
-
-        // Brightness of the whole Rune Phrase over its life: fades in, holds, fades out.
-        float PhraseBrightness(float age)
+        float EaseOut(float t)
         {
-            const float fadeIn = std::clamp(age / PhraseFadeInTicks, 0.f, 1.f);
-            const float fadeOut = std::clamp((PhraseTicks - age) / PhraseFadeOutTicks, 0.f, 1.f);
+            const float c = std::clamp(t, 0.f, 1.f);
+            return 1.f - (1.f - c) * (1.f - c);
+        }
+
+        void InitModelEffect(OBJECT* o, float scale, float alpha)
+        {
+            o->LifeTime = EffectLifeTime;
+            o->Scale = scale;
+            o->Alpha = alpha;
+            o->LightEnable = false;
+            o->Timer = 0.f;
+            Vector(1.f, 1.f, 1.f, o->Light);
+        }
+
+        // Ages the effect by one tick; returns its age in ticks, or a negative value (and ends it) once it is older than ticks.
+        float Age(OBJECT* o, float ticks)
+        {
+            o->Timer += FPS_ANIMATION_FACTOR;
+            if (o->Timer >= ticks)
+            {
+                o->Live = false;
+                return -1.f;
+            }
+
+            return o->Timer;
+        }
+
+        // Fades in over fadeInTicks, holds, then fades out from fadeOutStart to ticks.
+        float Envelope(float age, float fadeInTicks, float fadeOutStart, float ticks)
+        {
+            const float fadeIn = fadeInTicks > 0.f ? std::clamp(age / fadeInTicks, 0.f, 1.f) : 1.f;
+            const float fadeOut = std::clamp((ticks - age) / std::max(ticks - fadeOutStart, 1.f), 0.f, 1.f);
             return std::min(fadeIn, fadeOut);
         }
 
@@ -91,13 +123,28 @@ namespace Render::Effects::RuneWizard
         }
     }
 
-    void CastRunicSpear(float x, float y, float groundHeight)
+    void CastRunicSpear(OBJECT* caster, float x, float y, float groundHeight)
     {
         vec3_t position, angle, light;
-        Vector(x, y, groundHeight, position);
         Vector(0.f, 0.f, 0.f, angle);
         Vector(1.f, 1.f, 1.f, light);
-        CreateEffect(MODEL_RW_SPEAR, position, angle, light);
+
+        if (caster != nullptr)
+        {
+            VectorCopy(caster->Position, position);
+            CreateEffect(MODEL_RW_SPHERE_CASTER, position, angle, light, 0, caster);
+        }
+
+        Vector(x, y, groundHeight + SphereHeight, position);
+        CreateEffect(MODEL_RW_SPHERE_INNER, position, angle, light);
+        CreateEffect(MODEL_RW_SPHERE_OUTER, position, angle, light);
+
+        vec3_t groundPosition;
+        Vector(x, y, groundHeight, groundPosition);
+        SparkBurst(groundPosition, 14, 60.f, 1.f, 0.7f, 0.35f);
+
+        // The Rune Wizard's sphere sound (RunicSphere.wav) is the one the Aegis already loads.
+        MobaAegis::PlayCastSound();
     }
 
     void CastRunePhrase(float x, float y, float groundHeight)
@@ -106,87 +153,104 @@ namespace Render::Effects::RuneWizard
         Vector(x, y, groundHeight, position);
         Vector(0.f, 0.f, 0.f, angle);
         Vector(1.f, 1.f, 1.f, light);
-        CreateEffect(MODEL_RW_PHRASE, position, angle, light);
+        CreateEffect(MODEL_RW_FIELD, position, angle, light);
     }
 
-    void InitSpear(OBJECT* o)
+    void InitSphereCaster(OBJECT* o)
     {
-        o->LifeTime = EffectLifeTime;
-        o->Scale = SpearScale;
-        o->Alpha = 0.f;
-        o->LightEnable = false;
-        o->Timer = 0.f;
-        o->m_iAnimation = 0;
+        InitModelEffect(o, 1.f, 0.f);
+    }
+
+    bool MoveSphereCaster(OBJECT* o, int /*index*/, float /*luminosity*/)
+    {
+        const float age = Age(o, CasterTicks);
+        if (age < 0.f)
+            return false;
+
+        if (o->Owner != nullptr && o->Owner->Live)
+        {
+            VectorCopy(o->Owner->Position, o->Position);
+            o->Position[2] += CasterHeight;
+        }
+
+        o->Angle[2] = fmodf(o->Angle[2] + CasterSpinDegrees * FPS_ANIMATION_FACTOR, 360.f);
+        o->Alpha = Envelope(age, CasterFadeInTicks, CasterFadeOutStart, CasterTicks);
+        return false;
+    }
+
+    void InitSphereInner(OBJECT* o)
+    {
+        InitModelEffect(o, InnerStartScale, 1.f);
+    }
+
+    bool MoveSphereInner(OBJECT* o, int /*index*/, float /*luminosity*/)
+    {
+        const float age = Age(o, InnerTicks);
+        if (age < 0.f)
+            return false;
+
+        o->Scale = InnerStartScale + (InnerEndScale - InnerStartScale) * EaseOut(age / InnerGrowTicks);
+        o->Angle[2] = fmodf(o->Angle[2] + InnerSpinDegrees * FPS_ANIMATION_FACTOR, 360.f);
+        o->Alpha = Envelope(age, 0.f, InnerFadeOutStart, InnerTicks);
+
+        BMD* b = &Models[o->Type];
+        b->CurrentAction = o->CurrentAction;
+        b->PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, InnerAnimationSpeed, o->Position, o->Angle);
+        return false;
+    }
+
+    void InitSphereOuter(OBJECT* o)
+    {
+        InitModelEffect(o, OuterStartScale, OuterAlpha);
+    }
+
+    bool MoveSphereOuter(OBJECT* o, int /*index*/, float /*luminosity*/)
+    {
+        const float age = Age(o, OuterTicks);
+        if (age < 0.f)
+            return false;
+
+        o->Scale = OuterStartScale + (OuterEndScale - OuterStartScale) * EaseOut(age / OuterGrowTicks);
+        o->Angle[2] = fmodf(o->Angle[2] + OuterSpinDegrees * FPS_ANIMATION_FACTOR, 360.f);
+        o->Alpha = OuterAlpha * Envelope(age, 0.f, OuterFadeOutStart, OuterTicks);
+        return false;
+    }
+
+    void InitLance(OBJECT* o)
+    {
+        InitModelEffect(o, LanceScale, 0.f);
         // The spawn position is the ground point: remember it and start high above.
         o->Distance = o->Position[2];
-        o->Position[2] = o->Distance + SpearTipOffset + SpearDropHeight;
-        Vector(1.f, 1.f, 1.f, o->Light);
+        o->Position[2] = o->Distance + LanceTipOffset + LanceDropHeight;
+        o->m_iAnimation = 0;
+        Vector(0.45f, 0.65f, 1.f, o->Light);
     }
 
-    bool MoveSpear(OBJECT* o, int /*index*/, float /*luminosity*/)
+    bool MoveLance(OBJECT* o, int /*index*/, float /*luminosity*/)
     {
-        o->Timer += FPS_ANIMATION_FACTOR;
-        const float ground = o->Distance;
+        const float age = Age(o, LanceFallTicks + LanceLingerTicks);
+        if (age < 0.f)
+            return false;
 
-        if (o->Timer < SpearFallTicks)
+        const float ground = o->Distance;
+        if (age < LanceFallTicks)
         {
-            const float t = o->Timer / SpearFallTicks;
-            o->Position[2] = ground + SpearTipOffset + SpearDropHeight * (1.f - t * t);
+            const float t = age / LanceFallTicks;
+            o->Position[2] = ground + LanceTipOffset + LanceDropHeight * (1.f - t * t);
             o->Alpha = std::min(1.f, t * 3.f);
             return false;
         }
 
         if (o->m_iAnimation == 0)
         {
-            // The strike: light column, sparks and the sound.
             o->m_iAnimation = 1;
-            o->Position[2] = ground + SpearTipOffset - 25.f;
-
-            vec3_t angle, light, beamPosition;
-            Vector(0.f, 0.f, 0.f, angle);
-            Vector(1.f, 1.f, 1.f, light);
-            Vector(o->Position[0], o->Position[1], ground + 25.f, beamPosition);
-            CreateEffect(MODEL_RW_SPEAR_BEAM, beamPosition, angle, light);
-
-            SparkBurst(beamPosition, 14, 60.f, 1.f, 0.85f, 0.5f);
-
-            LoadWaveFile(SOUND_RW_SPEAR, SpearSoundPath, 1);
-            PlayBuffer(SOUND_RW_SPEAR);
+            o->Position[2] = ground + LanceTipOffset - 15.f;
+            vec3_t impact;
+            Vector(o->Position[0], o->Position[1], ground, impact);
+            SparkBurst(impact, 3, 25.f, 0.5f, 0.7f, 1.f);
         }
 
-        const float lingered = (o->Timer - SpearFallTicks) / SpearLingerTicks;
-        if (lingered >= 1.f)
-        {
-            o->Live = false;
-            return false;
-        }
-
-        o->Alpha = 1.f - lingered;
-        return false;
-    }
-
-    void InitBeam(OBJECT* o)
-    {
-        o->LifeTime = EffectLifeTime;
-        o->Scale = BeamStartScale;
-        o->Alpha = 1.f;
-        o->LightEnable = false;
-        o->Timer = 0.f;
-        Vector(1.f, 1.f, 1.f, o->Light);
-    }
-
-    bool MoveBeam(OBJECT* o, int /*index*/, float /*luminosity*/)
-    {
-        o->Timer += FPS_ANIMATION_FACTOR;
-        const float t = o->Timer / BeamTicks;
-        if (t >= 1.f)
-        {
-            o->Live = false;
-            return false;
-        }
-
-        o->Scale = BeamStartScale + (BeamEndScale - BeamStartScale) * t;
-        o->Alpha = 1.f - t;
+        o->Alpha = 1.f - (age - LanceFallTicks) / LanceLingerTicks;
         return false;
     }
 
@@ -201,67 +265,66 @@ namespace Render::Effects::RuneWizard
         b->RenderBody(RENDER_TEXTURE | RENDER_BRIGHT, o->Alpha, o->BlendMesh, o->BlendMeshLight, o->BlendMeshTexCoordU, o->BlendMeshTexCoordV, o->HiddenMesh);
     }
 
-    void InitPhrase(OBJECT* o)
+    void InitField(OBJECT* o)
     {
         o->LifeTime = EffectLifeTime;
         o->Timer = 0.f;
-        o->m_iAnimation = 0;
-        o->Distance = o->Position[2];
+        o->m_iAnimation = -1;
         o->LightEnable = false;
         Vector(1.f, 1.f, 1.f, o->Light);
+        o->Distance = o->Position[2];
+
+        vec3_t flash;
+        Vector(o->Position[0], o->Position[1], o->Position[2] + 40.f, flash);
+        SparkBurst(flash, 16, 80.f, 0.7f, 0.8f, 1.f);
         MobaAegis::PlayCastSound();
     }
 
-    bool MovePhrase(OBJECT* o, int /*index*/, float /*luminosity*/)
+    bool MoveField(OBJECT* o, int /*index*/, float /*luminosity*/)
     {
-        o->Timer += FPS_ANIMATION_FACTOR;
-        const float age = o->Timer;
-        if (age >= PhraseTicks)
-        {
-            o->Live = false;
+        const float age = Age(o, FieldTicks);
+        if (age < 0.f)
             return false;
-        }
 
-        const float ground = o->Distance;
-        const float brightness = PhraseBrightness(age);
-        const float rise = std::clamp(age / PhraseRiseTicks, 0.f, 1.f);
-        const float converge = std::clamp((age - PhraseConvergeStart) / (PhraseConvergeEnd - PhraseConvergeStart), 0.f, 1.f);
-        const float radius = OrbitRadius * (1.f - converge);
-        const float height = ground + 20.f + (OrbitHeight - 20.f) * rise;
-
-        for (int i = 0; i < RuneCount; ++i)
+        // A new lance every LanceInterval ticks while the field is raining.
+        if (age >= LanceStart && age <= LanceEnd)
         {
-            const float angle = (age * OrbitDegreesPerTick + i * (360.f / RuneCount)) * DegreesToRadians;
-            vec3_t position, light;
-            Vector(o->Position[0] + cosf(angle) * radius,
-                o->Position[1] + sinf(angle) * radius,
-                height + sinf(age * 0.2f + i) * 12.f, position);
-            Vector(RuneColors[i][0] * brightness, RuneColors[i][1] * brightness, RuneColors[i][2] * brightness, light);
-            CreateSprite(RuneTextures[i], position, RuneSpriteScale, light, nullptr);
-        }
-
-        if (o->m_iAnimation == 0 && age >= PhraseConvergeEnd)
-        {
-            // The runes meet: a flash over the center.
-            o->m_iAnimation = 1;
-            vec3_t center;
-            Vector(o->Position[0], o->Position[1], ground + OrbitHeight, center);
-            SparkBurst(center, 16, 50.f, 0.7f, 0.8f, 1.f);
+            const int step = (int)((age - LanceStart) / LanceInterval);
+            if (step != o->m_iAnimation)
+            {
+                o->m_iAnimation = step;
+                vec3_t position, angle, light;
+                Vector(o->Position[0] + (float)(rand() % (LanceRadius * 2) - LanceRadius),
+                    o->Position[1] + (float)(rand() % (LanceRadius * 2) - LanceRadius),
+                    o->Distance, position);
+                Vector(0.f, (float)(rand() % 20 - 10), (float)(rand() % 360), angle);
+                Vector(1.f, 1.f, 1.f, light);
+                CreateEffect(MODEL_RW_LANCE, position, angle, light);
+            }
         }
 
         return false;
     }
 
-    void DrawPhrase(OBJECT* o)
+    void DrawField(OBJECT* o)
     {
-        const float brightness = PhraseBrightness(o->Timer);
+        const float age = o->Timer;
+        const float brightness = Envelope(age, FieldFadeInTicks, FieldTicks - FieldFadeOutTicks, FieldTicks);
         if (brightness <= 0.f)
             return;
 
-        vec3_t light;
-        Vector(0.6f * brightness, 0.75f * brightness, 1.f * brightness, light);
+        const float grown = EaseOut(age / FieldGrowTicks);
+        const float tiles = FieldTiles * grown;
+        if (tiles <= 0.f)
+            return;
+
+        vec3_t field, ring;
+        Vector(1.f * brightness, 0.15f * brightness, 0.22f * brightness, field);
+        Vector(0.55f * brightness, 0.5f * brightness, 1.f * brightness, ring);
+
         EnableAlphaBlend();
-        RenderTerrainAlphaBitmap(BITMAP_RW_RUNE_CIRCLE, o->Position[0], o->Position[1], CircleTiles, CircleTiles, light, o->Timer * CircleDegreesPerTick);
+        RenderTerrainAlphaBitmap(BITMAP_RW_FIELD, o->Position[0], o->Position[1], tiles, tiles, field, age * FieldSpinDegrees);
+        RenderTerrainAlphaBitmap(BITMAP_RW_FIELD_RING, o->Position[0], o->Position[1], tiles * FieldRingRatio, tiles * FieldRingRatio, ring, age * FieldRingSpinDegrees);
         DisableAlphaBlend();
     }
 }

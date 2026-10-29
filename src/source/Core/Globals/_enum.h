@@ -1332,9 +1332,11 @@ enum
     MODEL_WINDSPIN03,
     MODEL_MOBA_AEGIS_CAGE,  // MOBA Aegis: Rune Wizard rune sphere cage (Effect\rune_skillball.bmd)
     MODEL_MOBA_AEGIS_RING,  // MOBA Aegis: Rune Wizard rune ring at the feet (Effect\rune_skillb01.bmd)
-    MODEL_RW_SPEAR,         // Rune Wizard Runic Spear: the judgement spear that falls on the target (Effect/judgement_spear_a01.bmd)
-    MODEL_RW_SPEAR_BEAM,    // Rune Wizard Runic Spear: the column of light of the strike (Effect/judgement_spear_a02.bmd)
-    MODEL_RW_PHRASE,        // Rune Wizard Rune Phrase: the rune circle and the five orbiting runes (no model: sprites + ground bitmap)
+    MODEL_RW_SPHERE_CASTER, // Rune Wizard Runic Spear: ring of rune ribbons at the caster (Effect/RunicSphereCasterExternalString.bmd)
+    MODEL_RW_SPHERE_INNER,  // Rune Wizard Runic Spear: rune cage over the target (Effect/RunicSphereInnerSphere.bmd)
+    MODEL_RW_SPHERE_OUTER,  // Rune Wizard Runic Spear: fire shell around it (Effect/RunicSphereOutSideSphere.bmd)
+    MODEL_RW_LANCE,         // Rune Wizard Rune Phrase: blue lance that rains down (Effect/judgement_spear_a01.bmd)
+    MODEL_RW_FIELD,         // Rune Wizard Rune Phrase: the crimson ground field (no model: ground bitmaps)
 
     MODEL_SKILL_END
 };

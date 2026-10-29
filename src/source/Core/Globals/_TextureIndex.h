@@ -690,13 +690,9 @@ enum
     BITMAP_INTERFACE_MACROUI_BEGIN,
     BITMAP_INTERFACE_MACROUI_END = BITMAP_INTERFACE_MACROUI_BEGIN + 4,
 
-    // Rune Wizard Rune Phrase (Effect/rune?_mark and RuneMA01_mono)
-    BITMAP_RW_RUNE_H,
-    BITMAP_RW_RUNE_M,
-    BITMAP_RW_RUNE_R,
-    BITMAP_RW_RUNE_T,
-    BITMAP_RW_RUNE_Y,
-    BITMAP_RW_RUNE_CIRCLE,
+    // Rune Wizard Rune Phrase: the ground field (Effect/m_zine_05_1) and its rune ring (Effect/mhoujin_R)
+    BITMAP_RW_FIELD,
+    BITMAP_RW_FIELD_RING,
     BITMAP_EFFECT_TEXTURE_END = 33000,
     BITMAP_NONAMED_TEXTURES_BEGIN = 33001,
     BITMAP_NONAMED_TEXTURES_END = 0x7FFFFFFF,
