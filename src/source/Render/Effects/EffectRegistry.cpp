@@ -90,6 +90,27 @@ namespace Render::Effects
                     .move = &RuneWizard::MoveField,
                     .render = &RuneWizard::DrawField });
 
+                add({ MODEL_RW_ARROW }, {
+                    .onCreate = &RuneWizard::InitArrow,
+                    .move = &RuneWizard::MoveArrow,
+                    .render = &RuneWizard::DrawNothing });
+                add({ MODEL_RW_PLASMA }, {
+                    .onCreate = &RuneWizard::InitPlasma,
+                    .move = &RuneWizard::MovePlasma,
+                    .render = &RuneWizard::DrawNothing });
+                add({ MODEL_RW_STORM }, {
+                    .onCreate = &RuneWizard::InitStorm,
+                    .move = &RuneWizard::MoveStorm,
+                    .render = &RuneWizard::DrawStorm });
+                add({ MODEL_RW_BURST }, {
+                    .onCreate = &RuneWizard::InitBurst,
+                    .move = &RuneWizard::MoveBurst,
+                    .render = &RuneWizard::DrawBurst });
+                add({ MODEL_RW_HASTE }, {
+                    .onCreate = &RuneWizard::InitHaste,
+                    .move = &RuneWizard::MoveHaste,
+                    .render = &RuneWizard::DrawHaste });
+
                 // --- Effects with creation parameters and a move handler ----
                 add({ MODEL_MAGIC_CAPSULE2 }, { .create = CreateParams{ .lifeTime = 20.f, .blendMesh = 0, .blendMeshLight = 1.0f }, .move = &Behaviors::MoveMagicCapsule2 });
                 add({ MODEL_SPEAR },          { .create = CreateParams{ .lifeTime = 10.f }, .move = &Behaviors::MoveSpear });

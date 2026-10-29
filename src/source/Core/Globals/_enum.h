@@ -1337,6 +1337,11 @@ enum
     MODEL_RW_SPHERE_OUTER,  // Rune Wizard Runic Spear: fire shell around it (Effect/RunicSphereOutSideSphere.bmd)
     MODEL_RW_LANCE,         // Rune Wizard Rune Phrase: blue lance that rains down (Effect/judgement_spear_a01.bmd)
     MODEL_RW_FIELD,         // Rune Wizard Rune Phrase: the crimson ground field (no model: ground bitmaps)
+    MODEL_RW_ARROW,         // Rune Wizard Magic Arrow: the red beam arrow and its impact (no model: sprites)
+    MODEL_RW_PLASMA,        // Rune Wizard Plasma Ball: the golden orbs and their impact (no model: sprites)
+    MODEL_RW_STORM,         // Rune Wizard Lightning Storm: blue circle, light column and bolts (no model)
+    MODEL_RW_BURST,         // Rune Wizard Burst: cyan rings at the feet, then a red ring and a violet orb (no model)
+    MODEL_RW_HASTE,         // Rune Wizard Haste: golden disc and rising amber spiral (no model)
 
     MODEL_SKILL_END
 };

@@ -17,7 +17,7 @@ namespace Character::RuneWizard::Skills
     bool IconCell(int skill, bool& inSkill2Atlas, int& column, int& row);
 
     // The skill whose cast effect the release of the cast shows: the skill itself when it has an effect of its own
-    // (Runic Spear, Rune Phrase), otherwise whatever VisualSkillOf returns. The cast pose still follows VisualSkillOf.
+    // (every rune wizard skill), otherwise whatever VisualSkillOf returns. The cast pose still follows VisualSkillOf.
     int EffectSkillOf(int skill);
 
     // The skill whose cast pose and effects an own skill borrows while it has none of its own; any other skill is returned as it is.

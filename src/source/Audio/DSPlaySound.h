@@ -1002,6 +1002,12 @@ enum ESound
     SOUND_MOBA_SD6,
     SOUND_MOBA_SD7,
     SOUND_MOBA_SD8,
+    SOUND_RW_MAGIC_ARROW_CAST,								// RuneWizard/magic_arrow_cast.wav
+    SOUND_RW_MAGIC_ARROW_HIT,
+    SOUND_RW_PLASMA_BALL_CAST,
+    SOUND_RW_PLASMA_BALL_HIT,
+    SOUND_RW_LIGHTNING_STORM_CAST,
+    SOUND_RW_LIGHTNING_STORM_HIT,
     SOUND_RW_SPEAR,										// RuneWizard/runic_spear.wav (Runic Spear strike)
     SOUND_MOBA_AEGIS,									// MobaSD\aegis.wav (Rune Wizard RunicSphere.wav)
     SOUND_MOBA_GOD_ATTACK1,								// MobaMonsters\DarknessKing_*.wav (IGC Swamp of Darkness), same order as the file list in ZzzCharacter.cpp

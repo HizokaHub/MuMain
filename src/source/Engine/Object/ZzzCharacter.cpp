@@ -4598,12 +4598,22 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
 
         case AT_SKILL_RUNE_RUNIC_SPEAR:
         case AT_SKILL_RUNE_PHRASE:
+        case AT_SKILL_RUNE_PLASMA_BALL:
+        case AT_SKILL_RUNE_LIGHTNING_STORM:
             Position[0] = (float)(c->SkillX + 0.5f) * TERRAIN_SCALE;
             Position[1] = (float)(c->SkillY + 0.5f) * TERRAIN_SCALE;
             Position[2] = RequestTerrainHeight(Position[0], Position[1]);
             if (c->Skill == AT_SKILL_RUNE_RUNIC_SPEAR)
             {
                 Render::Effects::RuneWizard::CastRunicSpear(o, Position[0], Position[1], Position[2]);
+            }
+            else if (c->Skill == AT_SKILL_RUNE_PLASMA_BALL)
+            {
+                Render::Effects::RuneWizard::CastPlasmaBall(o, Position[0], Position[1], Position[2]);
+            }
+            else if (c->Skill == AT_SKILL_RUNE_LIGHTNING_STORM)
+            {
+                Render::Effects::RuneWizard::CastLightningStorm(Position[0], Position[1], Position[2]);
             }
             else
             {
@@ -4950,8 +4960,11 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
             vec3_t Angle;
             VectorCopy(o->Angle, Angle);
             Angle[2] = CreateAngle2D(o->Position, to->Position);
-            switch (Character::RuneWizard::Skills::VisualSkillOf(c->Skill))
+            switch (Character::RuneWizard::Skills::EffectSkillOf(c->Skill))
             {
+            case AT_SKILL_RUNE_MAGIC_ARROW:
+                Render::Effects::RuneWizard::CastMagicArrow(o, to);
+                break;
             case AT_SKILL_TRIPLE_SHOT:
             case AT_SKILL_TRIPLE_SHOT_STR:
             case AT_SKILL_TRIPLE_SHOT_MASTERY:
@@ -5309,8 +5322,14 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
                 break;
             }
 
-            switch (Character::RuneWizard::Skills::VisualSkillOf(c->Skill))
+            switch (Character::RuneWizard::Skills::EffectSkillOf(c->Skill))
             {
+            case AT_SKILL_RUNE_BURST:
+                Render::Effects::RuneWizard::CastBurst(to);
+                break;
+            case AT_SKILL_RUNE_HASTE:
+                Render::Effects::RuneWizard::CastHaste(to);
+                break;
             case AT_SKILL_HEALING:
             case AT_SKILL_HEALING_STR:
             case AT_SKILL_ATTACK:
