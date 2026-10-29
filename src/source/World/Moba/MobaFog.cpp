@@ -51,6 +51,10 @@ namespace
     constexpr float LUMA_G = 0.587f;
     constexpr float LUMA_B = 0.114f;
 
+    // When the fog turns on, the terrain goes from the plain (dark) arena light to the lit look of the match (hero lamp + fog)
+    // over this time instead of jumping to it.
+    constexpr double AMBIENT_FADE_SECONDS = 4.0;
+
     // InitTerrainLight rewrites the light up to FrustrumBoundMax + 3 on each axis.
     constexpr int TERRAIN_BAND_EXTRA = 3;
 
@@ -75,6 +79,8 @@ namespace
     bool s_settled = true;           // s_fog == s_targetFog everywhere: nothing to ease
     double s_lastSightTime = 0.0;
     double s_lastFrameTime = 0.0;
+    double s_activeSinceTime = 0.0;  // WorldTime when the fog turned on, start of the ambient fade
+    float s_ambientBlend = 1.f;      // 0 = plain arena light .. 1 = full match look
     unsigned int s_version = 0;
 
     bool ShouldBeActive()
@@ -340,6 +346,14 @@ void Update()
     const bool activating = !s_active;
     s_active = true;
 
+    // now < start: WorldTime restarted (reconnect).
+    if (activating || now < s_activeSinceTime)
+        s_activeSinceTime = now;
+    {
+        const float t = std::clamp((float)((now - s_activeSinceTime) / (AMBIENT_FADE_SECONDS * MS_PER_SECOND)), 0.f, 1.f);
+        s_ambientBlend = t * t * (3.f - 2.f * t);
+    }
+
     // now < last: WorldTime restarted (reconnect).
     if (activating || now - s_lastSightTime >= SightIntervalMs || now < s_lastSightTime)
     {
@@ -375,6 +389,8 @@ void ApplyToTerrainLight()
         for (int x = firstX; x <= lastX; ++x)
         {
             const int index = TERRAIN_INDEX(x, y);
+            float* const vertexLight = &PrimaryTerrainLight[index][0];
+            const float rawLight[3] = { vertexLight[0], vertexLight[1], vertexLight[2] };
 
             const float lampDx = (float)x + TILE_CENTRE - heroX;
             const float lampDy = (float)y + TILE_CENTRE - heroY;
@@ -401,6 +417,13 @@ void ApplyToTerrainLight()
             const float amount = s_fog[index] * TERRAIN_FOG_STRENGTH;
             if (amount > 0.f)
                 FogTerrainVertex(&PrimaryTerrainLight[index][0], amount);
+
+            // Right after the fog turns on the terrain still looks like the plain arena light and eases into the match look.
+            if (s_ambientBlend < 1.f)
+            {
+                for (int c = 0; c < 3; ++c)
+                    vertexLight[c] = rawLight[c] + (vertexLight[c] - rawLight[c]) * s_ambientBlend;
+            }
         }
     }
 }

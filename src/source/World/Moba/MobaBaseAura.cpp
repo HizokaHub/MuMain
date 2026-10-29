@@ -19,11 +19,11 @@ namespace
     struct Centre { int x; int y; };
 
     constexpr Centre CENTRES[] = { { 118, 13 }, { 118, 244 } };  // the blue and the red vendor
-    constexpr float RADIUS_TILES = 8.f;
+    constexpr float RADIUS_TILES = 7.f;                          // same as MobaBaseAura.RadiusTiles on the server
     constexpr float VISIBLE_TILES = 45.f;                        // nothing is spawned when the hero is farther away than this from the aura
-    constexpr float FILL_PER_FRAME = 1.4f;                       // glows inside the radius per frame at the reference frame rate (scaled by the frame time)
+    constexpr float FILL_PER_FRAME = 0.9f;                     // glows inside the radius per frame at the reference frame rate (scaled by the frame time)
     constexpr float RING_PER_FRAME = 1.8f;                       // glows on the edge of the radius
-    constexpr float FILL_SCALE = 2.4f;
+    constexpr float FILL_SCALE = 1.8f;
     constexpr float RING_SCALE = 1.7f;
     constexpr float TWO_PI = 6.2831853f;
 
@@ -71,7 +71,7 @@ void Update()
 
         vec3_t light;
         Vector(0.25f * pulse, 1.1f * pulse, 0.4f * pulse, light);
-        AddTerrainLight(cx, cy, light, 9, PrimaryTerrainLight);
+        AddTerrainLight(cx, cy, light, static_cast<int>(RADIUS_TILES) + 1, PrimaryTerrainLight);
 
         for (int i = CountFor(FILL_PER_FRAME); i > 0; --i)
         {
