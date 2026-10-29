@@ -80,6 +80,9 @@ namespace
 
     constexpr int DETAIL_ICON = 64;
     constexpr int DETAIL_BUTTON_H = 26;
+    constexpr int SMALL_BUTTON_H = 22;
+    constexpr int SMALL_BUTTON_W = (RIGHT_W - 4) / 2;
+    constexpr int PREVIEW_MAX_LINES = 6;
     constexpr int INFO_LINE_H = 14;
 
     enum Tab : int
@@ -140,6 +143,8 @@ namespace
     int s_scroll = 0;
     ITEM* s_hoverItem = nullptr;
     ITEM* s_selected = nullptr;
+    ITEM* s_previewAskedFor = nullptr;       // the item whose preview was requested
+    int s_previewSlotAsked = -1;             // its slot in the window of the shop
     int s_hoverX = 0;
     int s_hoverY = 0;
     std::vector<Cell> s_cells;               // the grid or the pieces of the sets, as laid out this frame
@@ -160,6 +165,11 @@ namespace
     Rect StepRect(int index) { return { LEFT_X, CONTENT_Y + STEP_TITLE_H + index * STEP_ROW_H, LEFT_W, STEP_ROW_H - 4 }; }
 
     Rect DetailBuyButton() { return { RIGHT_X, CONTENT_BOTTOM - DETAIL_BUTTON_H, RIGHT_W, DETAIL_BUTTON_H }; }
+
+    // Sell (the copy of the item the champion carries) and undo (the last purchase), above the buy button.
+    Rect SellButton() { return { RIGHT_X, CONTENT_BOTTOM - DETAIL_BUTTON_H - SMALL_BUTTON_H - 4, SMALL_BUTTON_W, SMALL_BUTTON_H }; }
+
+    Rect UndoButton() { return { RIGHT_X + SMALL_BUTTON_W + 4, CONTENT_BOTTOM - DETAIL_BUTTON_H - SMALL_BUTTON_H - 4, SMALL_BUTTON_W, SMALL_BUTTON_H }; }
 
     Rect PrevPageButton() { return { CENTER_X + CENTER_W - 106, CONTENT_BOTTOM - 20, 24, 18 }; }
 
@@ -368,6 +378,7 @@ namespace
         s_tab = tab;
         s_scroll = 0;
         s_selected = nullptr;
+        s_previewAskedFor = nullptr;
         s_buyQueue.clear();
         PlayBuffer(SOUND_CLICK01);
         // The server holds the page the vendor shows: the tabs ask it for another one (the "for you" tab keeps the page that is open).
@@ -401,6 +412,50 @@ namespace
             s_hoverY = cell.rect.y + cell.rect.h / 2;
             return;
         }
+    }
+
+    // The copy of an item type the champion carries in the inventory (not worn), or nullptr.
+    ITEM* OwnedInInventory(uint16_t type)
+    {
+        CNewUIInventoryCtrl* inventory = g_pMyInventory != nullptr ? g_pMyInventory->GetInventoryCtrl() : nullptr;
+        if (inventory == nullptr)
+            return nullptr;
+
+        for (int i = 0; i < inventory->GetNumberOfItems(); ++i)
+        {
+            ITEM* item = inventory->GetItem(i);
+            if (item != nullptr && item->Type == type)
+                return item;
+        }
+        return nullptr;
+    }
+
+    // Sells the copy of the shown item the champion carries (the same request as dropping it on the shop).
+    void SellOwnedCopy(const ITEM& shown)
+    {
+        ITEM* owned = OwnedInInventory(shown.Type);
+        CNewUIInventoryCtrl* inventory = g_pMyInventory != nullptr ? g_pMyInventory->GetInventoryCtrl() : nullptr;
+        if (owned == nullptr || inventory == nullptr || IsHighValueItem(owned))
+            return;
+
+        SocketClient->ToGameServer()->SendSellItemToNpcRequest(static_cast<BYTE>(MAX_EQUIPMENT_INDEX + inventory->GetIndexByItem(owned)));
+        g_pNPCShop->SetSellingItem(true);
+        PlayBuffer(SOUND_CLICK01);
+    }
+
+    // Asks the server for the "if you buy it" lines when the selected item changes.
+    void RequestPreview(CNewUIInventoryCtrl* store)
+    {
+        if (s_selected == s_previewAskedFor || store == nullptr)
+            return;
+
+        s_previewAskedFor = s_selected;
+        Prices::SetPreview(-1, {});
+        if (s_selected == nullptr)
+            return;
+
+        s_previewSlotAsked = (s_selected->y * store->GetNumberOfColumn()) + s_selected->x;
+        SendMobaShopPreview(static_cast<BYTE>(s_previewSlotAsked));
     }
 
     // The click in the panel: what it did.
@@ -454,6 +509,19 @@ namespace
         {
             s_selected = s_hoverItem;
             PlayBuffer(SOUND_CLICK01);
+            return;
+        }
+
+        if (Draw::MouseInRect(UndoButton()))
+        {
+            SendMobaShopUndo();
+            PlayBuffer(SOUND_CLICK01);
+            return;
+        }
+
+        if (DetailItem() != nullptr && Draw::MouseInRect(SellButton()))
+        {
+            SellOwnedCopy(*DetailItem());
             return;
         }
 
@@ -698,6 +766,11 @@ namespace
         const Rect column = { RIGHT_X, CONTENT_Y, RIGHT_W, CONTENT_H };
         Draw::FillRect(column, 0.05f, 0.06f, 0.09f, 1.f);
         Draw::FrameRect(column, 0.35f, 0.30f, 0.22f, 1.f);
+        for (const Rect& smallBtn : { SellButton(), UndoButton() })
+        {
+            Draw::FillRect(smallBtn, Draw::MouseInRect(smallBtn) ? 0.16f : 0.10f, Draw::MouseInRect(smallBtn) ? 0.18f : 0.115f, Draw::MouseInRect(smallBtn) ? 0.26f : 0.15f, 1.f);
+            Draw::FrameRect(smallBtn, 0.55f, 0.46f, 0.25f, 1.f);
+        }
         if (item == nullptr)
             return;
 
@@ -706,6 +779,56 @@ namespace
         const bool canBuy = PriceOf(*item) <= gold;
         Draw::FillRect(button, canBuy ? 0.18f : 0.16f, canBuy ? 0.36f : 0.14f, canBuy ? 0.22f : 0.14f, 1.f);
         Draw::FrameRect(button, canBuy ? 0.40f : 0.40f, canBuy ? 0.78f : 0.30f, canBuy ? 0.45f : 0.30f, 1.f);
+    }
+
+    const wchar_t* PreviewLabel(int stat)
+    {
+        switch (stat)
+        {
+        case 1: return L"Vida m\u00e1x.";
+        case 2: return L"Man\u00e1 m\u00e1x.";
+        case 3: return L"Defensa";
+        case 4: return L"Da\u00f1o f\u00edsico";
+        case 5: return L"Da\u00f1o m\u00e1gico";
+        case 6: return L"Escudo m\u00e1x.";
+        default: return L"Vel. ataque";
+        }
+    }
+
+    // "If you buy it": the stats of the champion before and after wearing the item (the numbers come from the server).
+    void RenderPreview(HFONT body, HFONT bold, const ITEM* item, int y)
+    {
+        Draw::PutTextLeft(bold, RIGHT_X + 6, y, RIGHT_W - 12, L"SI LO COMPRAS", 255, 214, 80);
+        if (item != s_selected || s_previewAskedFor != s_selected || Prices::PreviewSlot() != s_previewSlotAsked)
+        {
+            Draw::PutTextLeft(body, RIGHT_X + 6, y + 16, RIGHT_W - 12, item == s_selected ? L"Calculando..." : L"Haz clic para ver el cambio.", 170, 175, 190);
+            return;
+        }
+
+        const std::vector<Prices::PreviewLine>& lines = Prices::PreviewLines();
+        if (lines.empty())
+        {
+            Draw::PutTextLeft(body, RIGHT_X + 6, y + 16, RIGHT_W - 12, L"Sin cambios en tus stats.", 170, 175, 190);
+            return;
+        }
+
+        int row = 0;
+        for (const Prices::PreviewLine& line : lines)
+        {
+            if (row >= PREVIEW_MAX_LINES)
+                break;
+
+            const int lineY = y + 16 + row * INFO_LINE_H;
+            Draw::PutTextLeft(body, RIGHT_X + 6, lineY, 70, PreviewLabel(line.Stat), 190, 195, 205);
+            wchar_t text[48] = {};
+            swprintf(text, std::size(text), L"%u", line.Before);
+            Draw::PutText(body, RIGHT_X + 72, lineY, 44, text, 235, 235, 235, RT3_SORT_RIGHT);
+            Draw::PutTextCentered(body, RIGHT_X + 116, lineY, 14, L">", 150, 155, 170);
+            swprintf(text, std::size(text), L"%u", line.After);
+            const bool up = line.After >= line.Before;
+            Draw::PutText(body, RIGHT_X + 130, lineY, RIGHT_W - 134, text, up ? 120 : 255, up ? 235 : 110, up ? 130 : 110, RT3_SORT_RIGHT);
+            ++row;
+        }
     }
 
     void RenderDetailText(HFONT body, HFONT bold, const ITEM* item, unsigned int gold)
@@ -717,6 +840,8 @@ namespace
             Draw::PutTextLeft(body, RIGHT_X + 6, CONTENT_Y + 38, RIGHT_W - 12, L"ver su precio y comprarlo.", 190, 195, 205);
             Draw::PutTextLeft(body, RIGHT_X + 6, CONTENT_Y + 60, RIGHT_W - 12, L"Para vender: clic derecho en", 190, 195, 205);
             Draw::PutTextLeft(body, RIGHT_X + 6, CONTENT_Y + 74, RIGHT_W - 12, L"tu inventario.", 190, 195, 205);
+            Draw::PutTextCentered(bold, SellButton().x, SellButton().y + 4, SellButton().w, L"Vender", 120, 120, 125);
+            Draw::PutTextCentered(bold, UndoButton().x, UndoButton().y + 4, UndoButton().w, L"Deshacer", 240, 240, 240);
             return;
         }
 
@@ -755,11 +880,13 @@ namespace
         Draw::PutTextLeft(body, RIGHT_X + 6, y + 16, RIGHT_W - 12, line, canBuy ? 140 : 255, canBuy ? 235 : 110, canBuy ? 140 : 110);
         if (Owns(item->Type))
             Draw::PutTextLeft(body, RIGHT_X + 6, y + 32, RIGHT_W - 12, L"Ya tienes este \u00edtem.", 140, 230, 150);
-        Draw::PutTextLeft(body, RIGHT_X + 6, y + 52, RIGHT_W - 12, L"El mouse sobre el \u00edtem", 170, 175, 190);
-        Draw::PutTextLeft(body, RIGHT_X + 6, y + 66, RIGHT_W - 12, L"muestra todas sus opciones.", 170, 175, 190);
+        RenderPreview(body, bold, item, y + 50);
 
         const Rect button = DetailBuyButton();
         Draw::PutTextCentered(bold, button.x, button.y + 6, button.w, L"COMPRAR", 240, 240, 240);
+        const bool ownsCopy = OwnedInInventory(item->Type) != nullptr;
+        Draw::PutTextCentered(bold, SellButton().x, SellButton().y + 4, SellButton().w, L"Vender", ownsCopy ? 240 : 120, ownsCopy ? 240 : 120, ownsCopy ? 240 : 125);
+        Draw::PutTextCentered(bold, UndoButton().x, UndoButton().y + 4, UndoButton().w, L"Deshacer", 240, 240, 240);
     }
 
     void RenderPager(HFONT bold, int itemCount)
@@ -791,6 +918,7 @@ void Reset()
     s_scroll = 0;
     s_hoverItem = nullptr;
     s_selected = nullptr;
+    s_previewAskedFor = nullptr;
     s_buyQueue.clear();
 }
 
@@ -832,6 +960,7 @@ MouseResult UpdateMouse(CNewUIInventoryCtrl* store, bool clicksEnabled, bool can
         HandleClick(store, items, result);
         Layout(store);
     }
+    RequestPreview(store);
 
     if (canBuy)
         PopQueuedBuy(items, result);

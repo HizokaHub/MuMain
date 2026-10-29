@@ -171,6 +171,8 @@ void SendMobaSummonControl(unsigned char mode);
 void SendMobaPetToggle(unsigned char inventorySlot);
 void SendMobaSummonOrder(unsigned char kind, unsigned char x, unsigned char y, unsigned short key);
 void SendMobaSummonSkill(unsigned char slot, unsigned short key);
+void SendMobaShopPreview(unsigned char shopSlot);
+void SendMobaShopUndo();
 void SendMobaVisionAction(BYTE subCode); // 0x0D ward, 0x0E sweeper
 // The control of a disconnected teammate (World::Moba::Puppet): take / release (C1 07 D5 31), order (C1 09 D5 32), cast (C1 0A D5 33), recall (C1 04 D5 34).
 void SendMobaPuppetSelect(unsigned char action, unsigned short key);

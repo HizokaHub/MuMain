@@ -14403,6 +14403,47 @@ static void ReceiveMobaShopRecommended(std::span<const BYTE> packet)
     GameLogic::Items::MobaShopPrices::SetRecommended(std::move(steps), std::move(roles));
 }
 
+// Handles packet C2 D5 0F: the "if you buy it" lines of the shop item of a slot: slot, count, then per stat the kind and the value before and after (u32 each).
+static void ReceiveMobaShopPreview(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    BYTE slot = 0;
+    BYTE count = 0;
+    if (!reader.ReadByte(slot) || !reader.ReadByte(count))
+        return;
+
+    std::vector<GameLogic::Items::MobaShopPrices::PreviewLine> lines;
+    for (int i = 0; i < count; ++i)
+    {
+        GameLogic::Items::MobaShopPrices::PreviewLine line{};
+        if (!reader.ReadByte(line.Stat) || !reader.ReadDword(line.Before) || !reader.ReadDword(line.After))
+            return;
+        lines.push_back(line);
+    }
+
+    GameLogic::Items::MobaShopPrices::SetPreview(slot, std::move(lines));
+}
+
+// MOBA shop: asks for the "if you buy it" lines of the item of a slot of the window (C1 05 D5 3B slot).
+void SendMobaShopPreview(unsigned char shopSlot)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[5] = { 0xC1, 5, 0xD5, 0x3B, shopSlot };
+    SocketClient->Send(buf, 5);
+}
+
+// MOBA shop: undoes the last purchase (C1 04 D5 3C).
+void SendMobaShopUndo()
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[4] = { 0xC1, 4, 0xD5, 0x3C };
+    SocketClient->Send(buf, 4);
+}
+
 // The team byte of C1 D5 01 may carry flags above the team (bit 7: the champion's shield is broken, see
 // MobaTeamStatusPeriodicPlugIn.ShieldBrokenFlag on the server); MobaTeam / g_MyMobaTeam keep only the team.
 constexpr BYTE MOBA_TEAM_STATUS_TEAM_MASK = 0x7F;
@@ -15185,6 +15226,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x0E:
             ReceiveMobaShopRecommended(received_span);
+            break;
+        case 0x0F:
+            ReceiveMobaShopPreview(received_span);
             break;
         case 0x10:
             ReceiveMobaMinimap(ReceiveBuffer);

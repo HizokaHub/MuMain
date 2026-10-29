@@ -11,6 +11,8 @@ namespace
     std::vector<GameLogic::Items::MobaShopPrices::ShieldOptions> s_shields;
     std::vector<GameLogic::Items::MobaShopPrices::Recommended> s_recommended;
     std::vector<GameLogic::Items::MobaShopPrices::SetRole> s_setRoles;
+    std::vector<GameLogic::Items::MobaShopPrices::PreviewLine> s_previewLines;
+    int s_previewSlot = -1;
     uint8_t s_sellPercent = 0;
 
     int CountExcellentOptions(BYTE excellentFlags)
@@ -203,8 +205,26 @@ namespace GameLogic::Items::MobaShopPrices
         return -1;
     }
 
+    void SetPreview(int shopSlot, std::vector<PreviewLine> lines)
+    {
+        s_previewSlot = shopSlot;
+        s_previewLines = std::move(lines);
+    }
+
+    int PreviewSlot()
+    {
+        return s_previewSlot;
+    }
+
+    const std::vector<PreviewLine>& PreviewLines()
+    {
+        return s_previewLines;
+    }
+
     void Clear()
     {
+        s_previewLines.clear();
+        s_previewSlot = -1;
         s_entries.clear();
         s_recommended.clear();
         s_setRoles.clear();

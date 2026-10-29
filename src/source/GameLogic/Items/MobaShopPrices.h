@@ -82,6 +82,21 @@ namespace GameLogic::Items::MobaShopPrices
     // The role of the set whose armor piece has that type, or -1 when the server did not say.
     int SetRoleOf(uint16_t armorType);
 
+    // One line of the "if you buy it" block (packet C2 D5 0F): a stat of the champion before and after wearing the item of a slot of the shop.
+    // Stat: 1 health, 2 mana, 3 defense, 4 physical damage, 5 wizardry damage, 6 shield, 7 attack speed.
+    struct PreviewLine
+    {
+        uint8_t Stat;
+        uint32_t Before;
+        uint32_t After;
+    };
+
+    void SetPreview(int shopSlot, std::vector<PreviewLine> lines);
+
+    // The slot of the shop the last preview is about (-1 when none arrived) and its lines.
+    int PreviewSlot();
+    const std::vector<PreviewLine>& PreviewLines();
+
     // Whether the server sent the prices of a MOBA shop (the own shop panel is used instead of the native window).
     bool HasPrices();
 
