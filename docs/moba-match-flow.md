@@ -124,7 +124,7 @@ A client that joins a match already running starts on the preparation track unti
 - **Elf's creature skills:** with the command mode on (**X**) the creature's one or two skills show next to its strip; **1** and **2** (or a click on the button) cast them on the enemy under the cursor (the nearest one if there is none), with cooldown sweep. Without the command mode the creature uses them by itself.
 - **Golden monsters:** while the invasion lasts they are gold dots on the minimap (bigger the stronger) and the TAB scoreboard ends with
   "Dorados vivos: N (grandes y dragones: M)".
-- **Shop:** the panel shows under "TIENDA" the name of the menu page you picked ("Sets - Tier 2"...).
+- **Shop:** talking to the blacksmith opens the panel at once: seven tabs (Para ti, Consumibles y accesorios, Armas, Sets T1/T2/T3, Mascotas y escudos), the recommended build of your class on the left, the catalog in the middle (sets as columns, helm to boots from top to bottom, with a **SET** button) and the detail and the buy button of the item you click on the right. The **perfection jewel** (a Jewel of Bless dropped by golden goblins, 30 %) is dragged onto an item of your inventory and takes it to its maximum.
 
 ## Surrendering
 

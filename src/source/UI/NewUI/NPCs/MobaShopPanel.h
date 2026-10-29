@@ -9,10 +9,11 @@ namespace SEASON3B
 
 struct tagITEM;
 
-// The panel of the MOBA item shop: a grid of cells with the icon, the price (green when the champion can pay it, red when not), the tier and the level of
-// every item of the vendor, tabs to filter the tiers and a scroll, instead of the native window of the vendor. It does not own any data: the items are the ones
-// the server put in the grid of the native window (CNewUINPCShop), in the order of the server (T1 to T3), and the prices are the ones the server pushed
-// (GameLogic::Items::MobaShopPrices). A click buys, a stack or a worn item of the inventory is sold with the right click or by dropping it on the panel.
+// The panel of the MOBA item shop (2026-10-28): tabs across the top (for you, consumables and accessories, weapons, sets of the three tiers, pets and shields), on the
+// left the recommended build of the class, in the middle the catalog (a grid, or one column per set with its pieces from top to bottom: helm, armor, gloves, pants,
+// boots) and on the right the detail and the buy button of the item chosen. It does not own any data: the items are the ones the server put in the grid of the native
+// window (CNewUINPCShop), the prices and the recommended build are the ones the server pushed (GameLogic::Items::MobaShopPrices) and a tab asks the server for its
+// page of the vendor (C1 D5 07). A click selects, the button buys; a stack or a worn item of the inventory is sold with the right click or by dropping it on the panel.
 namespace UI::Moba::ShopPanel
 {
     struct MouseResult
@@ -37,8 +38,9 @@ namespace UI::Moba::ShopPanel
     // Whether the point is over the panel.
     bool Contains(int x, int y);
 
-    // Mouse handling; <clicksEnabled> is false for the click that opened the shop.
-    MouseResult UpdateMouse(SEASON3B::CNewUIInventoryCtrl* store, bool clicksEnabled);
+    // Mouse handling; <clicksEnabled> is false for the click that opened the shop, <canBuy> is true when no purchase is waiting for the answer of the server
+    // (a set is bought one piece at a time).
+    MouseResult UpdateMouse(SEASON3B::CNewUIInventoryCtrl* store, bool clicksEnabled, bool canBuy);
 
     // The frame, the tabs and the cells (2D).
     void Render(SEASON3B::CNewUIInventoryCtrl* store);

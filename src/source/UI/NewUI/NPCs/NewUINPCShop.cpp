@@ -96,7 +96,7 @@ bool SEASON3B::CNewUINPCShop::UpdateMobaMouse()
         return false;
     }
 
-    const UI::Moba::ShopPanel::MouseResult result = UI::Moba::ShopPanel::UpdateMouse(m_pNewInventoryCtrl, m_bIsNPCShopOpen);
+    const UI::Moba::ShopPanel::MouseResult result = UI::Moba::ShopPanel::UpdateMouse(m_pNewInventoryCtrl, m_bIsNPCShopOpen, BuyCost == 0);
     if (result.close)
     {
         g_pNewUISystem->Hide(SEASON3B::INTERFACE_NPCSHOP);

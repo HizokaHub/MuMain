@@ -14369,6 +14369,40 @@ static void ReceiveMobaShopPrices(std::span<const BYTE> packet)
     GameLogic::Items::MobaShopPrices::Set(std::move(entries), sellPercent);
 }
 
+// Handles packet C2 D5 0E: the recommended purchase path of the shop: count, then per step page, type (u16), tier and price (u32); then the roles of the sets:
+// count, then per set the type of its armor piece (u16) and its variant.
+static void ReceiveMobaShopRecommended(std::span<const BYTE> packet)
+{
+    MobaPacketReader reader(packet, MobaC2HeaderLength);
+    BYTE count = 0;
+    if (!reader.ReadByte(count))
+        return;
+
+    std::vector<GameLogic::Items::MobaShopPrices::Recommended> steps;
+    for (int i = 0; i < count; ++i)
+    {
+        GameLogic::Items::MobaShopPrices::Recommended step{};
+        if (!reader.ReadByte(step.Page) || !reader.ReadWord(step.Type) || !reader.ReadByte(step.Tier) || !reader.ReadDword(step.Price))
+            return;
+        steps.push_back(step);
+    }
+
+    BYTE roleCount = 0;
+    std::vector<GameLogic::Items::MobaShopPrices::SetRole> roles;
+    if (reader.ReadByte(roleCount))
+    {
+        for (int i = 0; i < roleCount; ++i)
+        {
+            GameLogic::Items::MobaShopPrices::SetRole role{};
+            if (!reader.ReadWord(role.Type) || !reader.ReadByte(role.Variant))
+                break;
+            roles.push_back(role);
+        }
+    }
+
+    GameLogic::Items::MobaShopPrices::SetRecommended(std::move(steps), std::move(roles));
+}
+
 // The team byte of C1 D5 01 may carry flags above the team (bit 7: the champion's shield is broken, see
 // MobaTeamStatusPeriodicPlugIn.ShieldBrokenFlag on the server); MobaTeam / g_MyMobaTeam keep only the team.
 constexpr BYTE MOBA_TEAM_STATUS_TEAM_MASK = 0x7F;
@@ -15148,6 +15182,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x0C:
             ReceiveMobaShieldOptions(received_span);
+            break;
+        case 0x0E:
+            ReceiveMobaShopRecommended(received_span);
             break;
         case 0x10:
             ReceiveMobaMinimap(ReceiveBuffer);

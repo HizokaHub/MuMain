@@ -58,6 +58,30 @@ namespace GameLogic::Items::MobaShopPrices
     // piece for the class it is sold to) carry tenths of a percent.
     std::vector<std::wstring> GetTraitTexts(uint16_t itemType);
 
+    // One step of the recommended purchase path (packet C2 D5 0E): the page of the vendor where it is sold, the item type (the armor piece for a set), its tier and
+    // its price (the whole set for a set).
+    struct Recommended
+    {
+        uint8_t Page;
+        uint16_t Type;
+        uint8_t Tier;
+        uint32_t Price;
+    };
+
+    // The role of a set (by the type of its armor piece): 0 balanced, 1 offensive, 2 resources, 3 tank, 4 utility.
+    struct SetRole
+    {
+        uint16_t Type;
+        uint8_t Variant;
+    };
+
+    void SetRecommended(std::vector<Recommended> steps, std::vector<SetRole> roles);
+
+    const std::vector<Recommended>& GetRecommended();
+
+    // The role of the set whose armor piece has that type, or -1 when the server did not say.
+    int SetRoleOf(uint16_t armorType);
+
     // Whether the server sent the prices of a MOBA shop (the own shop panel is used instead of the native window).
     bool HasPrices();
 

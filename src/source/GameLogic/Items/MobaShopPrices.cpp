@@ -9,6 +9,8 @@ namespace
     std::vector<GameLogic::Items::MobaShopPrices::Entry> s_entries;
     std::vector<GameLogic::Items::MobaShopPrices::Trait> s_traits;
     std::vector<GameLogic::Items::MobaShopPrices::ShieldOptions> s_shields;
+    std::vector<GameLogic::Items::MobaShopPrices::Recommended> s_recommended;
+    std::vector<GameLogic::Items::MobaShopPrices::SetRole> s_setRoles;
     uint8_t s_sellPercent = 0;
 
     int CountExcellentOptions(BYTE excellentFlags)
@@ -180,9 +182,32 @@ namespace GameLogic::Items::MobaShopPrices
         s_sellPercent = sellPercent;
     }
 
+    void SetRecommended(std::vector<Recommended> steps, std::vector<SetRole> roles)
+    {
+        s_recommended = std::move(steps);
+        s_setRoles = std::move(roles);
+    }
+
+    const std::vector<Recommended>& GetRecommended()
+    {
+        return s_recommended;
+    }
+
+    int SetRoleOf(uint16_t armorType)
+    {
+        for (const SetRole& role : s_setRoles)
+        {
+            if (role.Type == armorType)
+                return role.Variant;
+        }
+        return -1;
+    }
+
     void Clear()
     {
         s_entries.clear();
+        s_recommended.clear();
+        s_setRoles.clear();
         s_sellPercent = 0;
     }
 
