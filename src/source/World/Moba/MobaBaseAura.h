@@ -7,4 +7,8 @@ namespace World::Moba::BaseAura
 {
     // Called every frame: lights the ground and spawns the sparks while the hero is in the arena.
     void Update();
+
+    // Tints the ground of the aura green. Must run after the fog / hero lamp (World::Moba::Fog::ApplyToTerrainLight), whose light would hide it,
+    // and before RenderTerrain uploads the light rows.
+    void ApplyToTerrainLight();
 }

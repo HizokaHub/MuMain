@@ -19,6 +19,7 @@
 #include "World/Moba/MobaBarrier.h"
 #include "World/Moba/MobaLaneWalls.h"
 #include "World/Moba/MobaFog.h"
+#include "World/Moba/MobaBaseAura.h"
 #include "UI/Legacy/UIMng.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "GameLogic/Social/PartyManager.h"
@@ -351,6 +352,7 @@ void MoveMainScene()
     World::Moba::LaneWalls::Update();
     World::Moba::Fog::Update();
     World::Moba::Fog::ApplyToTerrainLight();
+    World::Moba::BaseAura::ApplyToTerrainLight();
 
     g_ConsoleDebug->UpdateMainScene();
 }
