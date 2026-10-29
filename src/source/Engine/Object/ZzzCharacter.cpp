@@ -7,6 +7,7 @@
 
 #include "stdafx.h"
 #include "Character/RuneWizardSkills.h"
+#include "Render/Effects/Behaviors/RuneWizardEffects.h"
 #include "Character/CreationFaceModels.h"
 #include <execution>
 #include <algorithm>
@@ -4184,7 +4185,7 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
         c->LastAttackEffectTime = -1;
         o->PKKey = getTargetCharacterKey(c, SelectedCharacter);
 
-        switch (Character::RuneWizard::Skills::VisualSkillOf(c->Skill))
+        switch (Character::RuneWizard::Skills::EffectSkillOf(c->Skill))
         {
         case AT_SKILL_SUMMON:
         case AT_SKILL_SUMMON + 1:
@@ -4595,6 +4596,25 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
             PlayBuffer(SOUND_FLASH);
             break;
 
+        case AT_SKILL_RUNE_RUNIC_SPEAR:
+        case AT_SKILL_RUNE_PHRASE:
+            Position[0] = (float)(c->SkillX + 0.5f) * TERRAIN_SCALE;
+            Position[1] = (float)(c->SkillY + 0.5f) * TERRAIN_SCALE;
+            Position[2] = RequestTerrainHeight(Position[0], Position[1]);
+            if (c->Skill == AT_SKILL_RUNE_RUNIC_SPEAR)
+            {
+                Render::Effects::RuneWizard::CastRunicSpear(Position[0], Position[1], Position[2]);
+            }
+            else
+            {
+                Render::Effects::RuneWizard::CastRunePhrase(Position[0], Position[1], Position[2]);
+            }
+
+            if (c == Hero)
+            {
+                ++CharacterMachine->PacketSerial;
+            }
+            break;
         case AT_SKILL_BLAST:
         case AT_SKILL_BLAST_STR:
         case AT_SKILL_BLAST_STR_MG:

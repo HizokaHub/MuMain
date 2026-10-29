@@ -42,6 +42,18 @@ namespace Character::RuneWizard::Skills
         }
     }
 
+    int EffectSkillOf(int skill)
+    {
+        switch (skill)
+        {
+        case AT_SKILL_RUNE_RUNIC_SPEAR:
+        case AT_SKILL_RUNE_PHRASE:
+            return skill;
+        default:
+            return VisualSkillOf(skill);
+        }
+    }
+
     int VisualSkillOf(int skill)
     {
         switch (skill)

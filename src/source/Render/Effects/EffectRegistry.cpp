@@ -4,6 +4,7 @@
 #include "Behaviors/EffectBehaviors.h"
 #include "Behaviors/MobaAegisEffect.h"
 #include "Behaviors/MoveHandlers.h"
+#include "Behaviors/RuneWizardEffects.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -65,6 +66,21 @@ namespace Render::Effects
                     .onCreate = &MobaAegis::Init,
                     .move = &MobaAegis::MoveRing,
                     .render = &MobaAegis::Draw });
+
+                // Rune Wizard own effects (see Behaviors/RuneWizardEffects.cpp): the Runic Spear
+                // strike and the Rune Phrase circle of runes.
+                add({ MODEL_RW_SPEAR }, {
+                    .onCreate = &RuneWizard::InitSpear,
+                    .move = &RuneWizard::MoveSpear,
+                    .render = &RuneWizard::DrawAdditive });
+                add({ MODEL_RW_SPEAR_BEAM }, {
+                    .onCreate = &RuneWizard::InitBeam,
+                    .move = &RuneWizard::MoveBeam,
+                    .render = &RuneWizard::DrawAdditive });
+                add({ MODEL_RW_PHRASE }, {
+                    .onCreate = &RuneWizard::InitPhrase,
+                    .move = &RuneWizard::MovePhrase,
+                    .render = &RuneWizard::DrawPhrase });
 
                 // --- Effects with creation parameters and a move handler ----
                 add({ MODEL_MAGIC_CAPSULE2 }, { .create = CreateParams{ .lifeTime = 20.f, .blendMesh = 0, .blendMeshLight = 1.0f }, .move = &Behaviors::MoveMagicCapsule2 });

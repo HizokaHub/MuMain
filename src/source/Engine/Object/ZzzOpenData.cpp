@@ -4171,6 +4171,24 @@ static void OpenMobaAegisModels()
     gLoadData.OpenTexture(MODEL_MOBA_AEGIS_RING, L"Effect\\");
 }
 
+// Rune Wizard own effects (see Render/Effects/Behaviors/RuneWizardEffects.h): the judgement spear and its light
+// column for the Runic Spear, and the rune glyphs and circle sprites for the Rune Phrase. Called after OpenSkills'
+// Skill\ texture pass for the same reason as OpenMobaAegisModels.
+static void OpenRuneWizardEffects()
+{
+    gLoadData.AccessModel(MODEL_RW_SPEAR, L"Data\\Effect\\", L"judgement_spear_a01");
+    gLoadData.OpenTexture(MODEL_RW_SPEAR, L"Effect\\");
+    gLoadData.AccessModel(MODEL_RW_SPEAR_BEAM, L"Data\\Effect\\", L"judgement_spear_a02");
+    gLoadData.OpenTexture(MODEL_RW_SPEAR_BEAM, L"Effect\\");
+
+    LoadBitmap(L"Effect\\runeH_mark.jpg", BITMAP_RW_RUNE_H, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    LoadBitmap(L"Effect\\runeM_mark.jpg", BITMAP_RW_RUNE_M, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    LoadBitmap(L"Effect\\runeR_mark.jpg", BITMAP_RW_RUNE_R, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    LoadBitmap(L"Effect\\runeT_mark.jpg", BITMAP_RW_RUNE_T, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    LoadBitmap(L"Effect\\runeY_mark.jpg", BITMAP_RW_RUNE_Y, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    LoadBitmap(L"Effect\\RuneMA01_mono.jpg", BITMAP_RW_RUNE_CIRCLE, GL_LINEAR, GL_CLAMP_TO_EDGE);
+}
+
 void OpenSkills()
 {
     gLoadData.AccessModel(MODEL_ICE, L"Data\\Skill\\", L"Ice", 1);
@@ -4513,6 +4531,7 @@ void OpenSkills()
     }
 
     OpenMobaAegisModels();
+    OpenRuneWizardEffects();
 
     LoadBitmap(L"Skill\\flower1.tga", BITMAP_FLOWER01);
     LoadBitmap(L"Skill\\flower2.tga", BITMAP_FLOWER01 + 1);
