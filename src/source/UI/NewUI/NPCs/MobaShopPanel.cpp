@@ -28,47 +28,49 @@ namespace Prices = GameLogic::Items::MobaShopPrices;
 
 namespace
 {
-    // Layout, in the 640x480 reference screen: tabs across the top, then three columns (the recommended build, the catalog, the detail of an item).
-    constexpr int PANEL_X = 8;
+    // Layout, in the 640x480 reference screen. The panel keeps to the left 444 px: the inventory window of the player opens on the right (from x = 450) while
+    // the shop is open and must stay visible (items are sold by dropping them, the perfection jewel is dragged onto them). Tabs across the top, then the
+    // recommended build (left) and the catalog (middle), and below them the strip with the detail of an item, its stats if bought and the buttons.
+    constexpr int PANEL_X = 4;
     constexpr int PANEL_Y = 4;
-    constexpr int PANEL_W = 624;
+    constexpr int PANEL_W = 444;
     constexpr int PANEL_H = 420;
-    constexpr int PAD = 8;
+    constexpr int PAD = 6;
     constexpr int HEADER_H = 28;
     constexpr int TAB_H = 28;
-    constexpr int TAB_GAP = 4;
+    constexpr int TAB_GAP = 3;
     constexpr int CONTENT_Y = PANEL_Y + HEADER_H + 4 + TAB_H + 6;
-    constexpr int CONTENT_BOTTOM = PANEL_Y + PANEL_H - 22;
-    constexpr int CONTENT_H = CONTENT_BOTTOM - CONTENT_Y;
+    constexpr int CONTENT_BOTTOM = PANEL_Y + PANEL_H - 20;
+    constexpr int STRIP_H = 82;
+    constexpr int STRIP_Y = CONTENT_BOTTOM - STRIP_H;
     constexpr int CLOSE_SIZE = 18;
 
     constexpr int LEFT_X = PANEL_X + PAD;
-    constexpr int LEFT_W = 146;
-    constexpr int CENTER_X = LEFT_X + LEFT_W + 8;
-    constexpr int CENTER_W = 264;
-    constexpr int RIGHT_X = CENTER_X + CENTER_W + 8;
-    constexpr int RIGHT_W = PANEL_X + PANEL_W - PAD - RIGHT_X;
+    constexpr int LEFT_W = 104;
+    constexpr int CENTER_X = LEFT_X + LEFT_W + 6;
+    constexpr int CENTER_W = PANEL_X + PANEL_W - PAD - CENTER_X;
 
     // The recommended build (left column).
-    constexpr int STEP_TITLE_H = 22;
-    constexpr int STEP_ROW_H = 52;
-    constexpr int STEP_ICON = 40;
+    constexpr int STEP_TITLE_H = 18;
+    constexpr int STEP_ROW_H = 38;
+    constexpr int STEP_ICON = 30;
+    constexpr int STEP_NAME_CHARS = 11;
 
     // The grid of the pages which are not sets.
-    constexpr int GRID_COLUMNS = 5;
-    constexpr int GRID_ROWS = 6;
-    constexpr int GRID_CELL_W = 50;
-    constexpr int GRID_CELL_H = 50;
+    constexpr int GRID_COLUMNS = 6;
+    constexpr int GRID_ROWS = 4;
+    constexpr int GRID_CELL_W = 52;
+    constexpr int GRID_CELL_H = 48;
     constexpr int GRID_GAP = 3;
     constexpr int PAGE_SIZE = GRID_COLUMNS * GRID_ROWS;
 
     // The sets: one column per set, its five pieces from top to bottom.
     constexpr int SET_COLUMNS_MAX = 5;
-    constexpr int SET_COL_W = 51;
+    constexpr int SET_COL_W = 63;
     constexpr int SET_COL_GAP = 2;
-    constexpr int SET_HEADER_H = 30;
-    constexpr int SET_CELL_H = 50;
-    constexpr int SET_BUY_H = 20;
+    constexpr int SET_HEADER_H = 26;
+    constexpr int SET_CELL_H = 36;
+    constexpr int SET_BUY_H = 18;
     constexpr int PIECES_PER_SET = 5;
 
     constexpr int CLIENT_GROUP_SIZE = 512;
@@ -78,12 +80,16 @@ namespace
     constexpr int PIECE_ORDER[PIECES_PER_SET] = { 7, 8, 10, 9, 11 };
     constexpr int SERVER_MENU_ID = 1;
 
-    constexpr int DETAIL_ICON = 64;
-    constexpr int DETAIL_BUTTON_H = 26;
-    constexpr int SMALL_BUTTON_H = 22;
-    constexpr int SMALL_BUTTON_W = (RIGHT_W - 4) / 2;
-    constexpr int PREVIEW_MAX_LINES = 6;
+    // The strip of the detail (below the build and the catalog).
+    constexpr int STRIP_ICON = 56;
+    constexpr int STRIP_INFO_X = 66;
+    constexpr int STRIP_PREVIEW_X = 192;
+    constexpr int STRIP_BUTTON_W = 96;
+    constexpr int STRIP_BUTTON_H = 24;
+    constexpr int STRIP_SMALL_H = 22;
+    constexpr int PREVIEW_MAX_LINES = 4;
     constexpr int INFO_LINE_H = 14;
+    constexpr DWORD PREVIEW_TIMEOUT_MS = 2500;
 
     enum Tab : int
     {
@@ -100,10 +106,10 @@ namespace
     constexpr int LAST_SETS_TAB = TAB_SETS_T3;
 
     const wchar_t* const TAB_LABEL[TAB_COUNT] = {
-        L"PARA TI", L"CONSUMIBLES", L"ARMAS", L"SETS T1", L"SETS T2", L"SETS T3", L"MASCOTAS",
+        L"PARA TI", L"CONSUM.", L"ARMAS", L"SETS T1", L"SETS T2", L"SETS T3", L"MASCOTAS",
     };
     const wchar_t* const TAB_LABEL_SMALL[TAB_COUNT] = {
-        L"", L"y accesorios", L"", L"", L"", L"", L"y escudos",
+        L"", L"y acces.", L"", L"", L"", L"", L"y escudos",
     };
 
     const wchar_t* const ROLE_LABEL[] = { L"Equilibrado", L"Ofensivo", L"Recursos", L"Tanque", L"Utilidad" };
@@ -145,6 +151,7 @@ namespace
     ITEM* s_selected = nullptr;
     ITEM* s_previewAskedFor = nullptr;       // the item whose preview was requested
     int s_previewSlotAsked = -1;             // its slot in the window of the shop
+    DWORD s_previewAskedAt = 0;              // when (GetTickCount)
     int s_hoverX = 0;
     int s_hoverY = 0;
     std::vector<Cell> s_cells;               // the grid or the pieces of the sets, as laid out this frame
@@ -164,16 +171,22 @@ namespace
 
     Rect StepRect(int index) { return { LEFT_X, CONTENT_Y + STEP_TITLE_H + index * STEP_ROW_H, LEFT_W, STEP_ROW_H - 4 }; }
 
-    Rect DetailBuyButton() { return { RIGHT_X, CONTENT_BOTTOM - DETAIL_BUTTON_H, RIGHT_W, DETAIL_BUTTON_H }; }
+    Rect Strip() { return { PANEL_X + PAD, STRIP_Y, PANEL_W - 2 * PAD, STRIP_H }; }
 
-    // Sell (the copy of the item the champion carries) and undo (the last purchase), above the buy button.
-    Rect SellButton() { return { RIGHT_X, CONTENT_BOTTOM - DETAIL_BUTTON_H - SMALL_BUTTON_H - 4, SMALL_BUTTON_W, SMALL_BUTTON_H }; }
+    Rect StripIcon() { return { PANEL_X + PAD + 4, STRIP_Y + 12, STRIP_ICON, STRIP_ICON }; }
 
-    Rect UndoButton() { return { RIGHT_X + SMALL_BUTTON_W + 4, CONTENT_BOTTOM - DETAIL_BUTTON_H - SMALL_BUTTON_H - 4, SMALL_BUTTON_W, SMALL_BUTTON_H }; }
+    Rect StripButtonsX() { return { PANEL_X + PANEL_W - PAD - STRIP_BUTTON_W - 4, STRIP_Y, STRIP_BUTTON_W, STRIP_H }; }
 
-    Rect PrevPageButton() { return { CENTER_X + CENTER_W - 106, CONTENT_BOTTOM - 20, 24, 18 }; }
+    Rect DetailBuyButton() { return { StripButtonsX().x, STRIP_Y + 6, STRIP_BUTTON_W, STRIP_BUTTON_H }; }
 
-    Rect NextPageButton() { return { CENTER_X + CENTER_W - 24, CONTENT_BOTTOM - 20, 24, 18 }; }
+    // Sell (the copy of the item the champion carries) and undo (the last purchase), below the buy button.
+    Rect SellButton() { return { StripButtonsX().x, STRIP_Y + 6 + STRIP_BUTTON_H + 4, STRIP_BUTTON_W, STRIP_SMALL_H }; }
+
+    Rect UndoButton() { return { StripButtonsX().x, STRIP_Y + 6 + STRIP_BUTTON_H + 4 + STRIP_SMALL_H + 4, STRIP_BUTTON_W, STRIP_SMALL_H }; }
+
+    Rect PrevPageButton() { return { CENTER_X + CENTER_W - 106, STRIP_Y - 24, 24, 18 }; }
+
+    Rect NextPageButton() { return { CENTER_X + CENTER_W - 24, STRIP_Y - 24, 24, 18 }; }
 
     bool IsSetsTab() { return s_tab >= FIRST_SETS_TAB && s_tab <= LAST_SETS_TAB; }
 
@@ -241,6 +254,12 @@ namespace
                 return static_cast<int>(i);
         }
         return -1;
+    }
+
+    // A name cut to <maxChars> characters (a dot marks the cut).
+    std::wstring Shorten(const std::wstring& name, size_t maxChars)
+    {
+        return name.size() <= maxChars ? name : name.substr(0, maxChars - 1) + L".";
     }
 
     std::vector<ITEM*> StoreItems(CNewUIInventoryCtrl* store)
@@ -455,6 +474,7 @@ namespace
             return;
 
         s_previewSlotAsked = (s_selected->y * store->GetNumberOfColumn()) + s_selected->x;
+        s_previewAskedAt = GetTickCount();
         SendMobaShopPreview(static_cast<BYTE>(s_previewSlotAsked));
     }
 
@@ -596,14 +616,14 @@ namespace
             const TierLook& look = TIER_LOOK[std::clamp<int>(steps[i].Tier, 0, 3)];
             Draw::FillRect(row, hover ? 0.12f : 0.07f, hover ? 0.14f : 0.085f, hover ? 0.20f : 0.12f, 1.f);
             Draw::FrameRect(row, isNext ? 0.95f : look.r * 0.8f, isNext ? 0.80f : look.g * 0.8f, isNext ? 0.40f : look.b * 0.8f, 1.f);
-            Draw::FillRect({ row.x + 4, row.y + 4, STEP_ICON, STEP_ICON - 4 }, 0.04f, 0.05f, 0.08f, 1.f);
+            Draw::FillRect({ row.x + 2, row.y + 2, STEP_ICON, STEP_ICON }, 0.04f, 0.05f, 0.08f, 1.f);
             (void)gold;
         }
     }
 
     void RenderStepsText(HFONT body, HFONT bold, unsigned int gold)
     {
-        Draw::PutTextLeft(bold, LEFT_X, CONTENT_Y + 2, LEFT_W, L"BUILD RECOMENDADA", 255, 214, 80);
+        Draw::PutTextLeft(bold, LEFT_X, CONTENT_Y + 1, LEFT_W, L"BUILD", 255, 214, 80);
         const std::vector<Prices::Recommended>& steps = Prices::GetRecommended();
         const int next = NextStep();
         for (size_t i = 0; i < steps.size(); ++i)
@@ -612,8 +632,8 @@ namespace
             const bool owned = Owns(steps[i].Type);
             const bool isNext = static_cast<int>(i) == next;
             const bool isSet = steps[i].Type / CLIENT_GROUP_SIZE == ARMOR_GROUP;
-            const std::wstring name = isSet ? L"Set " + SetNameOf(steps[i].Type) : std::wstring(ItemAttribute[steps[i].Type].Name);
-            Draw::PutTextLeft(bold, row.x + STEP_ICON + 8, row.y + 4, row.w - STEP_ICON - 10, name.c_str(), owned ? 150 : 235, owned ? 190 : 235, owned ? 150 : 235);
+            const std::wstring name = Shorten(isSet ? L"Set " + SetNameOf(steps[i].Type) : std::wstring(ItemAttribute[steps[i].Type].Name), STEP_NAME_CHARS);
+            Draw::PutTextLeft(bold, row.x + STEP_ICON + 6, row.y + 2, row.w - STEP_ICON - 8, name.c_str(), owned ? 150 : 235, owned ? 190 : 235, owned ? 150 : 235);
 
             wchar_t line[48] = {};
             if (owned)
@@ -624,9 +644,9 @@ namespace
             const BYTE r = owned ? 100 : (isNext ? 255 : 170);
             const BYTE g = owned ? 220 : (isNext ? 214 : 175);
             const BYTE b = owned ? 120 : (isNext ? 80 : 190);
-            Draw::PutTextLeft(body, row.x + STEP_ICON + 8, row.y + 20, row.w - STEP_ICON - 10, line, r, g, b);
+            Draw::PutTextLeft(body, row.x + STEP_ICON + 6, row.y + 14, row.w - STEP_ICON - 8, line, r, g, b);
             if (!owned && !affordable)
-                Draw::PutTextLeft(body, row.x + STEP_ICON + 8, row.y + 33, row.w - STEP_ICON - 10, L"te falta oro", 255, 110, 110);
+                Draw::PutTextLeft(body, row.x + STEP_ICON + 6, row.y + 25, row.w - STEP_ICON - 8, L"te falta oro", 255, 110, 110);
         }
     }
 
@@ -636,7 +656,7 @@ namespace
         for (size_t i = 0; i < steps.size(); ++i)
         {
             const Rect row = StepRect(static_cast<int>(i));
-            RenderIcon(steps[i].Type, 0, 0, 0, { row.x + 4, row.y + 4, STEP_ICON, STEP_ICON - 4 });
+            RenderIcon(steps[i].Type, 0, 0, 0, { row.x + 2, row.y + 2, STEP_ICON, STEP_ICON });
         }
     }
 
@@ -659,12 +679,12 @@ namespace
             wchar_t line[64] = {};
             swprintf(line, std::size(line), L"Tier %d  -  %u de oro", static_cast<int>(step.Tier), step.Price);
             Draw::PutTextLeft(body, card.x + 80, card.y + 46, card.w - 88, line, gold >= step.Price ? 140 : 255, gold >= step.Price ? 235 : 110, gold >= step.Price ? 140 : 110);
-            Draw::PutTextLeft(body, card.x + 80, card.y + 62, card.w - 88, L"Haz clic en el paso de la izquierda", 170, 175, 190);
+            Draw::PutTextLeft(body, card.x + 80, card.y + 62, card.w - 88, L"Clic en el paso de la izquierda", 170, 175, 190);
             Draw::PutTextLeft(body, card.x + 80, card.y + 76, card.w - 88, L"para ir a la p\u00e1gina donde se vende.", 170, 175, 190);
         }
 
         static const wchar_t* const TIPS[] = {
-            L"Compra de arriba hacia abajo: lo marcado como 'Comprado'",
+            L"Compra de arriba hacia abajo: lo que dice 'Comprado'",
             L"ya lo tienes (puesto o en tu inventario).",
             L"Un set son cinco piezas; 'Comprar set' compra las que te falten.",
             L"Los tiers suben el poder: T1 al empezar, T2 a media partida,",
@@ -689,11 +709,23 @@ namespace
         (void)gold;
     }
 
-    void RenderCellText(HFONT body, HFONT bold, const Cell& cell, unsigned int gold)
+    void RenderCellText(HFONT body, HFONT bold, const Cell& cell, unsigned int gold, bool compact)
     {
         wchar_t text[32] = {};
         const int tier = Prices::TierOf(*cell.item);
         const TierLook& look = TIER_LOOK[tier];
+        if (compact)
+        {
+            uint32_t cost = 0;
+            if (Prices::TryGetBuyPrice(*cell.item, cost))
+            {
+                swprintf(text, std::size(text), L"%u", cost);
+                const bool ok = gold >= cost;
+                Draw::PutText(bold, cell.rect.x, cell.rect.y + cell.rect.h - 13, cell.rect.w - 2, text, ok ? 120 : 255, ok ? 235 : 110, ok ? 130 : 110, RT3_SORT_RIGHT);
+            }
+            return;
+        }
+
         if (tier > 0)
             Draw::PutTextLeft(body, cell.rect.x + 3, cell.rect.y + 1, 22, look.label, look.tr, look.tg, look.tb);
         if (cell.item->Level > 0 && tier > 0)
@@ -750,7 +782,7 @@ namespace
             for (const Cell& piece : set.pieces)
             {
                 if (piece.item != nullptr)
-                    RenderCellText(body, bold, piece, gold);
+                    RenderCellText(body, bold, piece, gold, true);
             }
 
             wchar_t text[32] = {};
@@ -760,25 +792,26 @@ namespace
         }
     }
 
-    // The detail of the item under the mouse (or the selected one) on the right.
+    // The strip below the catalog: the item under the mouse (or the selected one), what changes if it is bought and the buttons.
     void RenderDetailBack(const ITEM* item, unsigned int gold)
     {
-        const Rect column = { RIGHT_X, CONTENT_Y, RIGHT_W, CONTENT_H };
-        Draw::FillRect(column, 0.05f, 0.06f, 0.09f, 1.f);
-        Draw::FrameRect(column, 0.35f, 0.30f, 0.22f, 1.f);
-        for (const Rect& smallBtn : { SellButton(), UndoButton() })
+        const Rect strip = Strip();
+        Draw::FillRect(strip, 0.05f, 0.06f, 0.09f, 1.f);
+        Draw::FrameRect(strip, 0.35f, 0.30f, 0.22f, 1.f);
+        for (const Rect& button : { SellButton(), UndoButton() })
         {
-            Draw::FillRect(smallBtn, Draw::MouseInRect(smallBtn) ? 0.16f : 0.10f, Draw::MouseInRect(smallBtn) ? 0.18f : 0.115f, Draw::MouseInRect(smallBtn) ? 0.26f : 0.15f, 1.f);
-            Draw::FrameRect(smallBtn, 0.55f, 0.46f, 0.25f, 1.f);
+            const bool hover = Draw::MouseInRect(button);
+            Draw::FillRect(button, hover ? 0.16f : 0.10f, hover ? 0.18f : 0.115f, hover ? 0.26f : 0.15f, 1.f);
+            Draw::FrameRect(button, 0.55f, 0.46f, 0.25f, 1.f);
         }
         if (item == nullptr)
             return;
 
-        Draw::FillRect({ RIGHT_X + 8, CONTENT_Y + 30, DETAIL_ICON, DETAIL_ICON }, 0.08f, 0.095f, 0.14f, 1.f);
-        const Rect button = DetailBuyButton();
+        Draw::FillRect(StripIcon(), 0.08f, 0.095f, 0.14f, 1.f);
+        const Rect buy = DetailBuyButton();
         const bool canBuy = PriceOf(*item) <= gold;
-        Draw::FillRect(button, canBuy ? 0.18f : 0.16f, canBuy ? 0.36f : 0.14f, canBuy ? 0.22f : 0.14f, 1.f);
-        Draw::FrameRect(button, canBuy ? 0.40f : 0.40f, canBuy ? 0.78f : 0.30f, canBuy ? 0.45f : 0.30f, 1.f);
+        Draw::FillRect(buy, canBuy ? 0.18f : 0.16f, canBuy ? 0.36f : 0.14f, canBuy ? 0.22f : 0.14f, 1.f);
+        Draw::FrameRect(buy, 0.40f, canBuy ? 0.78f : 0.30f, canBuy ? 0.45f : 0.30f, 1.f);
     }
 
     const wchar_t* PreviewLabel(int stat)
@@ -796,19 +829,29 @@ namespace
     }
 
     // "If you buy it": the stats of the champion before and after wearing the item (the numbers come from the server).
-    void RenderPreview(HFONT body, HFONT bold, const ITEM* item, int y)
+    void RenderPreview(HFONT body, HFONT bold, const ITEM* item)
     {
-        Draw::PutTextLeft(bold, RIGHT_X + 6, y, RIGHT_W - 12, L"SI LO COMPRAS", 255, 214, 80);
-        if (item != s_selected || s_previewAskedFor != s_selected || Prices::PreviewSlot() != s_previewSlotAsked)
+        const int x = PANEL_X + PAD + STRIP_PREVIEW_X;
+        const int y = STRIP_Y + 4;
+        Draw::PutTextLeft(bold, x, y, 140, L"SI LO COMPRAS", 255, 214, 80);
+        if (item != s_selected)
         {
-            Draw::PutTextLeft(body, RIGHT_X + 6, y + 16, RIGHT_W - 12, item == s_selected ? L"Calculando..." : L"Haz clic para ver el cambio.", 170, 175, 190);
+            Draw::PutTextLeft(body, x, y + 16, 140, L"Haz clic para ver el cambio.", 170, 175, 190);
+            return;
+        }
+
+        const bool answered = s_previewAskedFor == s_selected && Prices::PreviewSlot() == s_previewSlotAsked;
+        if (!answered)
+        {
+            const bool late = GetTickCount() - s_previewAskedAt > PREVIEW_TIMEOUT_MS;
+            Draw::PutTextLeft(body, x, y + 16, 140, late ? L"Sin respuesta del servidor." : L"Calculando...", 170, 175, 190);
             return;
         }
 
         const std::vector<Prices::PreviewLine>& lines = Prices::PreviewLines();
         if (lines.empty())
         {
-            Draw::PutTextLeft(body, RIGHT_X + 6, y + 16, RIGHT_W - 12, L"Sin cambios en tus stats.", 170, 175, 190);
+            Draw::PutTextLeft(body, x, y + 16, 140, L"Sin cambios en tus stats.", 170, 175, 190);
             return;
         }
 
@@ -819,74 +862,65 @@ namespace
                 break;
 
             const int lineY = y + 16 + row * INFO_LINE_H;
-            Draw::PutTextLeft(body, RIGHT_X + 6, lineY, 70, PreviewLabel(line.Stat), 190, 195, 205);
+            Draw::PutTextLeft(body, x, lineY, 58, PreviewLabel(line.Stat), 190, 195, 205);
             wchar_t text[48] = {};
             swprintf(text, std::size(text), L"%u", line.Before);
-            Draw::PutText(body, RIGHT_X + 72, lineY, 44, text, 235, 235, 235, RT3_SORT_RIGHT);
-            Draw::PutTextCentered(body, RIGHT_X + 116, lineY, 14, L">", 150, 155, 170);
+            Draw::PutText(body, x + 58, lineY, 32, text, 235, 235, 235, RT3_SORT_RIGHT);
+            Draw::PutTextCentered(body, x + 92, lineY, 12, L">", 150, 155, 170);
             swprintf(text, std::size(text), L"%u", line.After);
             const bool up = line.After >= line.Before;
-            Draw::PutText(body, RIGHT_X + 130, lineY, RIGHT_W - 134, text, up ? 120 : 255, up ? 235 : 110, up ? 130 : 110, RT3_SORT_RIGHT);
+            Draw::PutText(body, x + 104, lineY, 36, text, up ? 120 : 255, up ? 235 : 110, up ? 130 : 110, RT3_SORT_RIGHT);
             ++row;
         }
     }
 
     void RenderDetailText(HFONT body, HFONT bold, const ITEM* item, unsigned int gold)
     {
-        Draw::PutTextLeft(bold, RIGHT_X + 6, CONTENT_Y + 2, RIGHT_W - 12, L"DETALLE", 255, 214, 80);
+        const int infoX = PANEL_X + PAD + STRIP_INFO_X;
+        const int infoW = STRIP_PREVIEW_X - STRIP_INFO_X - 4;
+        const Rect sell = SellButton();
+        const Rect undo = UndoButton();
+        const bool ownsCopy = item != nullptr && OwnedInInventory(item->Type) != nullptr;
+        Draw::PutTextCentered(bold, sell.x, sell.y + 4, sell.w, L"Vender", ownsCopy ? 240 : 120, ownsCopy ? 240 : 120, ownsCopy ? 240 : 125);
+        Draw::PutTextCentered(bold, undo.x, undo.y + 4, undo.w, L"Deshacer", 240, 240, 240);
         if (item == nullptr)
         {
-            Draw::PutTextLeft(body, RIGHT_X + 6, CONTENT_Y + 24, RIGHT_W - 12, L"Haz clic en un \u00edtem para", 190, 195, 205);
-            Draw::PutTextLeft(body, RIGHT_X + 6, CONTENT_Y + 38, RIGHT_W - 12, L"ver su precio y comprarlo.", 190, 195, 205);
-            Draw::PutTextLeft(body, RIGHT_X + 6, CONTENT_Y + 60, RIGHT_W - 12, L"Para vender: clic derecho en", 190, 195, 205);
-            Draw::PutTextLeft(body, RIGHT_X + 6, CONTENT_Y + 74, RIGHT_W - 12, L"tu inventario.", 190, 195, 205);
-            Draw::PutTextCentered(bold, SellButton().x, SellButton().y + 4, SellButton().w, L"Vender", 120, 120, 125);
-            Draw::PutTextCentered(bold, UndoButton().x, UndoButton().y + 4, UndoButton().w, L"Deshacer", 240, 240, 240);
+            Draw::PutTextLeft(bold, PANEL_X + PAD + 8, STRIP_Y + 4, 200, L"DETALLE", 255, 214, 80);
+            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 22, 300, L"Haz clic en un \u00edtem para ver su precio, lo que cambia", 190, 195, 205);
+            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 36, 300, L"en tus stats y comprarlo. Vender: clic derecho en tu", 190, 195, 205);
+            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 50, 300, L"inventario.", 190, 195, 205);
             return;
         }
 
         const int tier = Prices::TierOf(*item);
         const TierLook& look = TIER_LOOK[tier];
-        const int infoX = RIGHT_X + 8 + DETAIL_ICON + 6;
-        const int infoW = RIGHT_W - DETAIL_ICON - 20;
-        Draw::PutTextLeft(bold, RIGHT_X + 6, CONTENT_Y + 18, RIGHT_W - 12, ItemAttribute[item->Type].Name, 240, 240, 240);
+        const uint32_t price = PriceOf(*item);
+        const bool canBuy = price <= gold;
+        wchar_t line[64] = {};
+        Draw::PutTextLeft(bold, infoX, STRIP_Y + 3, infoW, Shorten(ItemAttribute[item->Type].Name, 17).c_str(), 240, 240, 240);
         if (tier > 0)
-        {
-            wchar_t text[32] = {};
-            swprintf(text, std::size(text), L"Tier %d", tier);
-            Draw::PutTextLeft(bold, infoX, CONTENT_Y + 34, infoW, text, look.tr, look.tg, look.tb);
-        }
-        if (item->Level > 0)
-        {
-            wchar_t text[16] = {};
-            swprintf(text, std::size(text), L"+%d", item->Level);
-            Draw::PutTextLeft(body, infoX, CONTENT_Y + 50, infoW, text, 235, 235, 235);
-        }
+            swprintf(line, std::size(line), L"Tier %d%ls", tier, item->Level > 0 ? L"  +" : L"");
+        if (tier > 0 && item->Level > 0)
+            swprintf(line, std::size(line), L"Tier %d  +%d", tier, static_cast<int>(item->Level));
+        if (tier > 0)
+            Draw::PutTextLeft(bold, infoX, STRIP_Y + 17, infoW, line, look.tr, look.tg, look.tb);
         const int role = Group(*item) >= FIRST_PIECE_GROUP && Group(*item) < FIRST_PIECE_GROUP + PIECES_PER_SET
             ? Prices::SetRoleOf(static_cast<uint16_t>(ARMOR_GROUP * CLIENT_GROUP_SIZE + Number(*item))) : -1;
         if (role >= 0 && role < ROLE_COUNT)
-            Draw::PutTextLeft(body, infoX, CONTENT_Y + 64, infoW, ROLE_LABEL[role], 160, 190, 235);
-
-        const uint32_t price = PriceOf(*item);
-        const int y = CONTENT_Y + 30 + DETAIL_ICON + 8;
-        wchar_t line[64] = {};
+            Draw::PutTextLeft(body, infoX, STRIP_Y + 31, infoW, ROLE_LABEL[role], 160, 190, 235);
         swprintf(line, std::size(line), L"Precio: %u", price);
-        Draw::PutTextLeft(bold, RIGHT_X + 6, y, RIGHT_W - 12, line, 255, 214, 80);
-        const bool canBuy = price <= gold;
+        Draw::PutTextLeft(bold, infoX, STRIP_Y + 45, infoW, line, 255, 214, 80);
         if (canBuy)
             swprintf(line, std::size(line), L"Te quedar\u00edan %u", gold - price);
         else
             swprintf(line, std::size(line), L"Te faltan %u", price - gold);
-        Draw::PutTextLeft(body, RIGHT_X + 6, y + 16, RIGHT_W - 12, line, canBuy ? 140 : 255, canBuy ? 235 : 110, canBuy ? 140 : 110);
-        if (Owns(item->Type))
-            Draw::PutTextLeft(body, RIGHT_X + 6, y + 32, RIGHT_W - 12, L"Ya tienes este \u00edtem.", 140, 230, 150);
-        RenderPreview(body, bold, item, y + 50);
+        Draw::PutTextLeft(body, infoX, STRIP_Y + 59, infoW, line, canBuy ? 140 : 255, canBuy ? 235 : 110, canBuy ? 140 : 110);
+        if (Owns(item->Type) && role < 0)
+            Draw::PutTextLeft(body, infoX, STRIP_Y + 31, infoW, L"Ya lo tienes", 140, 230, 150);
 
-        const Rect button = DetailBuyButton();
-        Draw::PutTextCentered(bold, button.x, button.y + 6, button.w, L"COMPRAR", 240, 240, 240);
-        const bool ownsCopy = OwnedInInventory(item->Type) != nullptr;
-        Draw::PutTextCentered(bold, SellButton().x, SellButton().y + 4, SellButton().w, L"Vender", ownsCopy ? 240 : 120, ownsCopy ? 240 : 120, ownsCopy ? 240 : 125);
-        Draw::PutTextCentered(bold, UndoButton().x, UndoButton().y + 4, UndoButton().w, L"Deshacer", 240, 240, 240);
+        RenderPreview(body, bold, item);
+        const Rect buy = DetailBuyButton();
+        Draw::PutTextCentered(bold, buy.x, buy.y + 5, buy.w, L"COMPRAR", 240, 240, 240);
     }
 
     void RenderPager(HFONT bold, int itemCount)
@@ -1009,13 +1043,13 @@ void Render(CNewUIInventoryCtrl* store)
     else
     {
         for (const Cell& cell : s_cells)
-            RenderCellText(body, bold, cell, gold);
+            RenderCellText(body, bold, cell, gold, false);
         RenderPager(bold, static_cast<int>(StoreItems(store).size()));
     }
 
     RenderDetailText(body, bold, DetailItem(), gold);
-    Draw::PutTextLeft(body, panel.x + PAD, panel.y + panel.h - 18, panel.w - 2 * PAD,
-        L"Clic en un \u00edtem: ver detalle y comprar.  Vender: clic derecho en tu inventario.  Arrastra la joya de perfecci\u00f3n sobre un \u00edtem de tu inventario.", 170, 175, 190);
+    Draw::PutTextLeft(body, panel.x + PAD, panel.y + panel.h - 16, panel.w - 2 * PAD,
+        L"Clic: ver detalle.  La joya de perfecci\u00f3n se arrastra sobre un \u00edtem de tu inventario.", 170, 175, 190);
 
     if (const std::vector<Prices::Recommended>& steps = Prices::GetRecommended(); !steps.empty())
     {
@@ -1036,11 +1070,12 @@ void Render3D(CNewUIInventoryCtrl* store)
     RenderStepIcons();
     for (const Cell& cell : s_cells)
     {
-        RenderIcon(cell.item->Type, cell.item->Level, cell.item->ExcellentFlags, cell.item->AncientDiscriminator, { cell.rect.x, cell.rect.y + 6, cell.rect.w, cell.rect.h - 20 });
+        const Rect box = IsSetsTab() ? Rect{ cell.rect.x + 14, cell.rect.y + 1, cell.rect.w - 28, cell.rect.h - 2 } : Rect{ cell.rect.x, cell.rect.y + 4, cell.rect.w, cell.rect.h - 18 };
+        RenderIcon(cell.item->Type, cell.item->Level, cell.item->ExcellentFlags, cell.item->AncientDiscriminator, box);
     }
 
     if (const ITEM* item = DetailItem(); item != nullptr)
-        RenderIcon(item->Type, item->Level, item->ExcellentFlags, item->AncientDiscriminator, { RIGHT_X + 8, CONTENT_Y + 30, DETAIL_ICON, DETAIL_ICON });
+        RenderIcon(item->Type, item->Level, item->ExcellentFlags, item->AncientDiscriminator, StripIcon());
 
     if (s_tab == TAB_FOR_YOU)
     {
