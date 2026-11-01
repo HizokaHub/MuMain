@@ -187,6 +187,9 @@ bool TrySendMobaTeleportClick();
 // MOBA: tells the server which option of a server-driven NPC menu was picked (C1 D5 07).
 void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex);
 
+// MOBA commanders mode: a button of the commander panel (C1 07 D5 41 action unit lane).
+void SendMobaCommanderOrder(BYTE action, BYTE unit, BYTE lane);
+
 // MOBA: the "back to town" button of the results table (C1 04 D5 18).
 void SendMobaReturnToTown();
 

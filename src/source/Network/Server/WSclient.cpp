@@ -87,6 +87,7 @@
 #include "World/Moba/MobaBarrier.h"
 #include "World/Moba/MobaBanner.h"
 #include "World/Moba/MobaReadyCheck.h"
+#include "World/Moba/MobaCommander.h"
 #include "World/Moba/MobaQueueStatus.h"
 #include "World/Moba/MobaResults.h"
 #include "World/Moba/MobaLoadout.h"
@@ -13666,6 +13667,24 @@ void SendMobaNpcMenuSelect(BYTE menuId, BYTE optionIndex)
     SocketClient->Send(buf, PacketLength);
 }
 
+// MOBA commanders mode: a button of the commander panel (C1 07 D5 41).
+void SendMobaCommanderOrder(BYTE action, BYTE unit, BYTE lane)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    constexpr BYTE PacketLength = 7;
+    BYTE buf[PacketLength];
+    buf[0] = 0xC1;
+    buf[1] = PacketLength;
+    buf[2] = 0xD5;
+    buf[3] = 0x41;
+    buf[4] = action;
+    buf[5] = unit;
+    buf[6] = lane;
+    SocketClient->Send(buf, PacketLength);
+}
+
 // MOBA: the "back to town" button of the results table (C1 04 D5 18).
 void SendMobaReturnToTown()
 {
@@ -15286,6 +15305,9 @@ static void ProcessPacket(const BYTE* ReceiveBuffer, int32_t Size)
             break;
         case 0x34:
             World::Moba::DamageDir::Receive(ReceiveBuffer);
+            break;
+        case 0x40:
+            World::Moba::Commander::Receive(ReceiveBuffer);
             break;
         }
     }
