@@ -10,6 +10,7 @@
 #include "Camera/CameraProjection.h"        // ScreenToWorldRay
 #include "Render/Textures/ZzzOpenglUtil.h"  // MousePosition (origin of the last ray)
 #include "World/MapInfra/MapManager.h"      // gMapManager, WD_200_MOBA_ARENA
+#include "World/Moba/MobaCommander.h"       // CommandingNow (the commander's wide view)
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -200,9 +201,10 @@ MobaCamera::MobaCamera(CameraState& state)
 void MobaCamera::BuildWideConfig()
 {
     m_Config = CameraConfig::ForMainSceneDefaultCamera();
-    m_Config.farPlane *= VIEW_RANGE_SCALE;
-    m_Config.objectCullRange *= VIEW_RANGE_SCALE;
-    m_Config.terrainCullRange *= VIEW_RANGE_SCALE;
+    const float rangeScale = m_Overview ? VIEW_RANGE_SCALE_OVERVIEW : VIEW_RANGE_SCALE;
+    m_Config.farPlane *= rangeScale;
+    m_Config.objectCullRange *= rangeScale;
+    m_Config.terrainCullRange *= rangeScale;
     m_Config.fogStart = m_Config.farPlane;
     m_Config.fogEnd = m_Config.farPlane * 1.25f;
 }
@@ -253,9 +255,22 @@ void MobaCamera::GetFocusOffset(vec3_t out) const
     out[2] = 0.0f;
 }
 
+void MobaCamera::UpdateOverview()
+{
+    const bool overview = World::Moba::Commander::CommandingNow();
+    if (overview == m_Overview)
+        return;
+
+    m_Overview = overview;
+    BuildWideConfig();
+    // Taking the command opens the view out to an RTS overview; giving it up (or the match ending) drops back to the normal limit.
+    m_ZoomScale = overview ? ZOOM_START_OVERVIEW : std::min(m_ZoomScale, ZOOM_MAX);
+}
+
 bool MobaCamera::Update()
 {
     const double frameSeconds = ConsumeFrameSeconds();
+    UpdateOverview();
 
     // Read the wheel before DefaultCamera::Update, which would otherwise
     // consume it into its own (short) zoom ladder.
@@ -305,7 +320,7 @@ void MobaCamera::HandleWheelZoom()
 
     // Wheel up (positive ticks) zooms in -> smaller multiplier.
     m_ZoomScale -= wheel * ZOOM_STEP_PER_TICK;
-    m_ZoomScale = std::clamp(m_ZoomScale, ZOOM_MIN, ZOOM_MAX);
+    m_ZoomScale = std::clamp(m_ZoomScale, ZOOM_MIN, m_Overview ? ZOOM_MAX_OVERVIEW : ZOOM_MAX);
 }
 
 bool MobaCamera::GetHeroGroundPos(vec3_t out) const
@@ -350,6 +365,9 @@ void MobaCamera::UpdateFocusWorld(double frameSeconds, const vec3_t heroPos)
         return;
     }
 
+    if (ArrowPanFocus(frameSeconds))
+        return;
+
     if (m_HasGoal)
     {
         // Glide to the point a minimap click asked for (exponential ease, about a third of a second).
@@ -371,6 +389,32 @@ void MobaCamera::UpdateFocusWorld(double frameSeconds, const vec3_t heroPos)
     }
 
     EdgePanFocus(frameSeconds, heroPos);
+}
+
+bool MobaCamera::ArrowPanFocus(double frameSeconds)
+{
+    // The commander moves the view with the arrow keys too (a hand on the pack keys cannot also hold the mouse at an edge).
+    if (!m_Overview)
+        return false;
+
+    float horizontal = (Core::Input::IsKeyDown(VK_RIGHT) ? 1.0f : 0.0f) - (Core::Input::IsKeyDown(VK_LEFT) ? 1.0f : 0.0f);
+    float forward = (Core::Input::IsKeyDown(VK_UP) ? 1.0f : 0.0f) - (Core::Input::IsKeyDown(VK_DOWN) ? 1.0f : 0.0f);
+    if (horizontal == 0.0f && forward == 0.0f)
+        return false;
+
+    m_HasGoal = false;
+    const float length = std::sqrt(horizontal * horizontal + forward * forward);
+    horizontal /= length;
+    forward /= length;
+
+    vec3_t right;
+    vec3_t fwd;
+    GroundPanAxes(right, fwd);
+    const float distanceScale = (m_State.Distance * m_ZoomScale) / PAN_REFERENCE_DISTANCE;
+    const float step = PAN_SPEED_UNITS_PER_SEC * std::max(distanceScale, 0.25f) * static_cast<float>(frameSeconds);
+    m_FocusWorld[0] += (right[0] * horizontal + fwd[0] * forward) * step;
+    m_FocusWorld[1] += (right[1] * horizontal + fwd[1] * forward) * step;
+    return true;
 }
 
 void MobaCamera::EdgePanFocus(double frameSeconds, const vec3_t /*heroPos*/)

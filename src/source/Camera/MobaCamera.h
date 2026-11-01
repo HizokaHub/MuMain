@@ -101,6 +101,12 @@ private:
     // out. Sized for ZOOM_MAX with headroom.
     static constexpr float VIEW_RANGE_SCALE = 2.0f;
 
+    // The commander of a commanders match gets a wide RTS overview: a much farther zoom (enough to see a whole lane), the matching view
+    // range, and the arrow keys to move the view. It is on while World::Moba::Commander::CommandingNow().
+    static constexpr float ZOOM_MAX_OVERVIEW = 3.4f;
+    static constexpr float ZOOM_START_OVERVIEW = 2.2f;
+    static constexpr float VIEW_RANGE_SCALE_OVERVIEW = 3.8f;
+
     // How far the focus may stray from the Hero until an explicit arena
     // boundary exists. Roughly 200 tiles (world units ~= tile * 100), enough
     // to sweep across most of a full 256-tile map from the centre while still
@@ -117,11 +123,14 @@ private:
     vec3_t m_FocusWorld;       // world point the camera looks at (Z ignored)
     vec3_t m_GoalWorld;        // where a minimap click asked the view to glide to
     bool   m_HasGoal = false;
+    bool   m_Overview = false;  // the commander's wide view is on
     bool   m_FocusInitialized; // false until the first frame anchors it to Hero
     float  m_ZoomScale;        // wheel zoom multiplier, ZOOM_MIN..ZOOM_MAX
     double m_LastWorldTime;    // for frame-time-independent panning
 
     void BuildWideConfig();
+    void UpdateOverview();
+    bool ArrowPanFocus(double frameSeconds);
     double ConsumeFrameSeconds();
     bool GetHeroGroundPos(vec3_t out) const;
     void AnchorFocusToHero();
