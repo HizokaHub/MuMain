@@ -300,6 +300,15 @@ static void RenderMobaScoreboard()
     g_pRenderText->SetTextColor(255, 255, 255, 255);
 }
 
+// The commander's RTS view hides this whole frame (it is the hero HUD), but the TAB scoreboard (KDA, inhibitors down, golden
+// monsters alive) is match information, not hero information: the commander window draws it through here.
+void RenderMobaScoreboardOverlay()
+{
+    EnableAlphaTest();
+    RenderMobaScoreboard();
+    DisableAlphaBlend();
+}
+
 // MOBA recall / teleport channel: a bar over the bottom HUD that fills while the server channels.
 // Fountains: holding F next to one channels its capture (C1 D5 0F on, repeated every 0.5 s while held, off on release).
 static void UpdateMobaFountainKey()

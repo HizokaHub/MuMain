@@ -15,6 +15,7 @@
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "GameLogic/Events/MatchEvent.h"
 #include "World/Moba/MobaFog.h"
+#include "World/Moba/MobaCommander.h"   // RtsView
 #include "World/MapInfra/MapManager.h"
 #include "Camera/CameraProjection.h"
 #include "Camera/CameraState.h"
@@ -327,6 +328,9 @@ void SEASON3B::CNewUINameWindow::RenderMobaHealthBars()
         if (c->MobaTeam == 0 || (WorldTime - c->MobaStatusTime) > 3500.0)
             continue;
         if (!o->Live || !o->Visible || o->Alpha <= 0.f || c->Dead > 0)
+            continue;
+        // The commander's hero is not on screen (RTS view): no bar either.
+        if (c == Hero && World::Moba::Commander::RtsView())
             continue;
         if (o->Kind != KIND_MONSTER && o->Kind != KIND_PLAYER)
             continue;

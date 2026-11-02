@@ -8,6 +8,7 @@
 #include "UI/NewUI/HUD/NewUIMiniMap.h"
 #include "UI/NewUI/HUD/Minimap/MobaMinimapMarkers.h"
 #include "World/Moba/MobaPing.h"
+#include "World/Moba/MobaCommander.h"   // RtsView (the minimap moves to the RTS console)
 #include "UI/NewUI/HUD/Minimap/MobaMinimapFog.h"
 #include "UI/NewUI/NewUISystem.h"
 #include "UI/NewUI/Dialogs/NewUICommonMessageBox.h"
@@ -420,6 +421,27 @@ namespace
         l.cx += dx; l.cy += dy;
         l.artL = artMinX + dx; l.artR = artMaxX + dx;
         l.artT = artMinY + dy; l.artB = artMaxY + dy;
+
+        // The commander's RTS view: the map moves into the left end of the RTS console (bottom-left box), opaque, sized to fit it.
+        if (World::Moba::Commander::RtsView())
+        {
+            constexpr float BOX_X = 2.f;
+            constexpr float BOX_W = 102.f;
+            constexpr float BOX_H = 96.f;
+            const float artWidth = std::max(a.maxX - a.minX, 0.01f);
+            const float artHeight = std::max(a.maxY - a.minY, 0.01f);
+            l.size = std::min(BOX_W / artWidth, BOX_H / artHeight);
+            l.sizeY = l.size * l.sx / l.sy;
+            l.sidePx = l.size * l.sx;
+            l.opacity = 1.f;
+            l.markers = cfg.GetMinimapMarkers() / 100.f * std::clamp(l.size / 60.f, 0.f, 1.f);
+            l.cx = BOX_X - a.minX * l.size;
+            l.cy = (float)REFERENCE_HEIGHT - 2.f - a.maxY * l.size;
+            l.artL = BOX_X;
+            l.artR = BOX_X + artWidth * l.size;
+            l.artB = (float)REFERENCE_HEIGHT - 2.f;
+            l.artT = l.artB - artHeight * l.size;
+        }
         return l;
     }
 
@@ -809,13 +831,28 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     const float ca = cosf(rad);
     const float sa = sinf(rad);
 
+    // The commander's console backs the map: a dark panel under it (the console itself is drawn later, over everything else, so it leaves
+    // this box alone), with the gold top and right lines of the console.
+    if (World::Moba::Commander::RtsView())
+    {
+        const int boxTop = World::Moba::Commander::RTS_CONSOLE_TOP;
+        EnableAlphaBlend();
+        glColor4f(0.04f, 0.055f, 0.086f, 0.96f);
+        RenderColor(0.f, (float)boxTop, (float)World::Moba::Commander::RTS_MINIMAP_WIDTH, (float)(REFERENCE_HEIGHT - boxTop), 0.f);
+        glColor4f(0.78f, 0.64f, 0.29f, 1.f);
+        RenderColor(0.f, (float)boxTop, (float)World::Moba::Commander::RTS_MINIMAP_WIDTH, 1.f, 0.f);
+        RenderColor((float)(World::Moba::Commander::RTS_MINIMAP_WIDTH - 1), (float)boxTop, 1.f, (float)(REFERENCE_HEIGHT - boxTop), 0.f);
+        EndRenderColor();
+    }
+
     // Map art: blended so the opacity option works; transparent corners stay so.
     EnableAlphaBlend();
     EnableAlphaTest();
     glColor4f(1.f, 1.f, 1.f, L.opacity);
 
     // Zoom window: a part of the texture centred on the hero (clamped inside the map), eased between levels.
-    const float zoomTarget = ZOOM_LEVELS[GameConfig::GetInstance().GetMinimapZoom()];
+    const bool rts = World::Moba::Commander::RtsView();   // the whole map in the console, no gear, handle or zoom
+    const float zoomTarget = rts ? 1.f : ZOOM_LEVELS[GameConfig::GetInstance().GetMinimapZoom()];
     {
         const double dt = std::clamp((WorldTime - g_zoomLastTime) / 1000.0, 0.0, 0.1);
         g_zoomLastTime = WorldTime;
@@ -914,7 +951,11 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     if (mobaArena)
         MobaMarkers::RenderPings(frame);
 
-    if (!MobaMarkers::RenderOwnHero(frame, atlases))
+    if (rts)
+    {
+        // The hero of the commander is parked in the base and is not on the field: no marker.
+    }
+    else if (!MobaMarkers::RenderOwnHero(frame, atlases))
     {
         // No portrait atlas: the old arrow, drawn with the alpha test like the art.
         EnableAlphaTest();
@@ -932,7 +973,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     DisableAlphaBlend();
 
     // Zoom label (bottom-left of the map) while zoomed in and for a moment after a change.
-    if (!shrunk && (zoomTarget > 1.01f || WorldTime < g_zoomLabelUntil))
+    if (!shrunk && !rts && (zoomTarget > 1.01f || WorldTime < g_zoomLabelUntil))
     {
         wchar_t zoomText[16];
         swprintf(zoomText, 16, L"x%.1f", zoomTarget);
@@ -947,7 +988,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
     }
 
     // Options gear (opens the panel) and the panel itself.
-    if (!shrunk)
+    if (!shrunk && !rts)
     {
         int gx, gy, gw, gh;
         GearRect(L, gx, gy, gw, gh);
@@ -959,9 +1000,10 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
             RenderColor((float)gx + 2.f, (float)gy + 2.f + k * (gh - 5) / 2.f, (float)gw - 4.f, 1.f, 0.f);
         EndRenderColor();
     }
-    RenderToggleButton(L);
+    if (!rts)
+        RenderToggleButton(L);
 
-    if (g_dragging)
+    if (g_dragging && !rts)
     {
         // Size while dragging, on a 1 (largest, handle at the far corner) .. 100 (hidden) scale.
         wchar_t sizeText[24];
@@ -978,7 +1020,7 @@ void SEASON3B::CNewUIMiniMap::RenderCornerMinimap()
         g_pRenderText->SetBgColor(backBg);
     }
 
-    if (m_bOptionsOpen)
+    if (m_bOptionsOpen && !rts)
         RenderCornerOptions();
 }
 
@@ -1086,6 +1128,28 @@ bool SEASON3B::CNewUIMiniMap::UpdateCornerMouse()
     GameConfig& cfg = GameConfig::GetInstance();
     const bool press = SEASON3B::IsPress(VK_LBUTTON);
     const bool held = press || SEASON3B::IsRepeat(VK_LBUTTON);
+
+    // The commander's RTS view: the map is a plain camera control (no gear, resize handle or zoom). The left button, pressed or held,
+    // and the right button point the camera at that spot; nothing walks. Outside the map the mouse is left to the console.
+    if (World::Moba::Commander::RtsView())
+    {
+        m_bOptionsOpen = false;
+        m_iDragSlider = -1;
+        m_bSwallowHold = false;
+        g_dragging = false;
+
+        float tileX, tileY, tilesPerRef;
+        if (!MouseToMapTile(ComputeCornerLayout(), tileX, tileY, tilesPerRef))
+            return false;
+
+        if (held || SEASON3B::IsPress(VK_RBUTTON))
+        {
+            CameraManager::Instance().FocusMobaCameraOn(tileX * TERRAIN_SCALE, tileY * TERRAIN_SCALE);
+            if (press)
+                PlayBuffer(SOUND_CLICK01);
+        }
+        return true;
+    }
 
     // Mouse wheel over the map: zoom in / out (1x, 1.6x, 2.2x). Consumed so the camera does not zoom too.
     if (MouseWheel != 0 && !g_dragging)

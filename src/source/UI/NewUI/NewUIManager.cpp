@@ -4,9 +4,42 @@
 #include "UI/NewUI/HUD/NewUIMiniMap.h"
 #include "UI/Legacy/UIControls.h"  // CUITextInputBox::GetFocusedPortable (issue #447)
 #include "World/Moba/MobaBanner.h"
+#include "World/Moba/MobaCommander.h"   // RtsView
 
 
 using namespace SEASON3B;
+
+namespace
+{
+    // The commander's RTS view (commanders mode) takes the hero HUD away: the main bar with its orbs and potion slots, the skill list,
+    // the buffs and the huds of the pet, summon, puppet and damage. The MOBA windows register under INTERFACE_END + their own offset
+    // (the UI_KEY_OFFSET of each file: summon 9, puppet 10, pet 11, damage 14). The chat, the minimap and the RTS console stay.
+    // (The hotkeys object stays too: it only gives up its keys in RtsView, so Escape keeps opening the menu.)
+    constexpr DWORD RTS_HIDDEN_KEYS[] =
+    {
+        INTERFACE_MAINFRAME,
+        INTERFACE_SKILL_LIST,
+        INTERFACE_BUFF_WINDOW,
+        INTERFACE_END + 9,
+        INTERFACE_END + 10,
+        INTERFACE_END + 11,
+        INTERFACE_END + 14,
+    };
+
+    // Whether the object is part of the hero HUD that the RTS view hides (nothing is hidden outside it).
+    bool HiddenByRtsView(CNewUIManager& manager, CNewUIObj* pUIObj)
+    {
+        if (!World::Moba::Commander::RtsView())
+            return false;
+
+        for (const DWORD key : RTS_HIDDEN_KEYS)
+        {
+            if (manager.FindUIObj(key) == pUIObj)
+                return true;
+        }
+        return false;
+    }
+}
 
 SEASON3B::CNewUIManager::CNewUIManager()
 {
@@ -127,7 +160,7 @@ bool SEASON3B::CNewUIManager::UpdateMouseEvent()
     vi = vecUI.begin();
     for (; vi != vecUI.end(); vi++)
     {
-        if ((*vi)->IsVisible())
+        if ((*vi)->IsVisible() && !HiddenByRtsView(*this, *vi))
         {
             CNewUIObj* obj_backup = (*vi);
             bool bResult = (*vi)->UpdateMouseEvent();
@@ -188,7 +221,7 @@ bool SEASON3B::CNewUIManager::UpdateKeyEvent()
 
         HWND hWnd = hFocus;
 
-        if ((*vi)->IsEnabled() && hWnd == hRelatedWnd)
+        if ((*vi)->IsEnabled() && hWnd == hRelatedWnd && !HiddenByRtsView(*this, *vi))
         {
             if (false == (*vi)->UpdateKeyEvent())
             {
@@ -239,7 +272,7 @@ bool SEASON3B::CNewUIManager::Render()
             bCornerMinimapDrawn = true;
         }
 
-        if ((*vi)->IsVisible())
+        if ((*vi)->IsVisible() && !HiddenByRtsView(*this, *vi))
         {
             (*vi)->Render();
         }

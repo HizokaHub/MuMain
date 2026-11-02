@@ -5,6 +5,7 @@
 #include "DefaultCamera.h"
 #include "OrbitalCamera.h"
 #include "MobaCamera.h"
+#include "World/Moba/MobaCommander.h"  // RtsView
 #ifdef _EDITOR
 #include "FreeFlyCamera.h"
 #endif
@@ -76,6 +77,8 @@ bool CameraManager::Update()
     extern EGameScene SceneFlag;
     if (SceneFlag != MAIN_SCENE && m_CurrentMode != CameraMode::Default)
         SetCameraMode(CameraMode::Default);
+
+    UpdateRtsForcedMode();
 
 #ifdef _EDITOR
     if (m_pSpectatedCamera && m_CurrentMode == CameraMode::FreeFly)
@@ -185,8 +188,35 @@ bool CameraManager::SetCameraMode(CameraMode mode)
     return true;
 }
 
+void CameraManager::UpdateRtsForcedMode()
+{
+    extern EGameScene SceneFlag;
+    const bool wanted = SceneFlag == MAIN_SCENE && World::Moba::Commander::RtsView();
+    if (wanted)
+    {
+        if (!m_RtsForced)
+        {
+            m_ModeBeforeRts = m_CurrentMode;
+            m_RtsForced = true;
+        }
+
+        // (Also when something else switched the camera away: the commander's view is the MOBA camera only.)
+        if (m_CurrentMode != CameraMode::Moba)
+            SetCameraMode(CameraMode::Moba);
+    }
+    else if (m_RtsForced)
+    {
+        m_RtsForced = false;
+        if (m_CurrentMode == CameraMode::Moba)
+            SetCameraMode(m_ModeBeforeRts);
+    }
+}
+
 void CameraManager::CycleToNextMode()
 {
+    if (m_RtsForced)
+        return;
+
     CameraMode nextMode = GetNextCameraMode(m_CurrentMode);
     SetCameraMode(nextMode);
 }

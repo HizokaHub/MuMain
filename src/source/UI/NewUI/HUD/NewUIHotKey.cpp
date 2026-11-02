@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "World/Moba/MobaPing.h"
+#include "World/Moba/MobaCommander.h"   // RtsView
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaPuppet.h"
 #include "GameLogic/Commands/ChatCommandCatalog.h"
@@ -139,6 +140,12 @@ bool SEASON3B::CNewUIHotKey::UpdateKeyEvent()
             PlayBuffer(SOUND_CLICK01);
             return false;
         }
+    }
+
+    // The commander's RTS view: the keys of the hero (windows, potions, camera, ...) are not used; only Escape (the menu, above) works.
+    if (World::Moba::Commander::RtsView())
+    {
+        return true;
     }
 
     if (m_bStateGameOver == true)

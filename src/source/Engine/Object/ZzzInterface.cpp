@@ -72,6 +72,7 @@ const unsigned char* MobaRoadCoverageForRouting();   // MapManager.cpp: the draw
 #include "World/Moba/MobaFog.h"    // IsTileHidden (a minimap-targeted enemy leaving sight)
 #include "World/Moba/MobaSummon.h"  // creature of the Elf: orders with the right click
 #include "World/Moba/MobaPuppet.h"  // disconnected teammate: orders with the right click, its skills with the number keys
+#include "World/Moba/MobaCommander.h"  // RtsView: the commander's hero neither walks nor attacks
 
 // Whether the hero is in a MOBA match: the click navigation (chase a clicked target into skill range, walk the whole way,
 // minimap clicks) works with every camera, not only with the MOBA one.
@@ -3511,7 +3512,7 @@ namespace
 void MobaMinimapWalkTo(int tileX, int tileY)
 {
     CHARACTER* c = Hero;
-    if (c == nullptr || c->Dead > 0)
+    if (c == nullptr || c->Dead > 0 || World::Moba::Commander::RtsView())
         return;
     OBJECT* o = &c->Object;
 
@@ -3563,7 +3564,7 @@ void MobaMinimapWalkTo(int tileX, int tileY)
 void MobaMinimapAttack(int charIndex)
 {
     CHARACTER* c = Hero;
-    if (c == nullptr || c->Dead > 0 || charIndex < 0 || charIndex >= MAX_CHARACTERS_CLIENT)
+    if (c == nullptr || c->Dead > 0 || charIndex < 0 || charIndex >= MAX_CHARACTERS_CLIENT || World::Moba::Commander::RtsView())
         return;
 
     MobaNavLog(L"minimap attack requested on char %d", charIndex);
@@ -3587,6 +3588,14 @@ void MoveHero()
 
     if (o->CurrentAction == PLAYER_CHANGE_UP)
     {
+        return;
+    }
+
+    // The commander's RTS view: the hero is parked and hidden, so the world clicks (walk, attack, skills) do nothing.
+    if (World::Moba::Commander::RtsView())
+    {
+        CancelMobaAutoWalk();
+        CancelMobaChase();
         return;
     }
 

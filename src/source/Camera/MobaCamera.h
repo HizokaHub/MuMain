@@ -107,6 +107,9 @@ private:
     static constexpr float ZOOM_START_OVERVIEW = 2.2f;
     static constexpr float VIEW_RANGE_SCALE_OVERVIEW = 3.8f;
 
+    // Elevation of the commander's camera above the ground, in degrees (the hero camera sits at about 41). The task asked for 60-65.
+    static constexpr float OVERVIEW_ELEVATION_DEG = 62.0f;
+
     // How far the focus may stray from the Hero until an explicit arena
     // boundary exists. Roughly 200 tiles (world units ~= tile * 100), enough
     // to sweep across most of a full 256-tile map from the centre while still
@@ -124,11 +127,13 @@ private:
     vec3_t m_GoalWorld;        // where a minimap click asked the view to glide to
     bool   m_HasGoal = false;
     bool   m_Overview = false;  // the commander's wide view is on
+    bool   m_SnapToMidLane = false;   // the next frame puts the focus on the middle lane (the view just became the commander's)
     bool   m_FocusInitialized; // false until the first frame anchors it to Hero
     float  m_ZoomScale;        // wheel zoom multiplier, ZOOM_MIN..ZOOM_MAX
     double m_LastWorldTime;    // for frame-time-independent panning
 
     void BuildWideConfig();
+    void ResetOverviewState();   // overview off, no snap, no goal, normal view range (on activation and deactivation)
     void UpdateOverview();
     bool ArrowPanFocus(double frameSeconds);
     double ConsumeFrameSeconds();

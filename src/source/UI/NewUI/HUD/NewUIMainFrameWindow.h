@@ -295,4 +295,7 @@ namespace SEASON3B
     };
 }
 
+// The MOBA TAB scoreboard on its own (the commander's RTS view hides the main frame that normally draws it).
+void RenderMobaScoreboardOverlay();
+
 #endif // !defined(AFX_NEWUIMAINFRAMEWINDOW_H__46A029CA_44A5_4050_9216_FA8A25EC4629__INCLUDED_)

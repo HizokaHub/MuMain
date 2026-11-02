@@ -170,6 +170,8 @@ void SEASON3B::CNewUIChatInputBox::SetWndPos(int x, int y)
     {
         m_pChatInputBox->SetPosition(m_WndPos.x + 72, m_WndPos.y + 32);
         m_pWhsprIDInputBox->SetPosition(m_WndPos.x + 5, m_WndPos.y + 32);
+        // Already created: the size / transparency buttons follow the box (Create sets them once everything is loaded).
+        SetButtonInfo();
     }
 }
 

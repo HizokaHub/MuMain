@@ -78,9 +78,14 @@ public:
 
     void ResetActiveView()
     {
-        if (m_pActiveCamera)
+        if (m_pActiveCamera && !m_RtsForced)
             m_pActiveCamera->ResetView();
     }
+
+    /**
+     * @brief Whether the camera mode is being forced to the MOBA camera for the commander's RTS view.
+     */
+    bool IsRtsForced() const { return m_RtsForced; }
 
 private:
     CameraManager();
@@ -93,6 +98,12 @@ private:
     CameraMode m_CurrentMode;
     ICamera* m_pActiveCamera;
     bool m_ZoomLocked = true;  // F10 toggles; default = locked
+
+    // Commanders mode: while the player commands (World::Moba::Commander::RtsView) the MOBA camera is forced and F9 / F11 do nothing;
+    // the mode that was active before is restored when the command ends.
+    bool m_RtsForced = false;
+    CameraMode m_ModeBeforeRts = CameraMode::Default;
+    void UpdateRtsForcedMode();
 
     // Camera instances
     std::unique_ptr<ICamera> m_pDefaultCamera;

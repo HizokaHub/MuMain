@@ -216,13 +216,26 @@ void MobaCamera::OnActivate(const CameraState& previousState)
     m_FocusInitialized = false;
     m_ZoomScale = ZOOM_DEFAULT;
     m_LastWorldTime = WorldTime;
+    // The overview starts from "off" on every activation: UpdateOverview then applies the commander's zoom, the mid-lane snap and the goal
+    // reset by itself if the RTS view is on (a previous match may have left it on while another camera mode took over).
+    ResetOverviewState();
     m_pDefaultCamera->OnActivate(previousState);
     AnchorFocusToHero();
 }
 
 void MobaCamera::OnDeactivate()
 {
+    // The forced RTS mode ends by switching the camera away: this camera no longer updates, so UpdateOverview could not clear the flag.
+    ResetOverviewState();
     m_pDefaultCamera->OnDeactivate();
+}
+
+void MobaCamera::ResetOverviewState()
+{
+    m_Overview = false;
+    m_SnapToMidLane = false;
+    m_HasGoal = false;
+    BuildWideConfig();
 }
 
 void MobaCamera::Reset()
@@ -257,7 +270,7 @@ void MobaCamera::GetFocusOffset(vec3_t out) const
 
 void MobaCamera::UpdateOverview()
 {
-    const bool overview = World::Moba::Commander::CommandingNow();
+    const bool overview = World::Moba::Commander::RtsView();
     if (overview == m_Overview)
         return;
 
@@ -265,6 +278,13 @@ void MobaCamera::UpdateOverview()
     BuildWideConfig();
     // Taking the command opens the view out to an RTS overview; giving it up (or the match ending) drops back to the normal limit.
     m_ZoomScale = overview ? ZOOM_START_OVERVIEW : std::min(m_ZoomScale, ZOOM_MAX);
+    m_HasGoal = false;
+
+    // The hero is parked in the base while the player commands: the view starts on the middle lane, as a Direct Strike match does,
+    // and goes back to the hero when the command is given up.
+    m_SnapToMidLane = overview;
+    if (!overview)
+        AnchorFocusToHero();
 }
 
 bool MobaCamera::Update()
@@ -286,6 +306,17 @@ bool MobaCamera::Update()
 
     if (!m_FocusInitialized)
         AnchorFocusToHero();
+
+    if (m_SnapToMidLane)
+    {
+        m_SnapToMidLane = false;
+        float tileX = 0.0f;
+        float tileY = 0.0f;
+        World::Moba::Commander::LaneFocusTile(1, tileX, tileY);
+        m_FocusWorld[0] = tileX * TERRAIN_SCALE;
+        m_FocusWorld[1] = tileY * TERRAIN_SCALE;
+        ClampGoalToArena(m_FocusWorld[0], m_FocusWorld[1]);
+    }
 
     const float previousFocusX = m_FocusWorld[0];
     const float previousFocusY = m_FocusWorld[1];
@@ -419,8 +450,10 @@ bool MobaCamera::ArrowPanFocus(double frameSeconds)
 
 void MobaCamera::EdgePanFocus(double frameSeconds, const vec3_t /*heroPos*/)
 {
-    const bool atLeft = MouseX <= EDGE_MARGIN_REF_PX;
-    const bool atRight = MouseX >= REFERENCE_WIDTH - EDGE_MARGIN_REF_PX;
+    // The RTS console covers the bottom of the screen: its buttons and the minimap must not scroll the view sideways.
+    const bool overConsole = m_Overview && MouseY >= World::Moba::Commander::RTS_CONSOLE_TOP;
+    const bool atLeft = !overConsole && MouseX <= EDGE_MARGIN_REF_PX;
+    const bool atRight = !overConsole && MouseX >= REFERENCE_WIDTH - EDGE_MARGIN_REF_PX;
     const bool atTop = MouseY <= EDGE_MARGIN_REF_PX;
     const bool atBottom = MouseY >= REFERENCE_HEIGHT - BOTTOM_EDGE_REF_PX;
     if (!atLeft && !atRight && !atTop && !atBottom)
@@ -557,6 +590,26 @@ void MobaCamera::ApplyFocusToState(const vec3_t heroPos)
     m_State.Position[0] = pivot[0] + (m_State.Position[0] - pivot[0]) * m_ZoomScale;
     m_State.Position[1] = pivot[1] + (m_State.Position[1] - pivot[1]) * m_ZoomScale;
     m_State.Position[2] = pivot[2] + (m_State.Position[2] - pivot[2]) * m_ZoomScale;
+
+    // The commander looks down steeper than the hero camera, Direct Strike style: the rig keeps its distance to the focus but sits at
+    // OVERVIEW_ELEVATION_DEG above the ground, and looks straight at the focus (pitch 0 is straight down, -90 horizontal).
+    if (m_Overview)
+    {
+        const float dx = m_State.Position[0] - pivot[0];
+        const float dy = m_State.Position[1] - pivot[1];
+        const float dz = m_State.Position[2] - pivot[2];
+        const float horizontal = std::sqrt(dx * dx + dy * dy);
+        if (horizontal > 1.0f)
+        {
+            const float distance = std::sqrt(horizontal * horizontal + dz * dz);
+            const float elevation = OVERVIEW_ELEVATION_DEG * 3.14159265f / 180.0f;
+            const float reach = distance * std::cos(elevation);
+            m_State.Position[0] = pivot[0] + dx / horizontal * reach;
+            m_State.Position[1] = pivot[1] + dy / horizontal * reach;
+            m_State.Position[2] = pivot[2] + distance * std::sin(elevation);
+            m_State.Angle[0] = -(90.0f - OVERVIEW_ELEVATION_DEG);
+        }
+    }
 
     m_State.UpdateMatrix();
 

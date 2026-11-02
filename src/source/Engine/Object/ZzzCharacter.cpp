@@ -115,6 +115,7 @@ namespace
 #include "GameLogic/Pets/w_PetProcess.h"
 #include "Character/CSParts.h"
 #include "World/Moba/MobaFog.h"
+#include "World/Moba/MobaCommander.h"   // RtsView (the commander's hero is not drawn)
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaExtraPets.h"
 #include "Render/Models/BoneManager.h"
@@ -11641,7 +11642,9 @@ void RenderCharactersClient()
                             }
                         }
         }
-        if (c == Hero && (0x04 & Hero->CtlCode) && SceneFlag == MAIN_SCENE)
+        // A hidden GM, and the hero of the player who commands a commanders match (the RTS view): not drawn and not pickable (its box is
+        // moved far away). The server parks the body in its base as well.
+        if (c == Hero && ((0x04 & Hero->CtlCode) || World::Moba::Commander::RtsView()) && SceneFlag == MAIN_SCENE)
         {
             o->OBB.StartPos[0] = 1000.0f;
             o->OBB.XAxis[0] = o->OBB.YAxis[1] = o->OBB.ZAxis[2] = 1.0f;
