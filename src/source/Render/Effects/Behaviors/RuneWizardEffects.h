@@ -12,7 +12,8 @@ class OBJECT;
 //    (Effect/judgement_spear_a01.bmd) rain down inside it.
 //  * Magic Arrow: a thin red beam arrow flies to the target and bursts in a white flash.
 //  * Plasma Ball: one golden orb drifts slowly from the caster to the target place and, while it lives, strikes the
-//    closest enemies with white-violet lightning arcs (measured frame by frame on the videos).
+//    closest enemies with white-violet lightning arcs (measured frame by frame on the videos). Two golden rings orbit
+//    it: the Season 21 ball model (Effect/DarkPlasmaBall.bmd), tilted and spinning.
 //  * Lightning Storm: a blue rune circle on the ground, a column of light and bolts striking down.
 //  * Burst: cyan rings spiral out from the caster's feet, then a red ring and a violet orb stay around it for a while.
 //  * Haste: a golden disc at the caster's feet with an amber spiral rising around it.
@@ -49,6 +50,7 @@ namespace Render::Effects::RuneWizard
     bool MoveArrow(OBJECT* o, int index, float luminosity);
     void InitPlasma(OBJECT* o);
     bool MovePlasma(OBJECT* o, int index, float luminosity);
+    void DrawPlasma(OBJECT* o);
     void InitStorm(OBJECT* o);
     bool MoveStorm(OBJECT* o, int index, float luminosity);
     void DrawStorm(OBJECT* o);

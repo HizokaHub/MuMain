@@ -403,10 +403,22 @@ namespace Render::Effects::RuneWizard
         constexpr float OrbIdleSparkSpread = 45.f;
 
         // The orb: white core, golden body, orange halo that pulses, and two golden sparks circling it.
-        // On the videos the ball is about half as tall as the character and its halo about as tall as it.
-        constexpr float OrbCoreScale = 1.4f;
-        constexpr float OrbBodyScale = 2.4f;
-        constexpr float OrbHaloScale = 4.f;
+        // On the videos the ball is a bit more than half as tall as the character and its halo about as tall as it.
+        constexpr float OrbCoreScale = 2.f;
+        constexpr float OrbBodyScale = 3.7f;
+        constexpr float OrbHaloScale = 6.f;
+
+        // The rings around the ball are the Season 21 ball model (Effect/DarkPlasmaBall.bmd): a sphere of 11 units of
+        // radius wrapped in one bright wavy line. Drawn additive, tilted and spinning, the line reads as a ring orbiting
+        // the ball; two shells with different tilts give the crossed rings of the videos. A shell is the same effect type
+        // as the orb with a sub type of its own (OrbShellFirstSubType + its index).
+        constexpr int OrbShellCount = 2;
+        constexpr int OrbShellFirstSubType = 1;
+        constexpr float OrbShellScale[OrbShellCount] = { 4.8f, 5.8f };
+        constexpr float OrbShellPitchDegrees[OrbShellCount] = { 65.f, -50.f };
+        constexpr float OrbShellRollDegrees[OrbShellCount] = { 0.f, 35.f };
+        constexpr float OrbShellSpinDegrees[OrbShellCount] = { 14.f, -10.f };
+        constexpr float OrbShellAnimationSpeed = 0.3f;
         constexpr float OrbPulseScale = 0.5f;
         constexpr float OrbPulseDegreesPerTick = 40.f;
         constexpr float OrbSwirlRadius = 48.f;
@@ -513,6 +525,24 @@ namespace Render::Effects::RuneWizard
                 Vector(orb[0] + cosf(turn) * OrbSwirlRadius, orb[1] + sinf(turn) * OrbSwirlRadius, orb[2] + sinf(turn * 2.f) * OrbSwirlRadius * 0.5f, spark);
                 Glow(spark, 0.9f, 1.f, 0.75f, 0.25f, brightness);
             }
+        }
+
+        bool IsPlasmaShell(const OBJECT* o)
+        {
+            return o->SubType >= OrbShellFirstSubType && o->SubType < OrbShellFirstSubType + OrbShellCount;
+        }
+
+        // One tick of a ring shell: it rides on the orb, spins and fades with it.
+        void MovePlasmaShell(OBJECT* o, const float* orb, float brightness)
+        {
+            const int shell = o->SubType - OrbShellFirstSubType;
+            VectorCopy(orb, o->Position);
+            o->Angle[2] = fmodf(o->Angle[2] + OrbShellSpinDegrees[shell] * FPS_ANIMATION_FACTOR, 360.f);
+            o->Alpha = brightness;
+
+            BMD* b = &Models[o->Type];
+            b->CurrentAction = o->CurrentAction;
+            b->PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, OrbShellAnimationSpeed, o->Position, o->Angle);
         }
 
         // Whether the orb's lightning may strike the character: alive, in view and not the caster.
@@ -704,6 +734,9 @@ namespace Render::Effects::RuneWizard
         Vector(0.f, 0.f, 0.f, angle);
         Vector(1.f, 1.f, 1.f, light);
         CreateEffect(MODEL_RW_PLASMA, end, angle, light, 0, caster);
+        for (int i = 0; i < OrbShellCount; ++i)
+            CreateEffect(MODEL_RW_PLASMA, end, angle, light, OrbShellFirstSubType + i, caster);
+
         PlaySfx(SOUND_RW_PLASMA_BALL_CAST, PlasmaCastSound);
     }
 
@@ -711,6 +744,10 @@ namespace Render::Effects::RuneWizard
     {
         InitModelEffect(o, 1.f, 1.f);
         o->m_iAnimation = 0;
+
+        // The drift goes from StartPosition (the caster's hand) to the cast place, which is kept apart
+        // (in m_vDeadPosition, unused by effects) because a shell moves its Position along the drift.
+        VectorCopy(o->Position, o->m_vDeadPosition);
         if (o->Owner != nullptr)
         {
             HandPoint(o->Owner, o->Position, o->StartPosition);
@@ -719,6 +756,15 @@ namespace Render::Effects::RuneWizard
         {
             VectorCopy(o->Position, o->StartPosition);
         }
+
+        if (!IsPlasmaShell(o))
+            return;
+
+        const int shell = o->SubType - OrbShellFirstSubType;
+        o->Scale = OrbShellScale[shell];
+        Vector(OrbShellPitchDegrees[shell], OrbShellRollDegrees[shell], (float)(rand() % 360), o->Angle);
+        Vector(1.f, 0.6f, 0.2f, o->Light);
+        VectorCopy(o->StartPosition, o->Position);
     }
 
     bool MovePlasma(OBJECT* o, int /*index*/, float /*luminosity*/)
@@ -728,10 +774,16 @@ namespace Render::Effects::RuneWizard
             return false;
 
         vec3_t orb;
-        Lerp(o->StartPosition, o->Position, EaseOut(age / OrbTravelTicks), orb);
+        Lerp(o->StartPosition, o->m_vDeadPosition, EaseOut(age / OrbTravelTicks), orb);
 
         const float fadeStart = OrbTravelTicks + OrbLingerTicks;
         const float brightness = age < fadeStart ? 1.f : 1.f - (age - fadeStart) / OrbFadeTicks;
+        if (IsPlasmaShell(o))
+        {
+            MovePlasmaShell(o, orb, brightness);
+            return false;
+        }
+
         DrawPlasmaOrb(orb, age, brightness);
 
         const int volley = (int)(age / OrbArcIntervalTicks);
@@ -937,5 +989,12 @@ namespace Render::Effects::RuneWizard
 
     void DrawNothing(OBJECT* /*o*/)
     {
+    }
+
+    void DrawPlasma(OBJECT* o)
+    {
+        // The orb itself is sprites created while it moves; only its ring shells are a model.
+        if (IsPlasmaShell(o))
+            DrawAdditive(o);
     }
 }

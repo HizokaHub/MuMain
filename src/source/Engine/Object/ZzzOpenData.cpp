@@ -4184,6 +4184,8 @@ static void OpenRuneWizardEffects()
     gLoadData.OpenTexture(MODEL_RW_SPHERE_OUTER, L"Effect\\");
     gLoadData.AccessModel(MODEL_RW_LANCE, L"Data\\Effect\\", L"judgement_spear_a01");
     gLoadData.OpenTexture(MODEL_RW_LANCE, L"Effect\\");
+    gLoadData.AccessModel(MODEL_RW_PLASMA, L"Data\\Effect\\", L"DarkPlasmaBall");
+    gLoadData.OpenTexture(MODEL_RW_PLASMA, L"Effect\\");
 
     LoadBitmap(L"Effect\\m_zine_05_1.jpg", BITMAP_RW_FIELD, GL_LINEAR, GL_CLAMP_TO_EDGE);
     LoadBitmap(L"Effect\\mhoujin_R.jpg", BITMAP_RW_FIELD_RING, GL_LINEAR, GL_CLAMP_TO_EDGE);

@@ -97,7 +97,7 @@ namespace Render::Effects
                 add({ MODEL_RW_PLASMA }, {
                     .onCreate = &RuneWizard::InitPlasma,
                     .move = &RuneWizard::MovePlasma,
-                    .render = &RuneWizard::DrawNothing });
+                    .render = &RuneWizard::DrawPlasma });
                 add({ MODEL_RW_STORM }, {
                     .onCreate = &RuneWizard::InitStorm,
                     .move = &RuneWizard::MoveStorm,
