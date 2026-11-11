@@ -11,7 +11,8 @@ class OBJECT;
 //  * Rune Phrase: a large crimson field spreads over the ground with a violet rune ring turning in it, while blue lances
 //    (Effect/judgement_spear_a01.bmd) rain down inside it.
 //  * Magic Arrow: a thin red beam arrow flies to the target and bursts in a white flash.
-//  * Plasma Ball: three golden orbs with lavender trails fly to the target place and burst.
+//  * Plasma Ball: one golden orb drifts slowly from the caster to the target place and, while it lives, strikes the
+//    closest enemies with white-violet lightning arcs (measured frame by frame on the videos).
 //  * Lightning Storm: a blue rune circle on the ground, a column of light and bolts striking down.
 //  * Burst: cyan rings spiral out from the caster's feet, then a red ring and a violet orb stay around it for a while.
 //  * Haste: a golden disc at the caster's feet with an amber spiral rising around it.

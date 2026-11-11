@@ -384,14 +384,29 @@ namespace Render::Effects::RuneWizard
         constexpr float HandHeight = 110.f;
         constexpr float TargetChestHeight = 80.f;
 
-        // Plasma Ball: three orbs, each a few ticks behind the previous.
-        constexpr int OrbCount = 3;
-        constexpr float OrbFlightTicks = 12.f;
-        constexpr float OrbDelayTicks = 3.f;
-        constexpr float OrbSideOffset = 70.f;
-        constexpr float OrbImpactTicks = 6.f;
-        constexpr int OrbTrailCount = 10;
-        constexpr float OrbTrailStep = 20.f;
+        // Plasma Ball: one orb drifts slowly from the caster's hand to the target place, stays there a moment and fades.
+        // Measured on the videos: about 1.6 s of drift (25 ticks a second), 0.8 s of linger.
+        constexpr float OrbTravelTicks = 40.f;
+        constexpr float OrbLingerTicks = 20.f;
+        constexpr float OrbFadeTicks = 8.f;
+        constexpr float OrbTicks = OrbTravelTicks + OrbLingerTicks + OrbFadeTicks;
+
+        // While it lives it strikes the closest enemies with lightning arcs, a volley every few ticks.
+        constexpr float OrbArcIntervalTicks = 3.f;
+        constexpr float OrbArcRange = 380.f;
+        constexpr int OrbArcMaxTargets = 3;
+        constexpr float OrbArcScale = 14.f;
+        constexpr float OrbArcIdleReach = 90.f;
+
+        // The orb: white core, golden body, orange halo that pulses, and two golden sparks circling it.
+        constexpr float OrbCoreScale = 1.6f;
+        constexpr float OrbBodyScale = 3.4f;
+        constexpr float OrbHaloScale = 5.6f;
+        constexpr float OrbPulseScale = 0.5f;
+        constexpr float OrbPulseDegreesPerTick = 40.f;
+        constexpr float OrbSwirlRadius = 48.f;
+        constexpr float OrbSwirlDegreesPerTick = 32.f;
+        constexpr int OrbSwirlCount = 2;
 
         // Lightning Storm.
         constexpr float StormTicks = 50.f;
@@ -467,6 +482,99 @@ namespace Render::Effects::RuneWizard
             const float dy = b[1] - a[1];
             const float dz = b[2] - a[2];
             return sqrtf(dx * dx + dy * dy + dz * dz);
+        }
+
+        // One frame of the Plasma Ball orb at the point.
+        void DrawPlasmaOrb(const float* orb, float age, float brightness)
+        {
+            const float pulse = sinf(age * OrbPulseDegreesPerTick * DegreesToRadians) * OrbPulseScale;
+            Glow(orb, OrbHaloScale + pulse, 1.f, 0.45f, 0.1f, 0.7f * brightness);
+            Glow(orb, OrbBodyScale + pulse * 0.5f, 1.f, 0.8f, 0.3f, brightness);
+            Glow(orb, OrbCoreScale, 1.f, 1.f, 0.95f, brightness);
+
+            for (int i = 0; i < OrbSwirlCount; ++i)
+            {
+                const float turn = (age * OrbSwirlDegreesPerTick + i * 360.f / OrbSwirlCount) * DegreesToRadians;
+                vec3_t spark;
+                Vector(orb[0] + cosf(turn) * OrbSwirlRadius, orb[1] + sinf(turn) * OrbSwirlRadius, orb[2] + sinf(turn * 2.f) * OrbSwirlRadius * 0.5f, spark);
+                Glow(spark, 0.9f, 1.f, 0.75f, 0.25f, brightness);
+            }
+        }
+
+        // Whether the orb's lightning may strike the character: alive, in view and not the caster.
+        bool IsPlasmaTarget(const CHARACTER* c, const OBJECT* caster)
+        {
+            const OBJECT* target = &c->Object;
+            if (!target->Live || !target->Visible || target == caster || c->Dead > 0)
+                return false;
+
+            return target->Kind == KIND_MONSTER || target->Kind == KIND_PLAYER;
+        }
+
+        // A lightning arc from the orb to the point, with sparks where it lands.
+        void PlasmaArc(const float* orb, const float* to)
+        {
+            vec3_t from, target, angle;
+            VectorCopy(orb, from);
+            VectorCopy(to, target);
+            Vector(0.f, 0.f, 0.f, angle);
+            CreateJoint(BITMAP_JOINT_THUNDER, from, target, angle, 4, nullptr, OrbArcScale);
+            SparkBurst(target, 2, 25.f, 0.75f, 0.7f, 1.f);
+        }
+
+        // Strikes the closest enemies in range of the orb (a short crackle around it when there is none).
+        // Returns whether it struck someone.
+        bool StrikeFromPlasmaOrb(const float* orb, const OBJECT* caster)
+        {
+            const CHARACTER* closest[OrbArcMaxTargets] = { };
+            float closestDistance[OrbArcMaxTargets] = { };
+            int found = 0;
+
+            for (int i = 0; i < MAX_CHARACTERS_CLIENT; ++i)
+            {
+                const CHARACTER* c = &CharactersClient[i];
+                if (!IsPlasmaTarget(c, caster))
+                    continue;
+
+                const float distance = Distance(orb, c->Object.Position);
+                if (distance > OrbArcRange)
+                    continue;
+
+                // Insertion into the short list, closest first.
+                int slot = found < OrbArcMaxTargets ? found : OrbArcMaxTargets - 1;
+                if (found == OrbArcMaxTargets && distance >= closestDistance[slot])
+                    continue;
+
+                while (slot > 0 && closestDistance[slot - 1] > distance)
+                {
+                    closest[slot] = closest[slot - 1];
+                    closestDistance[slot] = closestDistance[slot - 1];
+                    --slot;
+                }
+
+                closest[slot] = c;
+                closestDistance[slot] = distance;
+                if (found < OrbArcMaxTargets)
+                    ++found;
+            }
+
+            for (int i = 0; i < found; ++i)
+            {
+                vec3_t chest;
+                VectorCopy(closest[i]->Object.Position, chest);
+                chest[2] += TargetChestHeight;
+                PlasmaArc(orb, chest);
+            }
+
+            if (found > 0)
+                return true;
+
+            vec3_t idle;
+            Vector(orb[0] + (float)(rand() % (int)(OrbArcIdleReach * 2.f)) - OrbArcIdleReach,
+                orb[1] + (float)(rand() % (int)(OrbArcIdleReach * 2.f)) - OrbArcIdleReach,
+                orb[2] - (float)(rand() % (int)OrbArcIdleReach), idle);
+            PlasmaArc(orb, idle);
+            return false;
         }
 
         // The point where a spell leaves the caster: at hand height, a little toward the target.
@@ -606,65 +714,25 @@ namespace Render::Effects::RuneWizard
 
     bool MovePlasma(OBJECT* o, int /*index*/, float /*luminosity*/)
     {
-        const float total = OrbFlightTicks + OrbDelayTicks * (OrbCount - 1) + OrbImpactTicks;
-        const float age = Age(o, total);
+        const float age = Age(o, OrbTicks);
         if (age < 0.f)
             return false;
 
-        // Sideways axis of the flight, so the orbs leave fanned out and converge on the target.
-        vec3_t dir;
-        Direction(o->StartPosition, o->Position, dir);
-        const float sideX = -dir[1];
-        const float sideY = dir[0];
+        vec3_t orb;
+        Lerp(o->StartPosition, o->Position, EaseOut(age / OrbTravelTicks), orb);
 
-        for (int i = 0; i < OrbCount; ++i)
-        {
-            const float local = age - OrbDelayTicks * i;
-            if (local < 0.f)
-                continue;
+        const float fadeStart = OrbTravelTicks + OrbLingerTicks;
+        const float brightness = age < fadeStart ? 1.f : 1.f - (age - fadeStart) / OrbFadeTicks;
+        DrawPlasmaOrb(orb, age, brightness);
 
-            const float side = (i - (OrbCount - 1) * 0.5f) * OrbSideOffset;
-            vec3_t from;
-            VectorCopy(o->StartPosition, from);
-            from[0] += sideX * side;
-            from[1] += sideY * side;
+        const int volley = (int)(age / OrbArcIntervalTicks);
+        if (volley == o->m_iAnimation || age >= fadeStart)
+            return false;
 
-            if (local < OrbFlightTicks)
-            {
-                const float t = local / OrbFlightTicks;
-                vec3_t head;
-                Lerp(from, o->Position, t, head);
-
-                for (int k = 0; k < OrbTrailCount; ++k)
-                {
-                    vec3_t p;
-                    p[0] = head[0] - dir[0] * k * OrbTrailStep;
-                    p[1] = head[1] - dir[1] * k * OrbTrailStep;
-                    p[2] = head[2] - dir[2] * k * OrbTrailStep;
-                    const float fade = 1.f - (float)k / OrbTrailCount;
-                    Glow(p, 1.4f * fade + 0.2f, 0.8f, 0.65f, 1.f, fade * 0.8f);
-                }
-
-                Glow(head, 2.8f, 1.f, 0.8f, 0.25f, 1.f);
-                Glow(head, 1.3f, 1.f, 1.f, 0.9f, 1.f);
-                continue;
-            }
-
-            if (i == 0 && o->m_iAnimation == 0)
-            {
-                o->m_iAnimation = StateDone;
-                PlaySfx(SOUND_RW_PLASMA_BALL_HIT, PlasmaHitSound);
-            }
-
-            const float impact = (local - OrbFlightTicks) / OrbImpactTicks;
-            if (impact <= 1.f)
-            {
-                if (impact < 0.2f)
-                    SparkBurst(o->Position, 4, 40.f, 1.f, 0.85f, 0.4f);
-
-                Glow(o->Position, 5.f * (1.f - impact) + 1.f, 1.f, 0.85f, 0.45f, 1.f - impact);
-            }
-        }
+        const bool first = o->m_iAnimation == 0;
+        o->m_iAnimation = volley;
+        if (StrikeFromPlasmaOrb(orb, o->Owner) && first)
+            PlaySfx(SOUND_RW_PLASMA_BALL_HIT, PlasmaHitSound);
 
         return false;
     }
