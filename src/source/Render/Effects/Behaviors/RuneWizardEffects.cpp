@@ -392,16 +392,21 @@ namespace Render::Effects::RuneWizard
         constexpr float OrbTicks = OrbTravelTicks + OrbLingerTicks + OrbFadeTicks;
 
         // While it lives it strikes the closest enemies with lightning arcs, a volley every few ticks.
-        constexpr float OrbArcIntervalTicks = 3.f;
+        // An arc is the jagged bolt of the classic Lightning (a thick one and a thin bright one), which lives two ticks:
+        // a volley every two ticks keeps the arcs joined to their targets.
+        constexpr float OrbArcIntervalTicks = 2.f;
         constexpr float OrbArcRange = 380.f;
         constexpr int OrbArcMaxTargets = 3;
-        constexpr float OrbArcScale = 14.f;
-        constexpr float OrbArcIdleReach = 90.f;
+        constexpr int OrbArcBoltSubType = 0;
+        constexpr float OrbArcThickScale = 50.f;
+        constexpr float OrbArcThinScale = 10.f;
+        constexpr float OrbIdleSparkSpread = 45.f;
 
         // The orb: white core, golden body, orange halo that pulses, and two golden sparks circling it.
-        constexpr float OrbCoreScale = 1.6f;
-        constexpr float OrbBodyScale = 3.4f;
-        constexpr float OrbHaloScale = 5.6f;
+        // On the videos the ball is about half as tall as the character and its halo about as tall as it.
+        constexpr float OrbCoreScale = 1.4f;
+        constexpr float OrbBodyScale = 2.4f;
+        constexpr float OrbHaloScale = 4.f;
         constexpr float OrbPulseScale = 0.5f;
         constexpr float OrbPulseDegreesPerTick = 40.f;
         constexpr float OrbSwirlRadius = 48.f;
@@ -484,12 +489,21 @@ namespace Render::Effects::RuneWizard
             return sqrtf(dx * dx + dy * dy + dz * dz);
         }
 
+        // Like Glow, with the round soft light instead of the spiked flare.
+        void RoundGlow(const float* point, float scale, float r, float g, float b, float brightness)
+        {
+            vec3_t position, light;
+            VectorCopy(point, position);
+            Vector(r * brightness, g * brightness, b * brightness, light);
+            CreateSprite(BITMAP_LIGHT, position, scale, light, nullptr, 0.f);
+        }
+
         // One frame of the Plasma Ball orb at the point.
         void DrawPlasmaOrb(const float* orb, float age, float brightness)
         {
             const float pulse = sinf(age * OrbPulseDegreesPerTick * DegreesToRadians) * OrbPulseScale;
-            Glow(orb, OrbHaloScale + pulse, 1.f, 0.45f, 0.1f, 0.7f * brightness);
-            Glow(orb, OrbBodyScale + pulse * 0.5f, 1.f, 0.8f, 0.3f, brightness);
+            RoundGlow(orb, OrbHaloScale + pulse, 1.f, 0.45f, 0.1f, 0.6f * brightness);
+            RoundGlow(orb, OrbBodyScale + pulse * 0.5f, 1.f, 0.8f, 0.3f, brightness);
             Glow(orb, OrbCoreScale, 1.f, 1.f, 0.95f, brightness);
 
             for (int i = 0; i < OrbSwirlCount; ++i)
@@ -502,7 +516,7 @@ namespace Render::Effects::RuneWizard
         }
 
         // Whether the orb's lightning may strike the character: alive, in view and not the caster.
-        bool IsPlasmaTarget(const CHARACTER* c, const OBJECT* caster)
+        bool IsPlasmaTarget(CHARACTER* c, const OBJECT* caster)
         {
             const OBJECT* target = &c->Object;
             if (!target->Live || !target->Visible || target == caster || c->Dead > 0)
@@ -511,28 +525,32 @@ namespace Render::Effects::RuneWizard
             return target->Kind == KIND_MONSTER || target->Kind == KIND_PLAYER;
         }
 
-        // A lightning arc from the orb to the point, with sparks where it lands.
-        void PlasmaArc(const float* orb, const float* to)
+        // A lightning arc from the orb to the character: it leaves in a random direction and bends to the target, like the
+        // classic Lightning does.
+        void PlasmaArc(const float* orb, OBJECT* target)
         {
-            vec3_t from, target, angle;
+            vec3_t from, to, angle;
             VectorCopy(orb, from);
-            VectorCopy(to, target);
-            Vector(0.f, 0.f, 0.f, angle);
-            CreateJoint(BITMAP_JOINT_THUNDER, from, target, angle, 4, nullptr, OrbArcScale);
-            SparkBurst(target, 2, 25.f, 0.75f, 0.7f, 1.f);
+            VectorCopy(target->Position, to);
+            Vector(0.f, 0.f, (float)(rand() % 360), angle);
+            CreateJoint(BITMAP_JOINT_THUNDER, from, to, angle, OrbArcBoltSubType, target, OrbArcThickScale);
+            CreateJoint(BITMAP_JOINT_THUNDER, from, to, angle, OrbArcBoltSubType, target, OrbArcThinScale);
+
+            to[2] += TargetChestHeight;
+            SparkBurst(to, 2, 25.f, 0.75f, 0.7f, 1.f);
         }
 
-        // Strikes the closest enemies in range of the orb (a short crackle around it when there is none).
+        // Strikes the closest enemies in range of the orb (it only sparkles when there is none).
         // Returns whether it struck someone.
         bool StrikeFromPlasmaOrb(const float* orb, const OBJECT* caster)
         {
-            const CHARACTER* closest[OrbArcMaxTargets] = { };
+            CHARACTER* closest[OrbArcMaxTargets] = { };
             float closestDistance[OrbArcMaxTargets] = { };
             int found = 0;
 
             for (int i = 0; i < MAX_CHARACTERS_CLIENT; ++i)
             {
-                const CHARACTER* c = &CharactersClient[i];
+                CHARACTER* c = &CharactersClient[i];
                 if (!IsPlasmaTarget(c, caster))
                     continue;
 
@@ -559,21 +577,12 @@ namespace Render::Effects::RuneWizard
             }
 
             for (int i = 0; i < found; ++i)
-            {
-                vec3_t chest;
-                VectorCopy(closest[i]->Object.Position, chest);
-                chest[2] += TargetChestHeight;
-                PlasmaArc(orb, chest);
-            }
+                PlasmaArc(orb, &closest[i]->Object);
 
             if (found > 0)
                 return true;
 
-            vec3_t idle;
-            Vector(orb[0] + (float)(rand() % (int)(OrbArcIdleReach * 2.f)) - OrbArcIdleReach,
-                orb[1] + (float)(rand() % (int)(OrbArcIdleReach * 2.f)) - OrbArcIdleReach,
-                orb[2] - (float)(rand() % (int)OrbArcIdleReach), idle);
-            PlasmaArc(orb, idle);
+            SparkBurst(orb, 1, OrbIdleSparkSpread, 1.f, 0.85f, 0.5f);
             return false;
         }
 
