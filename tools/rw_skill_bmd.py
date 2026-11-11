@@ -1,4 +1,4 @@
-r"""Anade (o actualiza) las 7 skills del Rune Wizard (630-636) en skill_eng.bmd.
+r"""Anade (o actualiza) las 8 skills del Rune Wizard (630-637) en skill_eng.bmd.
 
 Uso: python tools/rw_skill_bmd.py [ruta\skill_eng.bmd]
 
@@ -32,6 +32,7 @@ SKILLS = {
     634: ('Haste', 48, 0, 80, 30, 6, 200, 48, 0),
     635: ('Runic Spear', 13, 55, 45, 0, 5, 220, 2, 1),
     636: ('Rune Phrase', 9, 95, 120, 0, 6, 400, 9, 1),
+    637: ('Rune Phrase of Saturation', 9, 130, 160, 0, 6, 500, 9, 1),
 }
 
 
@@ -75,7 +76,7 @@ def main(path):
 
     out = b''.join(bux(bytes(r)) for r in records)
     open(path, 'wb').write(out + struct.pack('<I', checksum(out)))
-    print('skills 630-636 escritas en', path)
+    print('skills 630-637 escritas en', path)
 
 
 if __name__ == '__main__':

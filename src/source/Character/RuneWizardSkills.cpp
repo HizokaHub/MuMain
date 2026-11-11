@@ -5,7 +5,7 @@ namespace Character::RuneWizard::Skills
 {
     bool IsRuneSkill(int skill)
     {
-        return skill >= AT_SKILL_RUNE_MAGIC_ARROW && skill <= AT_SKILL_RUNE_PHRASE;
+        return skill >= AT_SKILL_RUNE_MAGIC_ARROW && skill <= AT_SKILL_RUNE_PHRASE_SATURATION;
     }
 
     bool IsSelfBuff(int skill)
@@ -21,6 +21,7 @@ namespace Character::RuneWizard::Skills
         case AT_SKILL_RUNE_LIGHTNING_STORM:
         case AT_SKILL_RUNE_RUNIC_SPEAR:
         case AT_SKILL_RUNE_PHRASE:
+        case AT_SKILL_RUNE_PHRASE_SATURATION:
             return true;
         default:
             return false;
@@ -38,6 +39,7 @@ namespace Character::RuneWizard::Skills
         case AT_SKILL_RUNE_HASTE: inSkill2Atlas = true; column = 5; row = 5; return true;
         case AT_SKILL_RUNE_RUNIC_SPEAR: inSkill2Atlas = false; column = 6; row = 5; return true;
         case AT_SKILL_RUNE_PHRASE: inSkill2Atlas = true; column = 4; row = 1; return true;
+        case AT_SKILL_RUNE_PHRASE_SATURATION: inSkill2Atlas = true; column = 3; row = 1; return true;
         default: return false;
         }
     }
@@ -58,6 +60,7 @@ namespace Character::RuneWizard::Skills
         case AT_SKILL_RUNE_HASTE: return AT_SKILL_ATTACK;
         case AT_SKILL_RUNE_RUNIC_SPEAR: return AT_SKILL_BLAST;
         case AT_SKILL_RUNE_PHRASE: return AT_SKILL_EVIL_SPIRIT;
+        case AT_SKILL_RUNE_PHRASE_SATURATION: return AT_SKILL_EVIL_SPIRIT;
         default: return skill;
         }
     }

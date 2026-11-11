@@ -65,6 +65,27 @@ namespace Render::Effects::RuneWizard
         constexpr float LanceInterval = 3.f;
         constexpr int LanceRadius = 280;
 
+        // The same field serves Rune Phrase and Rune Phrase of Saturation; the effect sub type picks the look.
+        constexpr int FieldSubTypeSaturation = 1;
+
+        struct FieldStyle
+        {
+            float Tiles;
+            float LanceInterval;
+            float LanceEnd;
+            int LanceRadius;
+            float FieldColor[3];
+            float RingColor[3];
+        };
+
+        constexpr FieldStyle RunePhraseStyle{ FieldTiles, LanceInterval, LanceEnd, LanceRadius, { 1.f, 0.15f, 0.22f }, { 0.55f, 0.5f, 1.f } };
+        constexpr FieldStyle SaturationStyle{ 11.f, 1.5f, 130.f, 400, { 0.7f, 0.2f, 1.f }, { 1.f, 0.8f, 0.35f } };
+
+        const FieldStyle& StyleOf(const OBJECT* o)
+        {
+            return o->SubType == FieldSubTypeSaturation ? SaturationStyle : RunePhraseStyle;
+        }
+
         // The lance model is 760 units long with its tip 240 units below its origin.
         constexpr float LanceScale = 0.45f;
         constexpr float LanceTipOffset = 240.f * LanceScale;
@@ -155,6 +176,15 @@ namespace Render::Effects::RuneWizard
         Vector(0.f, 0.f, 0.f, angle);
         Vector(1.f, 1.f, 1.f, light);
         CreateEffect(MODEL_RW_FIELD, position, angle, light);
+    }
+
+    void CastRunePhraseSaturation(float x, float y, float groundHeight)
+    {
+        vec3_t position, angle, light;
+        Vector(x, y, groundHeight, position);
+        Vector(0.f, 0.f, 0.f, angle);
+        Vector(1.f, 1.f, 1.f, light);
+        CreateEffect(MODEL_RW_FIELD, position, angle, light, FieldSubTypeSaturation);
     }
 
     void InitSphereCaster(OBJECT* o)
@@ -288,15 +318,16 @@ namespace Render::Effects::RuneWizard
             return false;
 
         // A new lance every LanceInterval ticks while the field is raining.
-        if (age >= LanceStart && age <= LanceEnd)
+        const FieldStyle& style = StyleOf(o);
+        if (age >= LanceStart && age <= style.LanceEnd)
         {
-            const int step = (int)((age - LanceStart) / LanceInterval);
+            const int step = (int)((age - LanceStart) / style.LanceInterval);
             if (step != o->m_iAnimation)
             {
                 o->m_iAnimation = step;
                 vec3_t position, angle, light;
-                Vector(o->Position[0] + (float)(rand() % (LanceRadius * 2) - LanceRadius),
-                    o->Position[1] + (float)(rand() % (LanceRadius * 2) - LanceRadius),
+                Vector(o->Position[0] + (float)(rand() % (style.LanceRadius * 2) - style.LanceRadius),
+                    o->Position[1] + (float)(rand() % (style.LanceRadius * 2) - style.LanceRadius),
                     o->Distance, position);
                 Vector(0.f, (float)(rand() % 20 - 10), (float)(rand() % 360), angle);
                 Vector(1.f, 1.f, 1.f, light);
@@ -315,13 +346,14 @@ namespace Render::Effects::RuneWizard
             return;
 
         const float grown = EaseOut(age / FieldGrowTicks);
-        const float tiles = FieldTiles * grown;
+        const FieldStyle& style = StyleOf(o);
+        const float tiles = style.Tiles * grown;
         if (tiles <= 0.f)
             return;
 
         vec3_t field, ring;
-        Vector(1.f * brightness, 0.15f * brightness, 0.22f * brightness, field);
-        Vector(0.55f * brightness, 0.5f * brightness, 1.f * brightness, ring);
+        Vector(style.FieldColor[0] * brightness, style.FieldColor[1] * brightness, style.FieldColor[2] * brightness, field);
+        Vector(style.RingColor[0] * brightness, style.RingColor[1] * brightness, style.RingColor[2] * brightness, ring);
 
         EnableAlphaBlend();
         RenderTerrainAlphaBitmap(BITMAP_RW_FIELD, o->Position[0], o->Position[1], tiles, tiles, field, age * FieldSpinDegrees);

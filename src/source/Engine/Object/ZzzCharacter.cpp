@@ -4598,6 +4598,7 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
 
         case AT_SKILL_RUNE_RUNIC_SPEAR:
         case AT_SKILL_RUNE_PHRASE:
+        case AT_SKILL_RUNE_PHRASE_SATURATION:
         case AT_SKILL_RUNE_PLASMA_BALL:
         case AT_SKILL_RUNE_LIGHTNING_STORM:
             Position[0] = (float)(c->SkillX + 0.5f) * TERRAIN_SCALE;
@@ -4614,6 +4615,10 @@ void MoveCharacter(CHARACTER* c, OBJECT* o)
             else if (c->Skill == AT_SKILL_RUNE_LIGHTNING_STORM)
             {
                 Render::Effects::RuneWizard::CastLightningStorm(Position[0], Position[1], Position[2]);
+            }
+            else if (c->Skill == AT_SKILL_RUNE_PHRASE_SATURATION)
+            {
+                Render::Effects::RuneWizard::CastRunePhraseSaturation(Position[0], Position[1], Position[2]);
             }
             else
             {

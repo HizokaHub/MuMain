@@ -638,6 +638,7 @@ enum ActionSkillType
     AT_SKILL_RUNE_HASTE = 634,
     AT_SKILL_RUNE_RUNIC_SPEAR = 635,
     AT_SKILL_RUNE_PHRASE = 636,
+    AT_SKILL_RUNE_PHRASE_SATURATION = 637,
 };
 
 const std::map<ActionSkillType, ActionSkillType> SKILL_REPLACEMENTS = {

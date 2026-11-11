@@ -1,6 +1,6 @@
 #pragma once
 
-// Skills of the rune wizard (imported from Season 21): numbers AT_SKILL_RUNE_MAGIC_ARROW .. AT_SKILL_RUNE_PHRASE.
+// Skills of the rune wizard (imported from Season 21): numbers AT_SKILL_RUNE_MAGIC_ARROW .. AT_SKILL_RUNE_PHRASE_SATURATION.
 namespace Character::RuneWizard::Skills
 {
     // Whether the skill is one of the rune wizard's own.

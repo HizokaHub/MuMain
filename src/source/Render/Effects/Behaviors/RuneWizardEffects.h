@@ -22,6 +22,8 @@ namespace Render::Effects::RuneWizard
     // Casts the effect over the ground point (x, y, groundHeight) in world units; the Runic Spear ring follows the caster.
     void CastRunicSpear(OBJECT* caster, float x, float y, float groundHeight);
     void CastRunePhrase(float x, float y, float groundHeight);
+    // Rune Phrase of Saturation: the same field, wider and denser, in violet with a golden ring.
+    void CastRunePhraseSaturation(float x, float y, float groundHeight);
     void CastMagicArrow(OBJECT* caster, OBJECT* target);
     void CastPlasmaBall(OBJECT* caster, float x, float y, float groundHeight);
     void CastLightningStorm(float x, float y, float groundHeight);
