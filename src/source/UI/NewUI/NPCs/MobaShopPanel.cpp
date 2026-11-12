@@ -375,11 +375,32 @@ namespace
         y = static_cast<float>(box.y) + (static_cast<float>(box.h) - h) * 0.5f;
     }
 
+    // Clips what is drawn while it lives to a box of the panel (reference coordinates).
+    // The 3D models of the items have their own fixed scale (long staffs, wide wings) and ignore the size asked for, so they spilled over the tabs and the neighbours.
+    class IconClip
+    {
+    public:
+        explicit IconClip(const Rect& box)
+        {
+            const int left = static_cast<int>(box.x * g_fScreenRate_x);
+            const int bottom = static_cast<int>(WindowHeight - (box.y + box.h) * g_fScreenRate_y);
+            const int width = static_cast<int>(box.w * g_fScreenRate_x);
+            const int height = static_cast<int>(box.h * g_fScreenRate_y);
+            EnableScissor(left, bottom, width, height);
+        }
+
+        ~IconClip() { DisableScissor(); }
+
+        IconClip(const IconClip&) = delete;
+        IconClip& operator=(const IconClip&) = delete;
+    };
+
     void RenderIcon(int type, int level, BYTE excellent, BYTE ancient, const Rect& box)
     {
         float x, y, w, h;
         FitIconBox(type, box, x, y, w, h);
         glColor4f(1.f, 1.f, 1.f, 1.f);
+        const IconClip clip(box);
         RenderItem3D(x, y, w, h, type, level, excellent, ancient, false);
     }
 
@@ -454,10 +475,11 @@ namespace
     {
         ITEM* owned = OwnedInInventory(shown.Type);
         CNewUIInventoryCtrl* inventory = g_pMyInventory != nullptr ? g_pMyInventory->GetInventoryCtrl() : nullptr;
-        if (owned == nullptr || inventory == nullptr || IsHighValueItem(owned))
+        // No high-value confirmation here: everything this shop sells is high value (+13...+15, excellent) and the silent refusal made selling impossible.
+        if (owned == nullptr || inventory == nullptr)
             return;
 
-        SocketClient->ToGameServer()->SendSellItemToNpcRequest(static_cast<BYTE>(MAX_EQUIPMENT_INDEX + inventory->GetIndexByItem(owned)));
+        SocketClient->ToGameServer()->SendSellItemToNpcRequest(static_cast<BYTE>(inventory->GetIndexByItem(owned))); // the index already counts the equipment slots
         g_pNPCShop->SetSellingItem(true);
         PlayBuffer(SOUND_CLICK01);
     }

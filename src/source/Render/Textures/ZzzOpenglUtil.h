@@ -46,6 +46,9 @@ void BeginSprite();
 void EndSprite();
 void EnableDepthTest();
 void DisableDepthTest();
+// Clips drawing to a rectangle of the window in pixels (origin at the bottom left) until DisableScissor().
+void EnableScissor(int x, int y, int Width, int Height);
+void DisableScissor();
 void EnableCullFace();
 void DisableCullFace();
 void EnableDepthMask();

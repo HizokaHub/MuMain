@@ -5,6 +5,7 @@
 #include "UI/Legacy/UIControls.h"  // CUITextInputBox::GetFocusedPortable (issue #447)
 #include "World/Moba/MobaBanner.h"
 #include "World/Moba/MobaCommander.h"   // RtsView
+#include "UI/NewUI/NPCs/MobaShopPanel.h" // Active: the message windows go behind the open shop
 
 
 using namespace SEASON3B;
@@ -25,6 +26,13 @@ namespace
         INTERFACE_END + 11,
         INTERFACE_END + 14,
     };
+
+    // The chat and system message windows. While the MOBA shop panel is open they are drawn first, so the panel covers them
+    // (the server notices and the "27 zen" lines used to be drawn over the shop and cut its text).
+    bool IsMessageWindow(INewUIBase* pUIObj)
+    {
+        return pUIObj == static_cast<INewUIBase*>(g_pChatListBox) || pUIObj == static_cast<INewUIBase*>(g_pSystemLogBox);
+    }
 
     // Whether the object is part of the hero HUD that the RTS view hides (nothing is hidden outside it).
     bool HiddenByRtsView(CNewUIManager& manager, CNewUIObj* pUIObj)
@@ -263,6 +271,16 @@ bool SEASON3B::CNewUIManager::Render()
     // 5.2, shops, ...) and above the base HUD. RenderCornerOverlayIfActive is a
     // no-op off the arena or while the full Tab map is open.
     bool bCornerMinimapDrawn = false;
+    const bool messagesBehind = UI::Moba::ShopPanel::Active();
+    if (messagesBehind)
+    {
+        for (auto* pUIObj : vecUI)
+        {
+            if (IsMessageWindow(pUIObj) && pUIObj->IsVisible())
+                pUIObj->Render();
+        }
+    }
+
     auto vi = vecUI.begin();
     for (; vi != vecUI.end(); vi++)
     {
@@ -271,6 +289,9 @@ bool SEASON3B::CNewUIManager::Render()
             g_pNewUIMiniMap->RenderCornerOverlayIfActive();
             bCornerMinimapDrawn = true;
         }
+
+        if (messagesBehind && IsMessageWindow(*vi))
+            continue;
 
         if ((*vi)->IsVisible() && !HiddenByRtsView(*this, *vi))
         {

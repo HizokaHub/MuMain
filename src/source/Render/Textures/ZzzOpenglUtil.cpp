@@ -267,6 +267,19 @@ void DisableDepthTest()
     }
 }
 
+void EnableScissor(int x, int y, int Width, int Height)
+{
+    IR::Flush(IR::FlushCause::Other); // the pending batch must be drawn unclipped, and the next ones clipped
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(x, y, Width, Height);
+}
+
+void DisableScissor()
+{
+    IR::Flush(IR::FlushCause::Other); // the pending batch was submitted under the clip
+    glDisable(GL_SCISSOR_TEST);
+}
+
 void EnableDepthMask()
 {
     if (!DepthMaskEnable)
