@@ -143,6 +143,12 @@ namespace
     const wchar_t* const ROLE_LABEL[] = { L"Equilibrado", L"Ofensivo", L"Recursos", L"Tanque", L"Utilidad" };
     constexpr int ROLE_COUNT = 5;
     constexpr int ROLE_TANK = 3;     // the index of "Tanque" in ROLE_LABEL
+    constexpr int ROLE_UTILITY = 4;
+    constexpr int ROLE_BALANCED = 0;
+    constexpr int SHIELD_GROUP = 6;
+    constexpr int BOOK_GROUP = 5;    // the books of the Summoner (numbers 21 to 23) are in the group of the staffs
+    constexpr int FIRST_BOOK_NUMBER = 21;
+    constexpr int LAST_BOOK_NUMBER = 23;
 
     struct TierLook
     {
@@ -339,9 +345,23 @@ namespace
         return Group(item) == CAPE_OF_LORD_GROUP && (number == 12 || number == 13 || (number >= 25 && number <= 28));
     }
 
-    // The role of an accessory reads as a defence ("Resistencia") where the sets say "Tanque".
+    bool IsShield(const ITEM& item)
+    {
+        return Group(item) == SHIELD_GROUP || (Group(item) == BOOK_GROUP && Number(item) >= FIRST_BOOK_NUMBER && Number(item) <= LAST_BOOK_NUMBER);
+    }
+
+    // The role of an accessory reads as a defence ("Resistencia") where the sets say "Tanque"; a shield is about control resistance or cooldown.
     const wchar_t* RoleLabelOf(const ITEM& item, int role)
     {
+        if (IsShield(item))
+        {
+            if (role == ROLE_TANK)
+                return L"Resistencia";
+            if (role == ROLE_UTILITY)
+                return L"Enfriamiento";
+            return role == ROLE_BALANCED ? L"Completo" : ROLE_LABEL[role];
+        }
+
         if (role == ROLE_TANK && (IsRing(item) || IsPendant(item)))
             return L"Resistencia";
         return ROLE_LABEL[role];
