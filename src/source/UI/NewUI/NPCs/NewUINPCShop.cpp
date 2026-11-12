@@ -104,6 +104,13 @@ bool SEASON3B::CNewUINPCShop::UpdateMobaMouse()
         return false;
     }
 
+    // A right click over the panel is not a skill cast: without this the game answered "select a skill" instead of using the panel.
+    if (result.used)
+    {
+        MouseRButtonPush = false;
+        MouseRButton = false;
+    }
+
     if (result.used && SEASON3B::IsRelease(VK_LBUTTON) && !m_bIsNPCShopOpen)
     {
         m_bIsNPCShopOpen = true;
