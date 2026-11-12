@@ -141,6 +141,7 @@ namespace GameLogic::Items::MobaShopPrices
             case 11: return L"Potencia de curacion y escudos: +%d.%d%%";
             case 12: return L"Probabilidad de critico: +%d.%d%%";
             case 13: return L"Regeneracion de vida: +%d.%d%% de la vida por segundo";
+            case 15: return L"Reduccion de enfriamiento: -%d.%d%%";
             default: return nullptr;
             }
         }

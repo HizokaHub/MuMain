@@ -1194,8 +1194,10 @@ namespace
             swprintf(line, std::size(line), L"Tier %d  +%d", tier, static_cast<int>(item->Level));
         if (tier > 0)
             Draw::PutTextLeft(bold, infoX, STRIP_Y + 17, infoW, line, look.tr, look.tg, look.tb);
-        const int role = Group(*item) >= FIRST_PIECE_GROUP && Group(*item) < FIRST_PIECE_GROUP + PIECES_PER_SET
-            ? Prices::SetRoleOf(static_cast<uint16_t>(ARMOR_GROUP * CLIENT_GROUP_SIZE + Number(*item))) : -1;
+        const bool isSetPiece = Group(*item) >= FIRST_PIECE_GROUP && Group(*item) < FIRST_PIECE_GROUP + PIECES_PER_SET;
+        const int role = isSetPiece
+            ? Prices::SetRoleOf(static_cast<uint16_t>(ARMOR_GROUP * CLIENT_GROUP_SIZE + Number(*item)))
+            : (tier > 0 && !IsWing(*item) ? Prices::SetRoleOf(item->Type) : -1);   // the accessories carry their own role
         if (role >= 0 && role < ROLE_COUNT)
             Draw::PutTextLeft(body, infoX, STRIP_Y + 31, infoW, ROLE_LABEL[role], 160, 190, 235);
         swprintf(line, std::size(line), L"Precio: %u", price);
