@@ -136,6 +136,7 @@ namespace
 
     const wchar_t* const ROLE_LABEL[] = { L"Equilibrado", L"Ofensivo", L"Recursos", L"Tanque", L"Utilidad" };
     constexpr int ROLE_COUNT = 5;
+    constexpr int ROLE_TANK = 3;     // the index of "Tanque" in ROLE_LABEL
 
     struct TierLook
     {
@@ -319,6 +320,27 @@ namespace
     // Wings and capes: the Dark Lord's Cape of Lord is in the group of the pets (13), number 30.
     bool IsWing(const ITEM& item) { return Group(item) == WINGS_GROUP || (Group(item) == CAPE_OF_LORD_GROUP && Number(item) == CAPE_OF_LORD_NUMBER); }
 
+    // The rings (Ice, Poison, Fire, Earth, Wind, Magic) and the pendants (Fire, Lightning, Ice, Wind, Water, Ability) of the shop.
+    bool IsRing(const ITEM& item)
+    {
+        const int number = Number(item);
+        return Group(item) == CAPE_OF_LORD_GROUP && (number == 8 || number == 9 || (number >= 21 && number <= 24));
+    }
+
+    bool IsPendant(const ITEM& item)
+    {
+        const int number = Number(item);
+        return Group(item) == CAPE_OF_LORD_GROUP && (number == 12 || number == 13 || (number >= 25 && number <= 28));
+    }
+
+    // The role of an accessory reads as a defence ("Resistencia") where the sets say "Tanque".
+    const wchar_t* RoleLabelOf(const ITEM& item, int role)
+    {
+        if (role == ROLE_TANK && (IsRing(item) || IsPendant(item)))
+            return L"Resistencia";
+        return ROLE_LABEL[role];
+    }
+
     struct SectionDef
     {
         const wchar_t* title;
@@ -335,7 +357,12 @@ namespace
 
     const SectionDef CONSUMABLE_SECTIONS[] = {
         { L"CONSUMIBLES", false, 0, [](const ITEM& item, int tier) { return tier == 0 && !IsWing(item); } },
-        { L"ACCESORIOS", false, 0, [](const ITEM& item, int tier) { return tier > 0 && !IsWing(item); } },
+        { L"ANILLOS  -  TIER 1", true, 1, [](const ITEM& item, int tier) { return tier == 1 && IsRing(item); } },
+        { L"ANILLOS  -  TIER 2", true, 2, [](const ITEM& item, int tier) { return tier == 2 && IsRing(item); } },
+        { L"ANILLOS  -  TIER 3", true, 3, [](const ITEM& item, int tier) { return tier == 3 && IsRing(item); } },
+        { L"PENDIENTES  -  TIER 1", true, 1, [](const ITEM& item, int tier) { return tier == 1 && IsPendant(item); } },
+        { L"PENDIENTES  -  TIER 2", true, 2, [](const ITEM& item, int tier) { return tier == 2 && IsPendant(item); } },
+        { L"PENDIENTES  -  TIER 3", true, 3, [](const ITEM& item, int tier) { return tier == 3 && IsPendant(item); } },
     };
 
     // Pets, shields and wings share one page (2026-11-12).
@@ -977,10 +1004,14 @@ namespace
         wchar_t text[32] = {};
         const int tier = Prices::TierOf(*cell.item);
         const TierLook& look = TIER_LOOK[tier];
-        if (cell.item->Level > 0 && tier > 0)
+        if (cell.item->Level > 0 && tier > 0 && !IsRing(*cell.item) && !IsPendant(*cell.item))
         {
             swprintf(text, std::size(text), L"+%d", cell.item->Level);
             Draw::PutTextLeft(body, textX, cell.rect.y + 28, textW, text, look.tr, look.tg, look.tb);
+        }
+        else if (const int accessoryRole = Prices::SetRoleOf(cell.item->Type); (IsRing(*cell.item) || IsPendant(*cell.item)) && accessoryRole >= 0 && accessoryRole < ROLE_COUNT)
+        {
+            Draw::PutTextLeft(body, textX, cell.rect.y + 28, textW, RoleLabelOf(*cell.item, accessoryRole), look.tr, look.tg, look.tb);
         }
         else if (cell.item->Durability > 1 && cell.item->Durability <= MAX_SHOWN_QUANTITY)
         {
@@ -1203,7 +1234,7 @@ namespace
             ? Prices::SetRoleOf(static_cast<uint16_t>(ARMOR_GROUP * CLIENT_GROUP_SIZE + Number(*item)))
             : (tier > 0 && !IsWing(*item) ? Prices::SetRoleOf(item->Type) : -1);   // the accessories carry their own role
         if (role >= 0 && role < ROLE_COUNT)
-            Draw::PutTextLeft(body, infoX, STRIP_Y + 31, infoW, ROLE_LABEL[role], 160, 190, 235);
+            Draw::PutTextLeft(body, infoX, STRIP_Y + 31, infoW, RoleLabelOf(*item, role), 160, 190, 235);
         swprintf(line, std::size(line), L"Precio: %u", price);
         Draw::PutTextLeft(bold, infoX, STRIP_Y + 45, infoW, line, 255, 214, 80);
         if (canBuy)
