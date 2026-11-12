@@ -72,6 +72,12 @@ namespace
     constexpr int BIG_COLUMNS = 3;
     constexpr int BIG_CELL_H = 58;
     constexpr int BIG_ICON_W = 48;
+    constexpr int NARROW_ICON_W = 22;       // the squares of the paired sections (rings | pendants) are four to a row
+    constexpr int NARROW_CELL_MAX_W = 90;
+    constexpr int PAIR_COLUMNS = 4;
+    constexpr int PAIRED_SECTIONS = 3;      // tiers 1 to 3
+    constexpr size_t FIRST_RING_SECTION = 1;
+    constexpr size_t FIRST_PENDANT_SECTION = 4;
     constexpr int BIG_NAME_CHARS = 11;
     constexpr int SECTION_H = 15;
     constexpr int SECTION_GAP = 4;
@@ -394,7 +400,21 @@ namespace
         size_t first;       // first item of the row (squares rows)
         size_t count;       // items in the row; 0 for a title
         int height;         // including the gap below
+        int partner = -1;   // the section shown on the right half of the same rows (rings | pendants of a tier), or -1
     };
+
+    // In the consumables tab the rings of a tier and the pendants of the same tier share their rows: titles side by side, two squares under each.
+    int PartnerOfSection(size_t section)
+    {
+        if (s_tab != TAB_CONSUMABLES || section < FIRST_RING_SECTION || section >= FIRST_RING_SECTION + PAIRED_SECTIONS)
+            return -1;
+        return static_cast<int>(section - FIRST_RING_SECTION + FIRST_PENDANT_SECTION);
+    }
+
+    bool IsRightHalfSection(size_t section)
+    {
+        return s_tab == TAB_CONSUMABLES && section >= FIRST_PENDANT_SECTION && section < FIRST_PENDANT_SECTION + PAIRED_SECTIONS;
+    }
 
     int CatalogCellW(bool big)
     {
@@ -408,6 +428,18 @@ namespace
         for (size_t section = 0; section < sections.size(); ++section)
         {
             const size_t itemCount = buckets[section].size();
+            if (IsRightHalfSection(section))
+                continue;
+
+            if (const int partner = PartnerOfSection(section); partner >= 0)
+            {
+                if (itemCount == 0 && buckets[static_cast<size_t>(partner)].empty())
+                    continue;
+                rows.push_back({ static_cast<int>(section), 0, 0, SECTION_H, partner });
+                rows.push_back({ static_cast<int>(section), 0, itemCount, BIG_CELL_H + GRID_GAP + SECTION_GAP, partner });
+                continue;
+            }
+
             if (itemCount == 0)
                 continue;
 
@@ -432,6 +464,28 @@ namespace
             used += rows[static_cast<size_t>(start)].height;
         }
         return std::min(start, std::max(0, static_cast<int>(rows.size()) - 1));
+    }
+
+    // A row of a paired section: the left half (rings of a tier) and the right half (pendants of the same tier).
+    void EmitPairedRow(const CatalogRow& row, const std::vector<SectionDef>& sections, const std::vector<std::vector<ITEM*>>& buckets, int y)
+    {
+        const int width = CENTER_W - SCROLLBAR_W - 2;
+        const int halfW = (width - GRID_GAP) / 2;
+        const int cellW = (width - (PAIR_COLUMNS - 1) * GRID_GAP) / PAIR_COLUMNS;
+        const std::vector<ITEM*>* halves[2] = { &buckets[static_cast<size_t>(row.section)], &buckets[static_cast<size_t>(row.partner)] };
+        const SectionDef* defs[2] = { &sections[static_cast<size_t>(row.section)], &sections[static_cast<size_t>(row.partner)] };
+        for (int half = 0; half < 2; ++half)
+        {
+            const int left = CENTER_X + half * (halfW + GRID_GAP);
+            if (row.count == 0)
+            {
+                s_headers.push_back({ { left, y, halfW, SECTION_H }, defs[half]->title, defs[half]->tier });
+                continue;
+            }
+
+            for (size_t k = 0; k < halves[half]->size() && k < PAIR_COLUMNS / 2; ++k)
+                s_cells.push_back({ { left + static_cast<int>(k) * (cellW + GRID_GAP), y, cellW, BIG_CELL_H }, (*halves[half])[k], true });
+        }
     }
 
     void LayoutGrid(const std::vector<ITEM*>& items)
@@ -467,7 +521,11 @@ namespace
             ++s_rowShown;
 
             const SectionDef& def = sections[static_cast<size_t>(row.section)];
-            if (row.count == 0)
+            if (row.partner >= 0)
+            {
+                EmitPairedRow(row, sections, buckets, y);
+            }
+            else if (row.count == 0)
             {
                 s_headers.push_back({ { CENTER_X, y, CENTER_W - SCROLLBAR_W - 2, SECTION_H }, def.title, def.tier });
             }
@@ -581,13 +639,15 @@ namespace
         IconClip& operator=(const IconClip&) = delete;
     };
 
+    int BigIconW(const Cell& cell) { return cell.rect.w < NARROW_CELL_MAX_W ? NARROW_ICON_W : BIG_ICON_W; }
+
     // Where the icon of a square goes: inside the set pieces, left of the big squares, above the price of the small ones.
     Rect IconBoxOf(const Cell& cell)
     {
         if (IsSetsTab())
             return { cell.rect.x + 14, cell.rect.y + 1, cell.rect.w - 28, cell.rect.h - 2 };
         if (cell.big)
-            return { cell.rect.x + 2, cell.rect.y + 3, BIG_ICON_W, cell.rect.h - 6 };
+            return { cell.rect.x + 2, cell.rect.y + 3, BigIconW(cell), cell.rect.h - 6 };
         return { cell.rect.x, cell.rect.y + 4, cell.rect.w, cell.rect.h - 18 };
     }
 
@@ -993,8 +1053,8 @@ namespace
     // A big square: the icon on the left; on the right the name (two lines at most), the level and the price.
     void RenderBigCellText(HFONT body, HFONT bold, const Cell& cell, unsigned int gold)
     {
-        const int textX = cell.rect.x + BIG_ICON_W + 4;
-        const int textW = cell.rect.w - BIG_ICON_W - 6;
+        const int textX = cell.rect.x + BigIconW(cell) + 4;
+        const int textW = cell.rect.w - BigIconW(cell) - 6;
         std::wstring first, second;
         SplitName(ItemAttribute[cell.item->Type].Name, BIG_NAME_CHARS, first, second);
         Draw::PutTextLeft(bold, textX, cell.rect.y + 3, textW, first.c_str(), 240, 240, 240);
