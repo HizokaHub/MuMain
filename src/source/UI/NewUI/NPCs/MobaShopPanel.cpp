@@ -60,7 +60,7 @@ namespace
     // The grid of the pages which are not sets.
     constexpr int GRID_COLUMNS = 6;
     constexpr int GRID_ROWS = 4;
-    constexpr int GRID_CELL_W = 51;
+    constexpr int GRID_CELL_W = 49;
     constexpr int GRID_CELL_H = 44;
     // A quantity ("x100") is only shown for what stacks: the durability of pets, wings and the like (200, 255) means nothing to the player.
     constexpr int MAX_SHOWN_QUANTITY = 100;
@@ -75,7 +75,8 @@ namespace
     constexpr int BIG_NAME_CHARS = 11;
     constexpr int SECTION_H = 15;
     constexpr int SECTION_GAP = 4;
-    constexpr int PAGER_ROOM = 24;
+    constexpr int SCROLLBAR_W = 5;
+    constexpr int MIN_THUMB_H = 16;
     constexpr int WINGS_GROUP = 12;
 
     // The sets: one column per set, its five pieces from top to bottom.
@@ -182,7 +183,9 @@ namespace
     int s_hoverY = 0;
     std::vector<Cell> s_cells;               // the grid or the pieces of the sets, as laid out this frame
     std::vector<SectionHeader> s_headers;    // the titles of the sections of the page being shown
-    int s_pageCount = 1;                     // the pages the sections of the tab take
+    int s_maxScroll = 0;                     // the last first-row the catalog can scroll to (0 = everything fits)
+    int s_rowTotal = 0;                      // rows of the catalog (titles and rows of squares)
+    int s_rowShown = 0;                      // rows drawn at the current scroll
     std::vector<SetColumn> s_columns;
     std::vector<ITEM*> s_buyQueue;           // the pieces of a set being bought, one at a time
     std::wstring s_pageTitle;
@@ -211,10 +214,6 @@ namespace
     Rect SellButton() { return { StripButtonsX().x, STRIP_Y + 6 + STRIP_BUTTON_H + 4, STRIP_BUTTON_W, STRIP_SMALL_H }; }
 
     Rect UndoButton() { return { StripButtonsX().x, STRIP_Y + 6 + STRIP_BUTTON_H + 4 + STRIP_SMALL_H + 4, STRIP_BUTTON_W, STRIP_SMALL_H }; }
-
-    Rect PrevPageButton() { return { CENTER_X + CENTER_W - 106, STRIP_Y - 24, 24, 18 }; }
-
-    Rect NextPageButton() { return { CENTER_X + CENTER_W - 24, STRIP_Y - 24, 24, 18 }; }
 
     bool IsSetsTab() { return s_tab >= FIRST_SETS_TAB && s_tab <= LAST_SETS_TAB; }
 
@@ -356,48 +355,54 @@ namespace
         return sections;
     }
 
-    // Puts the squares of one section on the pages (a new page when the next row does not fit above <bottom>). The squares and the title
-    // are only emitted for the page being shown; returns the y where the next section starts.
-    int FlowSection(const SectionDef& def, const std::vector<ITEM*>& items, int bottom, int y, int& page)
+    // The catalog is a column of rows (a title, or a row of squares) that scrolls with the mouse wheel.
+    struct CatalogRow
     {
-        const int columns = def.big ? BIG_COLUMNS : GRID_COLUMNS;
-        const int gap = GRID_GAP;
-        const int cellW = def.big ? (CENTER_W - (BIG_COLUMNS - 1) * gap) / BIG_COLUMNS : GRID_CELL_W;
-        const int cellH = def.big ? BIG_CELL_H : GRID_CELL_H;
-        size_t index = 0;
-        while (index < items.size())
-        {
-            if (y + SECTION_H + cellH > bottom && y > CONTENT_Y)
-            {
-                ++page;
-                y = CONTENT_Y;
-            }
+        int section;        // index in the sections of the tab
+        size_t first;       // first item of the row (squares rows)
+        size_t count;       // items in the row; 0 for a title
+        int height;         // including the gap below
+    };
 
-            if (page == s_scroll)
-                s_headers.push_back({ { CENTER_X, y, CENTER_W, SECTION_H }, def.title, def.tier });
-            y += SECTION_H;
-
-            while (index < items.size() && y + cellH <= bottom)
-            {
-                for (int column = 0; column < columns && index < items.size(); ++column, ++index)
-                {
-                    if (page == s_scroll)
-                        s_cells.push_back({ { CENTER_X + column * (cellW + gap), y, cellW, cellH }, items[index], def.big });
-                }
-                y += cellH + gap;
-            }
-
-            if (index < items.size())
-            {
-                ++page;
-                y = CONTENT_Y;
-            }
-        }
-        return y + SECTION_GAP;
+    int CatalogCellW(bool big)
+    {
+        const int width = CENTER_W - SCROLLBAR_W - 2;
+        return big ? (width - (BIG_COLUMNS - 1) * GRID_GAP) / BIG_COLUMNS : (width - (GRID_COLUMNS - 1) * GRID_GAP) / GRID_COLUMNS;
     }
 
-    // Lays the sections of the tab out; returns the number of pages. <emit> = fill s_cells and s_headers for the page s_scroll.
-    int FlowCatalog(const std::vector<ITEM*>& items, int bottom)
+    std::vector<CatalogRow> RowsOf(const std::vector<SectionDef>& sections, const std::vector<std::vector<ITEM*>>& buckets)
+    {
+        std::vector<CatalogRow> rows;
+        for (size_t section = 0; section < sections.size(); ++section)
+        {
+            const size_t itemCount = buckets[section].size();
+            if (itemCount == 0)
+                continue;
+
+            const bool big = sections[section].big;
+            const size_t columns = big ? BIG_COLUMNS : GRID_COLUMNS;
+            rows.push_back({ static_cast<int>(section), 0, 0, SECTION_H });
+            for (size_t first = 0; first < itemCount; first += columns)
+                rows.push_back({ static_cast<int>(section), first, std::min(columns, itemCount - first), (big ? BIG_CELL_H : GRID_CELL_H) + GRID_GAP });
+            rows.back().height += SECTION_GAP;
+        }
+        return rows;
+    }
+
+    // The first row that can be at the top while the rows below it still fill the window down to the last one.
+    int LastScrollStart(const std::vector<CatalogRow>& rows, int room)
+    {
+        int used = 0;
+        int start = static_cast<int>(rows.size());
+        while (start > 0 && used + rows[static_cast<size_t>(start) - 1].height - GRID_GAP <= room)
+        {
+            --start;
+            used += rows[static_cast<size_t>(start)].height;
+        }
+        return std::min(start, std::max(0, static_cast<int>(rows.size()) - 1));
+    }
+
+    void LayoutGrid(const std::vector<ITEM*>& items)
     {
         const std::vector<SectionDef> sections = SectionsOfTab();
         std::vector<std::vector<ITEM*>> buckets(sections.size());
@@ -414,30 +419,40 @@ namespace
             }
         }
 
-        int page = 0;
-        int y = CONTENT_Y;
-        for (size_t i = 0; i < sections.size(); ++i)
-        {
-            if (!buckets[i].empty())
-                y = FlowSection(sections[i], buckets[i], bottom, y, page);
-        }
-        return page + 1;
-    }
+        const std::vector<CatalogRow> rows = RowsOf(sections, buckets);
+        const int bottom = STRIP_Y - 4;
+        s_maxScroll = LastScrollStart(rows, bottom - CONTENT_Y);
+        s_scroll = std::clamp(s_scroll, 0, s_maxScroll);
 
-    void LayoutGrid(const std::vector<ITEM*>& items)
-    {
-        const int roomBelow = STRIP_Y - 4;
-        const int savedScroll = s_scroll;
-        s_scroll = -1;                                 // a first pass that only counts the pages
-        s_pageCount = FlowCatalog(items, roomBelow);
-        int bottom = roomBelow;
-        if (s_pageCount > 1)
+        int y = CONTENT_Y;
+        s_rowShown = 0;
+        for (size_t r = static_cast<size_t>(s_scroll); r < rows.size(); ++r)
         {
-            bottom = STRIP_Y - PAGER_ROOM;               // the buttons of the pages need their own row
-            s_pageCount = FlowCatalog(items, bottom);
+            const CatalogRow& row = rows[r];
+            if (y + row.height - GRID_GAP > bottom)
+                break;
+
+            // A title is not left alone at the bottom: its first row of squares has to fit under it.
+            const bool titleAlone = row.count == 0 && r + 1 < rows.size() && y + row.height + rows[r + 1].height - GRID_GAP > bottom;
+            if (titleAlone)
+                break;
+            ++s_rowShown;
+
+            const SectionDef& def = sections[static_cast<size_t>(row.section)];
+            if (row.count == 0)
+            {
+                s_headers.push_back({ { CENTER_X, y, CENTER_W - SCROLLBAR_W - 2, SECTION_H }, def.title, def.tier });
+            }
+            else
+            {
+                const int cellW = CatalogCellW(def.big);
+                const int cellH = def.big ? BIG_CELL_H : GRID_CELL_H;
+                for (size_t k = 0; k < row.count; ++k)
+                    s_cells.push_back({ { CENTER_X + static_cast<int>(k) * (cellW + GRID_GAP), y, cellW, cellH }, buckets[static_cast<size_t>(row.section)][row.first + k], def.big });
+            }
+            y += row.height;
         }
-        s_scroll = std::clamp(savedScroll, 0, s_pageCount - 1);
-        FlowCatalog(items, bottom);
+        s_rowTotal = static_cast<int>(rows.size());
     }
 
     // Groups the pieces of the store by set (the number of the item) and puts the recommended set first.
@@ -490,7 +505,9 @@ namespace
         s_cells.clear();
         s_columns.clear();
         s_headers.clear();
-        s_pageCount = 1;
+        s_maxScroll = 0;
+        s_rowTotal = 0;
+        s_rowShown = 0;
         if (s_tab == TAB_FOR_YOU)
             return;
 
@@ -717,14 +734,6 @@ namespace
             }
         }
 
-        if (IsGridTab() && s_pageCount > 1)
-        {
-            if (Draw::MouseInRect(PrevPageButton()))
-                s_scroll = std::max(0, s_scroll - 1);
-            else if (Draw::MouseInRect(NextPageButton()))
-                s_scroll = std::min(s_pageCount - 1, s_scroll + 1);
-        }
-
         if (s_hoverItem != nullptr)
         {
             s_selected = s_hoverItem;
@@ -895,6 +904,8 @@ namespace
             Draw::PutTextLeft(body, CENTER_X + 4, CONTENT_Y + 108 + static_cast<int>(i) * INFO_LINE_H, CENTER_W - 8, TIPS[i], 200, 205, 215);
     }
 
+    void RenderScrollbar();
+
     void RenderGridBack(unsigned int gold)
     {
         for (const Cell& cell : s_cells)
@@ -912,6 +923,7 @@ namespace
             const TierLook& look = TIER_LOOK[std::clamp(header.tier, 0, 3)];
             Draw::FillRect({ header.rect.x, header.rect.y + header.rect.h - 2, header.rect.w, 1 }, look.r * 0.7f, look.g * 0.7f, look.b * 0.7f, 1.f);
         }
+        RenderScrollbar();
         (void)gold;
     }
 
@@ -1197,19 +1209,28 @@ namespace
         Draw::PutTextCentered(bold, buy.x, buy.y + 5, buy.w, L"COMPRAR", 240, 240, 240);
     }
 
-    void RenderPager(HFONT bold)
+    // The bar at the right of the catalog when it has more rows than the window shows.
+    void RenderScrollbar()
     {
-        if (!IsGridTab() || s_pageCount <= 1)
+        if (!IsGridTab() || s_maxScroll <= 0 || s_rowTotal <= 0)
             return;
 
-        const int pages = s_pageCount;
-        const Rect prev = PrevPageButton();
-        const Rect next = NextPageButton();
-        Draw::Button(prev, L"<", s_scroll > 0);
-        Draw::Button(next, L"> ", s_scroll < pages - 1);
-        wchar_t text[16] = {};
-        swprintf(text, std::size(text), L"%d/%d", s_scroll + 1, pages);
-        Draw::PutTextCentered(bold, prev.x + prev.w, prev.y + 2, next.x - prev.x - prev.w, text, 235, 235, 235);
+        const int trackY = CONTENT_Y;
+        const int trackH = STRIP_Y - 4 - CONTENT_Y;
+        const int thumbH = std::max(MIN_THUMB_H, trackH * s_rowShown / s_rowTotal);
+        const int thumbY = trackY + (trackH - thumbH) * s_scroll / s_maxScroll;
+        Draw::FillRect({ CENTER_X + CENTER_W - SCROLLBAR_W, trackY, SCROLLBAR_W, trackH }, 0.05f, 0.06f, 0.09f, 1.f);
+        Draw::FillRect({ CENTER_X + CENTER_W - SCROLLBAR_W, thumbY, SCROLLBAR_W, thumbH }, 0.78f, 0.64f, 0.29f, 1.f);
+    }
+
+    // A hint on the first title when there is more below.
+    void RenderScrollHint(HFONT body)
+    {
+        if (!IsGridTab() || s_maxScroll <= 0 || s_scroll != 0 || s_headers.empty())
+            return;
+
+        const Rect title = s_headers.front().rect;
+        Draw::PutText(body, title.x, title.y, title.w - 2, L"Rueda del mouse: ver m\u00e1s", 170, 175, 190, RT3_SORT_RIGHT);
     }
 }
 
@@ -1261,7 +1282,7 @@ MouseResult UpdateMouse(CNewUIInventoryCtrl* store, bool clicksEnabled, bool can
     Layout(store);
     if (MouseWheel != 0 && IsGridTab())
     {
-        s_scroll = std::clamp(s_scroll + (MouseWheel > 0 ? -1 : 1), 0, s_pageCount - 1);
+        s_scroll = std::clamp(s_scroll + (MouseWheel > 0 ? -1 : 1), 0, s_maxScroll);
         Layout(store);
     }
 
@@ -1324,7 +1345,7 @@ void Render(CNewUIInventoryCtrl* store)
         for (const Cell& cell : s_cells)
             RenderCellText(body, bold, cell, gold, false);
         RenderSectionTitles(bold);
-        RenderPager(bold);
+        RenderScrollHint(body);
     }
 
     RenderDetailText(body, bold, DetailItem(), gold);

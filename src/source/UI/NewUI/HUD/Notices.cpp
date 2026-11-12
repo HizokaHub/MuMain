@@ -8,12 +8,24 @@
 #include "UI/NewUI/NewUISystem.h"        // g_pNewUISystem
 #include "Engine/AI/ZzzAI.h"             // FPS_ANIMATION_FACTOR
 #include "Engine/Object/ZzzInterface.h"  // CutText
+#include "UI/NewUI/Dialogs/MobaPopupDraw.h" // Heading: the notices are drawn in the larger font
 
 namespace
 {
     constexpr int MAX_NOTICE = 6;
     constexpr int NOTICE_LIFETIME = 300;
     constexpr int NOTICE_TEXT_MAX = 256;
+    constexpr int NOTICE_FIRST_Y = 300;
+    constexpr int NOTICE_LINE_GAP = 2;      // between two lines, in reference px
+
+    // The height of a line of the notice font, in reference px (the lines were 13 px apart with the small font).
+    int NoticeLineHeight()
+    {
+        SIZE size = { 0, 0 };
+        g_pRenderText->SetFont(UI::Moba::Draw::Heading());
+        GetTextExtentPoint32(g_pRenderText->GetFontDC(), L"Ag", 2, &size);
+        return (g_fScreenRate_y > 0.f ? static_cast<int>(size.cy / g_fScreenRate_y) : size.cy) + NOTICE_LINE_GAP;
+    }
 
     struct Notice
     {
@@ -93,7 +105,9 @@ namespace UI::Notices
 
         EnableAlphaTest();
 
-        g_pRenderText->SetFont(g_hFontBold);
+        g_pRenderText->SetFont(UI::Moba::Draw::Heading());
+        const int lineHeight = NoticeLineHeight();
+        g_pRenderText->SetFont(UI::Moba::Draw::Heading());
 
         glColor3f(1.f, 1.f, 1.f);
         for (int i = 0; i < MAX_NOTICE; i++)
@@ -117,7 +131,7 @@ namespace UI::Notices
                 g_pRenderText->SetBgColor(0, 0, 0, 128);
             }
 
-            g_pRenderText->RenderText(320, 300 + i * 13, n->Text, 0, 0, RT3_WRITE_CENTER);
+            g_pRenderText->RenderText(320, NOTICE_FIRST_Y + i * lineHeight, n->Text, 0, 0, RT3_WRITE_CENTER);
         }
 
         s_blinkPhase += FPS_ANIMATION_FACTOR;
