@@ -1064,14 +1064,15 @@ namespace
         wchar_t text[32] = {};
         const int tier = Prices::TierOf(*cell.item);
         const TierLook& look = TIER_LOOK[tier];
-        if (cell.item->Level > 0 && tier > 0 && !IsRing(*cell.item) && !IsPendant(*cell.item))
+        // The role (accessories and weapons) is the subtitle; items without one show their level.
+        if (const int itemRole = Prices::SetRoleOf(cell.item->Type); itemRole >= 0 && itemRole < ROLE_COUNT && tier > 0)
+        {
+            Draw::PutTextLeft(body, textX, cell.rect.y + 28, textW, RoleLabelOf(*cell.item, itemRole), look.tr, look.tg, look.tb);
+        }
+        else if (cell.item->Level > 0 && tier > 0)
         {
             swprintf(text, std::size(text), L"+%d", cell.item->Level);
             Draw::PutTextLeft(body, textX, cell.rect.y + 28, textW, text, look.tr, look.tg, look.tb);
-        }
-        else if (const int accessoryRole = Prices::SetRoleOf(cell.item->Type); (IsRing(*cell.item) || IsPendant(*cell.item)) && accessoryRole >= 0 && accessoryRole < ROLE_COUNT)
-        {
-            Draw::PutTextLeft(body, textX, cell.rect.y + 28, textW, RoleLabelOf(*cell.item, accessoryRole), look.tr, look.tg, look.tb);
         }
         else if (cell.item->Durability > 1 && cell.item->Durability <= MAX_SHOWN_QUANTITY)
         {
