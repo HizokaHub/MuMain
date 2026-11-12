@@ -304,7 +304,8 @@ bool SEASON3B::CNewUIManager::Render()
         g_pNewUIMiniMap->RenderCornerOverlayIfActive();
     }
 
-    World::Moba::Banner::Render();
+    if (!messagesBehind)
+        World::Moba::Banner::Render();
 
     return true;
 }

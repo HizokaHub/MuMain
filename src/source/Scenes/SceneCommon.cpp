@@ -54,6 +54,7 @@ bool& EnableMainRender = g_sceneInit.GetEnableMainRender();
 #include "GameLogic/Items/PersonalShopTitleImp.h"
 #include "GameLogic/Items/CComGem.h"
 #include "UI/Legacy/UIMng.h"
+#include "UI/NewUI/NPCs/MobaShopPanel.h"   // Active: the notices wait while the shop is open
 
 // External variable declarations (defined in ZzzScene.cpp or other files)
 extern wchar_t AbuseFilter[][20];
@@ -314,7 +315,9 @@ void RenderInfomation3D()
 
 void RenderInfomation()
 {
-    UI::Notices::Render();
+    // The golden notices of the server (events, invasions) used to be drawn over the MOBA shop and cut its text.
+    if (!UI::Moba::ShopPanel::Active())
+        UI::Notices::Render();
 
     CUIMng::Instance().Render();
 

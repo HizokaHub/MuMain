@@ -12,6 +12,7 @@
 #include "Engine/Object/ZzzInventory.h"
 #include "Audio/DSPlaySound.h"
 #include "Network/Server/WSclient.h"          // SendMobaNpcMenuSelect
+#include "App/Platform/Windows/Winmain.h"     // g_hFont, g_hFontBold (the tooltip of an item)
 #include "GameLogic/Items/MobaShopPrices.h"
 
 #include <algorithm>
@@ -59,17 +60,33 @@ namespace
     // The grid of the pages which are not sets.
     constexpr int GRID_COLUMNS = 6;
     constexpr int GRID_ROWS = 4;
-    constexpr int GRID_CELL_W = 52;
-    constexpr int GRID_CELL_H = 48;
+    constexpr int GRID_CELL_W = 51;
+    constexpr int GRID_CELL_H = 44;
+    // A quantity ("x100") is only shown for what stacks: the durability of pets, wings and the like (200, 255) means nothing to the player.
+    constexpr int MAX_SHOWN_QUANTITY = 100;
     constexpr int GRID_GAP = 3;
     constexpr int PAGE_SIZE = GRID_COLUMNS * GRID_ROWS;
+
+    // The catalog pages are cut into sections with a title (the tiers of the weapons, the accessories and the wings of the consumables...).
+    // Small squares for the cheap things, big ones (icon on the left, name, level and price on the right) for weapons, wings and shields.
+    constexpr int BIG_COLUMNS = 3;
+    constexpr int BIG_CELL_H = 58;
+    constexpr int BIG_ICON_W = 48;
+    constexpr int BIG_NAME_CHARS = 11;
+    constexpr int SECTION_H = 15;
+    constexpr int SECTION_GAP = 4;
+    constexpr int PAGER_ROOM = 24;
+    constexpr int WINGS_GROUP = 12;
 
     // The sets: one column per set, its five pieces from top to bottom.
     constexpr int SET_COLUMNS_MAX = 5;
     constexpr int SET_COL_W = 63;
     constexpr int SET_COL_GAP = 2;
-    constexpr int SET_HEADER_H = 26;
-    constexpr int SET_CELL_H = 36;
+    constexpr int SET_HEADER_H = 42;
+    constexpr int SET_CELL_H = 34;
+    constexpr int SET_NAME_CHARS = 10;
+    // The armor piece sits higher in its square than the other pieces (the 3D model has its own anchor): lowered by this much.
+    constexpr int SET_ARMOR_SHIFT = 6;
     constexpr int SET_BUY_H = 18;
     constexpr int PIECES_PER_SET = 5;
 
@@ -83,7 +100,8 @@ namespace
     // The strip of the detail (below the build and the catalog).
     constexpr int STRIP_ICON = 56;
     constexpr int STRIP_INFO_X = 66;
-    constexpr int STRIP_PREVIEW_X = 192;
+    constexpr int STRIP_PREVIEW_X = 178;
+    constexpr int STRIP_NAME_CHARS = 16;
     constexpr int STRIP_BUTTON_W = 96;
     constexpr int STRIP_BUTTON_H = 24;
     constexpr int STRIP_SMALL_H = 22;
@@ -133,6 +151,14 @@ namespace
     {
         Rect rect;
         ITEM* item;
+        bool big = false;
+    };
+
+    struct SectionHeader
+    {
+        Rect rect;
+        const wchar_t* title;
+        int tier;
     };
 
     struct SetColumn
@@ -155,6 +181,8 @@ namespace
     int s_hoverX = 0;
     int s_hoverY = 0;
     std::vector<Cell> s_cells;               // the grid or the pieces of the sets, as laid out this frame
+    std::vector<SectionHeader> s_headers;    // the titles of the sections of the page being shown
+    int s_pageCount = 1;                     // the pages the sections of the tab take
     std::vector<SetColumn> s_columns;
     std::vector<ITEM*> s_buyQueue;           // the pieces of a set being bought, one at a time
     std::wstring s_pageTitle;
@@ -277,8 +305,6 @@ namespace
         return items;
     }
 
-    int TotalPages(int itemCount) { return std::max(1, (itemCount + PAGE_SIZE - 1) / PAGE_SIZE); }
-
     uint32_t PriceOf(const ITEM& item)
     {
         uint32_t price = 0;
@@ -286,19 +312,132 @@ namespace
         return price;
     }
 
+    // ---------------------------------------------------------------- sections of the catalog pages
+
+    bool IsWing(const ITEM& item) { return Group(item) == WINGS_GROUP; }
+
+    struct SectionDef
+    {
+        const wchar_t* title;
+        bool big;
+        int tier;                                      // the colour of the title (0 = neutral)
+        bool (*accepts)(const ITEM& item, int tier);   // the first section that accepts an item takes it
+    };
+
+    const SectionDef WEAPON_SECTIONS[] = {
+        { L"TIER 1  -  para empezar", true, 1, [](const ITEM&, int tier) { return tier == 1; } },
+        { L"TIER 2  -  media partida", true, 2, [](const ITEM&, int tier) { return tier == 2; } },
+        { L"TIER 3  -  final de partida", true, 3, [](const ITEM&, int tier) { return tier == 3; } },
+    };
+
+    const SectionDef CONSUMABLE_SECTIONS[] = {
+        { L"CONSUMIBLES", false, 0, [](const ITEM& item, int tier) { return tier == 0 && !IsWing(item); } },
+        { L"ACCESORIOS", false, 0, [](const ITEM& item, int tier) { return tier > 0 && !IsWing(item); } },
+        { L"ALAS", true, 0, [](const ITEM& item, int) { return IsWing(item); } },
+    };
+
+    const SectionDef PET_SECTIONS[] = {
+        { L"MASCOTAS", false, 0, [](const ITEM&, int tier) { return tier == 0; } },
+        { L"ESCUDOS", true, 0, [](const ITEM&, int tier) { return tier > 0; } },
+    };
+
+    const SectionDef OTHER_SECTION = { L"OTROS", false, 0, [](const ITEM&, int) { return true; } };
+
+    std::vector<SectionDef> SectionsOfTab()
+    {
+        std::vector<SectionDef> sections;
+        if (s_tab == TAB_WEAPONS)
+            sections.assign(std::begin(WEAPON_SECTIONS), std::end(WEAPON_SECTIONS));
+        else if (s_tab == TAB_CONSUMABLES)
+            sections.assign(std::begin(CONSUMABLE_SECTIONS), std::end(CONSUMABLE_SECTIONS));
+        else
+            sections.assign(std::begin(PET_SECTIONS), std::end(PET_SECTIONS));
+        sections.push_back(OTHER_SECTION);
+        return sections;
+    }
+
+    // Puts the squares of one section on the pages (a new page when the next row does not fit above <bottom>). The squares and the title
+    // are only emitted for the page being shown; returns the y where the next section starts.
+    int FlowSection(const SectionDef& def, const std::vector<ITEM*>& items, int bottom, int y, int& page)
+    {
+        const int columns = def.big ? BIG_COLUMNS : GRID_COLUMNS;
+        const int gap = GRID_GAP;
+        const int cellW = def.big ? (CENTER_W - (BIG_COLUMNS - 1) * gap) / BIG_COLUMNS : GRID_CELL_W;
+        const int cellH = def.big ? BIG_CELL_H : GRID_CELL_H;
+        size_t index = 0;
+        while (index < items.size())
+        {
+            if (y + SECTION_H + cellH > bottom && y > CONTENT_Y)
+            {
+                ++page;
+                y = CONTENT_Y;
+            }
+
+            if (page == s_scroll)
+                s_headers.push_back({ { CENTER_X, y, CENTER_W, SECTION_H }, def.title, def.tier });
+            y += SECTION_H;
+
+            while (index < items.size() && y + cellH <= bottom)
+            {
+                for (int column = 0; column < columns && index < items.size(); ++column, ++index)
+                {
+                    if (page == s_scroll)
+                        s_cells.push_back({ { CENTER_X + column * (cellW + gap), y, cellW, cellH }, items[index], def.big });
+                }
+                y += cellH + gap;
+            }
+
+            if (index < items.size())
+            {
+                ++page;
+                y = CONTENT_Y;
+            }
+        }
+        return y + SECTION_GAP;
+    }
+
+    // Lays the sections of the tab out; returns the number of pages. <emit> = fill s_cells and s_headers for the page s_scroll.
+    int FlowCatalog(const std::vector<ITEM*>& items, int bottom)
+    {
+        const std::vector<SectionDef> sections = SectionsOfTab();
+        std::vector<std::vector<ITEM*>> buckets(sections.size());
+        for (ITEM* item : items)
+        {
+            const int tier = Prices::TierOf(*item);
+            for (size_t i = 0; i < sections.size(); ++i)
+            {
+                if (sections[i].accepts(*item, tier))
+                {
+                    buckets[i].push_back(item);
+                    break;
+                }
+            }
+        }
+
+        int page = 0;
+        int y = CONTENT_Y;
+        for (size_t i = 0; i < sections.size(); ++i)
+        {
+            if (!buckets[i].empty())
+                y = FlowSection(sections[i], buckets[i], bottom, y, page);
+        }
+        return page + 1;
+    }
+
     void LayoutGrid(const std::vector<ITEM*>& items)
     {
-        s_scroll = std::clamp(s_scroll, 0, TotalPages(static_cast<int>(items.size())) - 1);
-        for (int slot = 0; slot < PAGE_SIZE; ++slot)
+        const int roomBelow = STRIP_Y - 4;
+        const int savedScroll = s_scroll;
+        s_scroll = -1;                                 // a first pass that only counts the pages
+        s_pageCount = FlowCatalog(items, roomBelow);
+        int bottom = roomBelow;
+        if (s_pageCount > 1)
         {
-            const size_t index = static_cast<size_t>(s_scroll * PAGE_SIZE + slot);
-            if (index >= items.size())
-                break;
-
-            const int column = slot % GRID_COLUMNS;
-            const int row = slot / GRID_COLUMNS;
-            s_cells.push_back({ { CENTER_X + column * (GRID_CELL_W + GRID_GAP), CONTENT_Y + row * (GRID_CELL_H + GRID_GAP), GRID_CELL_W, GRID_CELL_H }, items[index] });
+            bottom = STRIP_Y - PAGER_ROOM;               // the buttons of the pages need their own row
+            s_pageCount = FlowCatalog(items, bottom);
         }
+        s_scroll = std::clamp(savedScroll, 0, s_pageCount - 1);
+        FlowCatalog(items, bottom);
     }
 
     // Groups the pieces of the store by set (the number of the item) and puts the recommended set first.
@@ -350,6 +489,8 @@ namespace
     {
         s_cells.clear();
         s_columns.clear();
+        s_headers.clear();
+        s_pageCount = 1;
         if (s_tab == TAB_FOR_YOU)
             return;
 
@@ -395,10 +536,27 @@ namespace
         IconClip& operator=(const IconClip&) = delete;
     };
 
-    void RenderIcon(int type, int level, BYTE excellent, BYTE ancient, const Rect& box)
+    // Where the icon of a square goes: inside the set pieces, left of the big squares, above the price of the small ones.
+    Rect IconBoxOf(const Cell& cell)
+    {
+        if (IsSetsTab())
+            return { cell.rect.x + 14, cell.rect.y + 1, cell.rect.w - 28, cell.rect.h - 2 };
+        if (cell.big)
+            return { cell.rect.x + 2, cell.rect.y + 3, BIG_ICON_W, cell.rect.h - 6 };
+        return { cell.rect.x, cell.rect.y + 4, cell.rect.w, cell.rect.h - 18 };
+    }
+
+    // The armor of a set is drawn higher than the other pieces by the 3D anchor of its model: this lowers it.
+    int IconShiftOf(const Cell& cell)
+    {
+        return IsSetsTab() && Group(*cell.item) == ARMOR_GROUP ? SET_ARMOR_SHIFT : 0;
+    }
+
+    void RenderIcon(int type, int level, BYTE excellent, BYTE ancient, const Rect& box, int shiftDown = 0)
     {
         float x, y, w, h;
         FitIconBox(type, box, x, y, w, h);
+        y += static_cast<float>(shiftDown);
         glColor4f(1.f, 1.f, 1.f, 1.f);
         const IconClip clip(box);
         RenderItem3D(x, y, w, h, type, level, excellent, ancient, false);
@@ -406,8 +564,17 @@ namespace
 
     void TooltipCallback(LPVOID, DWORD, DWORD)
     {
-        if (s_hoverItem != nullptr)
-            RenderItemInfo(s_hoverX, s_hoverY, s_hoverItem, true);
+        if (s_hoverItem == nullptr)
+            return;
+
+        // The legacy tooltip draws with the two global fonts, which are small: it gets the larger ones for this call.
+        const HFONT normalFont = g_hFont;
+        const HFONT boldFont = g_hFontBold;
+        g_hFont = Draw::TooltipBody();
+        g_hFontBold = Draw::TooltipBold();
+        RenderItemInfo(s_hoverX, s_hoverY, s_hoverItem, true);
+        g_hFont = normalFont;
+        g_hFontBold = boldFont;
     }
 
     void SelectTab(int tab)
@@ -500,6 +667,18 @@ namespace
         SendMobaShopPreview(static_cast<BYTE>(s_previewSlotAsked));
     }
 
+    // A right click on an item buys it at once (without the button of the detail strip) when the champion can pay it.
+    void HandleRightClick(UI::Moba::ShopPanel::MouseResult& result)
+    {
+        if (s_hoverItem == nullptr)
+            return;
+
+        s_selected = s_hoverItem;
+        if (PriceOf(*s_hoverItem) <= static_cast<uint32_t>(CharacterMachine->Gold))
+            result.buyItem = s_hoverItem;
+        PlayBuffer(SOUND_CLICK01);
+    }
+
     // The click in the panel: what it did.
     void HandleClick(CNewUIInventoryCtrl* store, const std::vector<ITEM*>& itemsInStore, UI::Moba::ShopPanel::MouseResult& result)
     {
@@ -538,13 +717,12 @@ namespace
             }
         }
 
-        if (IsGridTab())
+        if (IsGridTab() && s_pageCount > 1)
         {
-            const int pages = TotalPages(static_cast<int>(itemsInStore.size()));
             if (Draw::MouseInRect(PrevPageButton()))
                 s_scroll = std::max(0, s_scroll - 1);
             else if (Draw::MouseInRect(NextPageButton()))
-                s_scroll = std::min(pages - 1, s_scroll + 1);
+                s_scroll = std::min(s_pageCount - 1, s_scroll + 1);
         }
 
         if (s_hoverItem != nullptr)
@@ -728,11 +906,85 @@ namespace
             Draw::FillRect(cell.rect, hover ? 0.16f : 0.08f, hover ? 0.18f : 0.095f, hover ? 0.26f : 0.14f, 1.f);
             Draw::FrameRect(cell.rect, selected ? 0.95f : look.r, selected ? 0.80f : look.g, selected ? 0.40f : look.b, hover || selected ? 1.f : 0.7f);
         }
+
+        for (const SectionHeader& header : s_headers)
+        {
+            const TierLook& look = TIER_LOOK[std::clamp(header.tier, 0, 3)];
+            Draw::FillRect({ header.rect.x, header.rect.y + header.rect.h - 2, header.rect.w, 1 }, look.r * 0.7f, look.g * 0.7f, look.b * 0.7f, 1.f);
+        }
         (void)gold;
+    }
+
+    // The titles of the sections ("TIER 1 - para empezar", "ALAS"...), in the colour of their tier.
+    void RenderSectionTitles(HFONT bold)
+    {
+        for (const SectionHeader& header : s_headers)
+        {
+            const TierLook& look = TIER_LOOK[std::clamp(header.tier, 0, 3)];
+            Draw::PutTextLeft(bold, header.rect.x + 2, header.rect.y, header.rect.w - 4, header.title, look.tr, look.tg, look.tb);
+        }
+    }
+
+    // A name in two lines at most: it breaks at the last space that fits in <maxChars>.
+    void SplitName(const std::wstring& name, size_t maxChars, std::wstring& first, std::wstring& second)
+    {
+        if (name.size() <= maxChars)
+        {
+            first = name;
+            second.clear();
+            return;
+        }
+
+        size_t cut = name.find_last_of(L' ', maxChars);
+        if (cut == std::wstring::npos || cut == 0)
+            cut = maxChars;
+        first = name.substr(0, cut);
+        const size_t next = name.find_first_not_of(L' ', cut);
+        second = next == std::wstring::npos ? std::wstring() : Shorten(name.substr(next), maxChars);
+    }
+
+    // A big square: the icon on the left; on the right the name (two lines at most), the level and the price.
+    void RenderBigCellText(HFONT body, HFONT bold, const Cell& cell, unsigned int gold)
+    {
+        const int textX = cell.rect.x + BIG_ICON_W + 4;
+        const int textW = cell.rect.w - BIG_ICON_W - 6;
+        std::wstring first, second;
+        SplitName(ItemAttribute[cell.item->Type].Name, BIG_NAME_CHARS, first, second);
+        Draw::PutTextLeft(bold, textX, cell.rect.y + 3, textW, first.c_str(), 240, 240, 240);
+        if (!second.empty())
+            Draw::PutTextLeft(bold, textX, cell.rect.y + 15, textW, second.c_str(), 240, 240, 240);
+
+        wchar_t text[32] = {};
+        const int tier = Prices::TierOf(*cell.item);
+        const TierLook& look = TIER_LOOK[tier];
+        if (cell.item->Level > 0 && tier > 0)
+        {
+            swprintf(text, std::size(text), L"+%d", cell.item->Level);
+            Draw::PutTextLeft(body, textX, cell.rect.y + 28, textW, text, look.tr, look.tg, look.tb);
+        }
+        else if (cell.item->Durability > 1 && cell.item->Durability <= MAX_SHOWN_QUANTITY)
+        {
+            swprintf(text, std::size(text), L"x%d", cell.item->Durability);
+            Draw::PutTextLeft(body, textX, cell.rect.y + 28, textW, text, 190, 195, 205);
+        }
+
+        uint32_t price = 0;
+        if (!Prices::TryGetBuyPrice(*cell.item, price))
+            return;
+
+        swprintf(text, std::size(text), L"%u", price);
+        const bool affordable = gold >= price;
+        Draw::PutTextLeft(bold, textX, cell.rect.y + cell.rect.h - 15, textW, text, affordable ? 120 : 255, affordable ? 235 : 110, affordable ? 130 : 110);
     }
 
     void RenderCellText(HFONT body, HFONT bold, const Cell& cell, unsigned int gold, bool compact)
     {
+        if (cell.big)
+        {
+            RenderBigCellText(body, bold, cell, gold);
+            return;
+        }
+
         wchar_t text[32] = {};
         const int tier = Prices::TierOf(*cell.item);
         const TierLook& look = TIER_LOOK[tier];
@@ -764,7 +1016,7 @@ namespace
             Draw::PutTextCentered(bold, cell.rect.x, cell.rect.y + cell.rect.h - 15, cell.rect.w, text, affordable ? 120 : 255, affordable ? 235 : 110, affordable ? 130 : 110);
         }
 
-        if (tier == 0 && cell.item->Durability > 1)
+        if (tier == 0 && cell.item->Durability > 1 && cell.item->Durability <= MAX_SHOWN_QUANTITY)
         {
             swprintf(text, std::size(text), L"x%d", cell.item->Durability);
             Draw::PutText(body, cell.rect.x + cell.rect.w - 26, cell.rect.y + cell.rect.h - 28, 24, text, 235, 235, 235, RT3_SORT_RIGHT);
@@ -794,13 +1046,13 @@ namespace
     {
         for (const SetColumn& set : s_columns)
         {
-            const std::wstring name = SetNameOf(set.armorType);
-            Draw::PutTextCentered(bold, set.rect.x, set.rect.y + 2, set.rect.w, name.c_str(), 240, 235, 215);
+            const std::wstring name = Shorten(SetNameOf(set.armorType), SET_NAME_CHARS);
+            Draw::PutTextCentered(Draw::Heading(), set.rect.x, set.rect.y + 1, set.rect.w, name.c_str(), 240, 235, 215);
             const int role = Prices::SetRoleOf(set.armorType);
             if (role >= 0 && role < ROLE_COUNT)
-                Draw::PutTextCentered(body, set.rect.x, set.rect.y + 15, set.rect.w, ROLE_LABEL[role], 160, 190, 235);
+                Draw::PutTextCentered(Draw::Large(), set.rect.x, set.rect.y + 16, set.rect.w, ROLE_LABEL[role], 160, 190, 235);
             if (set.recommended)
-                Draw::PutTextCentered(bold, set.rect.x, set.rect.y + SET_HEADER_H - 12, set.rect.w, L"REC.", 255, 214, 80);
+                Draw::PutTextCentered(bold, set.rect.x, set.rect.y + SET_HEADER_H - 12, set.rect.w, L"RECOMENDADO", 255, 214, 80);
             for (const Cell& piece : set.pieces)
             {
                 if (piece.item != nullptr)
@@ -908,9 +1160,9 @@ namespace
         if (item == nullptr)
         {
             Draw::PutTextLeft(bold, PANEL_X + PAD + 8, STRIP_Y + 4, 200, L"DETALLE", 255, 214, 80);
-            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 22, 300, L"Haz clic en un \u00edtem para ver su precio, lo que cambia", 190, 195, 205);
-            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 36, 300, L"en tus stats y comprarlo. Vender: clic derecho en tu", 190, 195, 205);
-            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 50, 300, L"inventario.", 190, 195, 205);
+            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 22, 300, L"Clic en un \u00edtem: ver su precio y lo que cambia en tus stats.", 190, 195, 205);
+            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 36, 300, L"Clic derecho en un \u00edtem: comprarlo al instante.", 190, 195, 205);
+            Draw::PutTextLeft(body, PANEL_X + PAD + 8, STRIP_Y + 50, 300, L"Vender: elige el \u00edtem que ya tienes y pulsa Vender.", 190, 195, 205);
             return;
         }
 
@@ -919,7 +1171,7 @@ namespace
         const uint32_t price = PriceOf(*item);
         const bool canBuy = price <= gold;
         wchar_t line[64] = {};
-        Draw::PutTextLeft(bold, infoX, STRIP_Y + 3, infoW, Shorten(ItemAttribute[item->Type].Name, 17).c_str(), 240, 240, 240);
+        Draw::PutTextLeft(bold, infoX, STRIP_Y + 3, infoW, Shorten(ItemAttribute[item->Type].Name, STRIP_NAME_CHARS).c_str(), 240, 240, 240);
         if (tier > 0)
             swprintf(line, std::size(line), L"Tier %d%ls", tier, item->Level > 0 ? L"  +" : L"");
         if (tier > 0 && item->Level > 0)
@@ -945,12 +1197,12 @@ namespace
         Draw::PutTextCentered(bold, buy.x, buy.y + 5, buy.w, L"COMPRAR", 240, 240, 240);
     }
 
-    void RenderPager(HFONT bold, int itemCount)
+    void RenderPager(HFONT bold)
     {
-        if (!IsGridTab())
+        if (!IsGridTab() || s_pageCount <= 1)
             return;
 
-        const int pages = TotalPages(itemCount);
+        const int pages = s_pageCount;
         const Rect prev = PrevPageButton();
         const Rect next = NextPageButton();
         Draw::Button(prev, L"<", s_scroll > 0);
@@ -1006,16 +1258,21 @@ MouseResult UpdateMouse(CNewUIInventoryCtrl* store, bool clicksEnabled, bool can
         return result;
 
     std::vector<ITEM*> items = StoreItems(store);
-    if (MouseWheel != 0 && IsGridTab())
-        s_scroll = std::clamp(s_scroll + (MouseWheel > 0 ? -1 : 1), 0, TotalPages(static_cast<int>(items.size())) - 1);
-
     Layout(store);
+    if (MouseWheel != 0 && IsGridTab())
+    {
+        s_scroll = std::clamp(s_scroll + (MouseWheel > 0 ? -1 : 1), 0, s_pageCount - 1);
+        Layout(store);
+    }
+
     UpdateHover();
     if (clicksEnabled && SEASON3B::IsRelease(VK_LBUTTON))
     {
         HandleClick(store, items, result);
         Layout(store);
     }
+    if (clicksEnabled && SEASON3B::IsRelease(VK_RBUTTON))
+        HandleRightClick(result);
     RequestPreview(store);
 
     if (canBuy)
@@ -1066,12 +1323,13 @@ void Render(CNewUIInventoryCtrl* store)
     {
         for (const Cell& cell : s_cells)
             RenderCellText(body, bold, cell, gold, false);
-        RenderPager(bold, static_cast<int>(StoreItems(store).size()));
+        RenderSectionTitles(bold);
+        RenderPager(bold);
     }
 
     RenderDetailText(body, bold, DetailItem(), gold);
     Draw::PutTextLeft(body, panel.x + PAD, panel.y + panel.h - 16, panel.w - 2 * PAD,
-        L"Clic: ver detalle.  La joya de perfecci\u00f3n se arrastra sobre un \u00edtem de tu inventario.", 170, 175, 190);
+        L"Clic: ver detalle.  Clic derecho: comprar.  La joya de perfecci\u00f3n se arrastra sobre un \u00edtem de tu inventario.", 170, 175, 190);
 
     if (const std::vector<Prices::Recommended>& steps = Prices::GetRecommended(); !steps.empty())
     {
@@ -1092,8 +1350,7 @@ void Render3D(CNewUIInventoryCtrl* store)
     RenderStepIcons();
     for (const Cell& cell : s_cells)
     {
-        const Rect box = IsSetsTab() ? Rect{ cell.rect.x + 14, cell.rect.y + 1, cell.rect.w - 28, cell.rect.h - 2 } : Rect{ cell.rect.x, cell.rect.y + 4, cell.rect.w, cell.rect.h - 18 };
-        RenderIcon(cell.item->Type, cell.item->Level, cell.item->ExcellentFlags, cell.item->AncientDiscriminator, box);
+        RenderIcon(cell.item->Type, cell.item->Level, cell.item->ExcellentFlags, cell.item->AncientDiscriminator, IconBoxOf(cell), IconShiftOf(cell));
     }
 
     if (const ITEM* item = DetailItem(); item != nullptr)

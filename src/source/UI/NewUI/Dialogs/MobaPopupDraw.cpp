@@ -34,11 +34,18 @@ namespace
 
     constexpr float BODY_SCALE = 1.35f;
     constexpr float TITLE_SCALE = 2.3f;
+    constexpr float HEADING_SCALE = 1.7f;
+    constexpr float LARGE_SCALE = 1.5f;
+    constexpr float TOOLTIP_SCALE = 1.5f;
     constexpr int NOT_BUILT = -1;
 
     HFONT s_body = nullptr;
     HFONT s_bold = nullptr;
     HFONT s_title = nullptr;
+    HFONT s_heading = nullptr;
+    HFONT s_large = nullptr;
+    HFONT s_tooltipBody = nullptr;
+    HFONT s_tooltipBold = nullptr;
     int s_builtForHeight = NOT_BUILT;
 
     HFONT MakeFont(float scale, int weight)
@@ -56,6 +63,10 @@ namespace
         s_body = nullptr;
         s_bold = nullptr;
         s_title = nullptr;
+        s_heading = nullptr;
+        s_large = nullptr;
+        s_tooltipBody = nullptr;
+        s_tooltipBold = nullptr;
     }
 
     // Builds the fonts the first time and whenever the size of the UI fonts changed (a new window resolution).
@@ -68,6 +79,10 @@ namespace
         s_body = MakeFont(BODY_SCALE, FW_NORMAL);
         s_bold = MakeFont(BODY_SCALE, FW_SEMIBOLD);
         s_title = MakeFont(TITLE_SCALE, FW_SEMIBOLD);
+        s_heading = MakeFont(HEADING_SCALE, FW_SEMIBOLD);
+        s_large = MakeFont(LARGE_SCALE, FW_NORMAL);
+        s_tooltipBody = MakeFont(TOOLTIP_SCALE, FW_NORMAL);
+        s_tooltipBold = MakeFont(TOOLTIP_SCALE, FW_SEMIBOLD);
         s_builtForHeight = FontHeight;
     }
 }
@@ -112,6 +127,30 @@ HFONT Title()
 {
     EnsureFonts();
     return s_title;
+}
+
+HFONT Heading()
+{
+    EnsureFonts();
+    return s_heading;
+}
+
+HFONT Large()
+{
+    EnsureFonts();
+    return s_large;
+}
+
+HFONT TooltipBody()
+{
+    EnsureFonts();
+    return s_tooltipBody;
+}
+
+HFONT TooltipBold()
+{
+    EnsureFonts();
+    return s_tooltipBold;
 }
 
 void SwallowHeldClick()

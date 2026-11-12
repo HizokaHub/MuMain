@@ -15,6 +15,13 @@ namespace UI::Moba::Draw
     HFONT Bold();
     HFONT Title();
 
+    // Larger fonts for what has to be read at a glance (the names and roles of the shop sets) and the fonts of the item tooltip
+    // (the legacy one is small), built in the same way.
+    HFONT Heading();
+    HFONT Large();
+    HFONT TooltipBody();
+    HFONT TooltipBold();
+
     // The height of a line of the body font, in reference px (to centre a text field inside its frame).
     int BodyLineHeight();
 
