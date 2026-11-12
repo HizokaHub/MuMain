@@ -408,17 +408,29 @@ namespace Render::Effects::RuneWizard
         constexpr float OrbBodyScale = 3.7f;
         constexpr float OrbHaloScale = 6.f;
 
-        // The rings around the ball are the Season 21 ball model (Effect/DarkPlasmaBall.bmd): a sphere of 11 units of
-        // radius wrapped in one bright wavy line. Drawn additive, tilted and spinning, the line reads as a ring orbiting
-        // the ball; two shells with different tilts give the crossed rings of the videos. A shell is the same effect type
-        // as the orb with a sub type of its own (OrbShellFirstSubType + its index).
-        constexpr int OrbShellCount = 2;
+        // The body of the ball is the Season 21 ball model (Effect/DarkPlasmaBall.bmd): a sphere of 11 units of radius
+        // wrapped in a bright wavy line and smoke. Drawn additive and dim, tilted and spinning inside the glow, it gives
+        // the ball its churning surface; bright, it turns the ball into a flat orange disc. A shell is the same effect
+        // type as the orb with a sub type of its own (OrbShellFirstSubType + its index).
+        constexpr int OrbShellCount = 1;
         constexpr int OrbShellFirstSubType = 1;
-        constexpr float OrbShellScale[OrbShellCount] = { 4.8f, 5.8f };
-        constexpr float OrbShellPitchDegrees[OrbShellCount] = { 65.f, -50.f };
-        constexpr float OrbShellRollDegrees[OrbShellCount] = { 0.f, 35.f };
-        constexpr float OrbShellSpinDegrees[OrbShellCount] = { 14.f, -10.f };
+        constexpr float OrbShellScale[OrbShellCount] = { 3.8f };
+        constexpr float OrbShellPitchDegrees[OrbShellCount] = { 65.f };
+        constexpr float OrbShellRollDegrees[OrbShellCount] = { 0.f };
+        constexpr float OrbShellSpinDegrees[OrbShellCount] = { 14.f };
         constexpr float OrbShellAnimationSpeed = 0.3f;
+        constexpr float OrbShellBrightness = 0.35f;
+
+        // The rings: thin golden arcs circling just outside the ball, each on its own tilted orbit. An arc is a row of
+        // small lights along part of the orbit, brightest at its head.
+        constexpr int OrbRingCount = 3;
+        constexpr float OrbRingRadius = 62.f;
+        constexpr float OrbRingTiltDegrees[OrbRingCount] = { 70.f, -55.f, 25.f };
+        constexpr float OrbRingHeadingDegrees[OrbRingCount] = { 0.f, 60.f, 120.f };
+        constexpr float OrbRingSpinDegrees[OrbRingCount] = { 22.f, -18.f, 26.f };
+        constexpr float OrbRingArcDegrees = 200.f;
+        constexpr int OrbRingLights = 16;
+        constexpr float OrbRingLightScale = 0.4f;
         constexpr float OrbPulseScale = 0.5f;
         constexpr float OrbPulseDegreesPerTick = 40.f;
         constexpr float OrbSwirlRadius = 48.f;
@@ -510,6 +522,37 @@ namespace Render::Effects::RuneWizard
             CreateSprite(BITMAP_LIGHT, position, scale, light, nullptr, 0.f);
         }
 
+        // The point of the ring's orbit at the angle (degrees), around the orb.
+        void RingPoint(const float* orb, int ring, float degrees, float* out)
+        {
+            const float a = degrees * DegreesToRadians;
+            const float tilt = OrbRingTiltDegrees[ring] * DegreesToRadians;
+            const float heading = OrbRingHeadingDegrees[ring] * DegreesToRadians;
+
+            // A flat circle, tilted around the X axis and then turned around the vertical one.
+            const float x = cosf(a) * OrbRingRadius;
+            const float y = sinf(a) * OrbRingRadius * cosf(tilt);
+            const float z = sinf(a) * OrbRingRadius * sinf(tilt);
+            Vector(orb[0] + x * cosf(heading) - y * sinf(heading), orb[1] + x * sinf(heading) + y * cosf(heading), orb[2] + z, out);
+        }
+
+        // One frame of the golden arcs circling the orb.
+        void DrawPlasmaRings(const float* orb, float age, float brightness)
+        {
+            for (int ring = 0; ring < OrbRingCount; ++ring)
+            {
+                const float head = age * OrbRingSpinDegrees[ring];
+                const float direction = OrbRingSpinDegrees[ring] > 0.f ? 1.f : -1.f;
+                for (int i = 0; i < OrbRingLights; ++i)
+                {
+                    const float along = (float)i / OrbRingLights;
+                    vec3_t point;
+                    RingPoint(orb, ring, head - direction * along * OrbRingArcDegrees, point);
+                    RoundGlow(point, OrbRingLightScale, 1.f, 0.55f, 0.15f, brightness * (1.f - along));
+                }
+            }
+        }
+
         // One frame of the Plasma Ball orb at the point.
         void DrawPlasmaOrb(const float* orb, float age, float brightness)
         {
@@ -517,6 +560,7 @@ namespace Render::Effects::RuneWizard
             RoundGlow(orb, OrbHaloScale + pulse, 1.f, 0.45f, 0.1f, 0.6f * brightness);
             RoundGlow(orb, OrbBodyScale + pulse * 0.5f, 1.f, 0.8f, 0.3f, brightness);
             Glow(orb, OrbCoreScale, 1.f, 1.f, 0.95f, brightness);
+            DrawPlasmaRings(orb, age, brightness);
 
             for (int i = 0; i < OrbSwirlCount; ++i)
             {
@@ -538,7 +582,7 @@ namespace Render::Effects::RuneWizard
             const int shell = o->SubType - OrbShellFirstSubType;
             VectorCopy(orb, o->Position);
             o->Angle[2] = fmodf(o->Angle[2] + OrbShellSpinDegrees[shell] * FPS_ANIMATION_FACTOR, 360.f);
-            o->Alpha = brightness;
+            o->Alpha = brightness * OrbShellBrightness;
 
             BMD* b = &Models[o->Type];
             b->CurrentAction = o->CurrentAction;
