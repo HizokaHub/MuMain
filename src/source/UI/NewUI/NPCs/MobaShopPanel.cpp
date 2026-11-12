@@ -78,6 +78,8 @@ namespace
     constexpr int SCROLLBAR_W = 5;
     constexpr int MIN_THUMB_H = 16;
     constexpr int WINGS_GROUP = 12;
+    constexpr int CAPE_OF_LORD_GROUP = 13;
+    constexpr int CAPE_OF_LORD_NUMBER = 30;
 
     // The sets: one column per set, its five pieces from top to bottom.
     constexpr int SET_COLUMNS_MAX = 5;
@@ -128,7 +130,7 @@ namespace
         L"PARA TI", L"CONSUM.", L"ARMAS", L"SETS T1", L"SETS T2", L"SETS T3", L"MASCOTAS",
     };
     const wchar_t* const TAB_LABEL_SMALL[TAB_COUNT] = {
-        L"", L"y acces.", L"", L"", L"", L"", L"y escudos",
+        L"", L"y acces.", L"", L"", L"", L"", L"escudos, alas",
     };
 
     const wchar_t* const ROLE_LABEL[] = { L"Equilibrado", L"Ofensivo", L"Recursos", L"Tanque", L"Utilidad" };
@@ -313,7 +315,8 @@ namespace
 
     // ---------------------------------------------------------------- sections of the catalog pages
 
-    bool IsWing(const ITEM& item) { return Group(item) == WINGS_GROUP; }
+    // Wings and capes: the Dark Lord's Cape of Lord is in the group of the pets (13), number 30.
+    bool IsWing(const ITEM& item) { return Group(item) == WINGS_GROUP || (Group(item) == CAPE_OF_LORD_GROUP && Number(item) == CAPE_OF_LORD_NUMBER); }
 
     struct SectionDef
     {
@@ -332,12 +335,13 @@ namespace
     const SectionDef CONSUMABLE_SECTIONS[] = {
         { L"CONSUMIBLES", false, 0, [](const ITEM& item, int tier) { return tier == 0 && !IsWing(item); } },
         { L"ACCESORIOS", false, 0, [](const ITEM& item, int tier) { return tier > 0 && !IsWing(item); } },
-        { L"ALAS", true, 0, [](const ITEM& item, int) { return IsWing(item); } },
     };
 
+    // Pets, shields and wings share one page (2026-11-12).
     const SectionDef PET_SECTIONS[] = {
-        { L"MASCOTAS", false, 0, [](const ITEM&, int tier) { return tier == 0; } },
-        { L"ESCUDOS", true, 0, [](const ITEM&, int tier) { return tier > 0; } },
+        { L"MASCOTAS", false, 0, [](const ITEM& item, int tier) { return tier == 0 && !IsWing(item); } },
+        { L"ESCUDOS", true, 0, [](const ITEM& item, int tier) { return tier > 0 && !IsWing(item); } },
+        { L"ALAS", true, 0, [](const ITEM& item, int) { return IsWing(item); } },
     };
 
     const SectionDef OTHER_SECTION = { L"OTROS", false, 0, [](const ITEM&, int) { return true; } };
