@@ -76,6 +76,7 @@ namespace
     constexpr int SECTION_H = 15;
     constexpr int SECTION_GAP = 4;
     constexpr int SCROLLBAR_W = 5;
+    constexpr int PEEK_MIN_H = 8;          // a row that starts at least this far above the bottom is drawn, cut at the edge, so the player sees there is more
     constexpr int MIN_THUMB_H = 16;
     constexpr int WINGS_GROUP = 12;
     constexpr int CAPE_OF_LORD_GROUP = 13;
@@ -433,12 +434,8 @@ namespace
         for (size_t r = static_cast<size_t>(s_scroll); r < rows.size(); ++r)
         {
             const CatalogRow& row = rows[r];
-            if (y + row.height - GRID_GAP > bottom)
-                break;
-
-            // A title is not left alone at the bottom: its first row of squares has to fit under it.
-            const bool titleAlone = row.count == 0 && r + 1 < rows.size() && y + row.height + rows[r + 1].height - GRID_GAP > bottom;
-            if (titleAlone)
+            // The next row is drawn even if it does not fit: it is cut at the bottom edge (see CatalogClip) and shows that the page scrolls.
+            if (y > bottom - PEEK_MIN_H)
                 break;
             ++s_rowShown;
 
@@ -573,13 +570,20 @@ namespace
         return IsSetsTab() && Group(*cell.item) == ARMOR_GROUP ? SET_ARMOR_SHIFT : 0;
     }
 
-    void RenderIcon(int type, int level, BYTE excellent, BYTE ancient, const Rect& box, int shiftDown = 0)
+    // The area of the catalog: what is drawn below it (the next row, peeking) is cut.
+    Rect CatalogArea() { return { CENTER_X - 1, CONTENT_Y, CENTER_W + 2, STRIP_Y - 4 - CONTENT_Y }; }
+
+    void RenderIcon(int type, int level, BYTE excellent, BYTE ancient, const Rect& box, int shiftDown = 0, int clipBottom = REFERENCE_HEIGHT)
     {
         float x, y, w, h;
         FitIconBox(type, box, x, y, w, h);
         y += static_cast<float>(shiftDown);
         glColor4f(1.f, 1.f, 1.f, 1.f);
-        const IconClip clip(box);
+        Rect clipBox = box;
+        clipBox.h = std::min(clipBox.h, clipBottom - clipBox.y);
+        if (clipBox.h <= 0)
+            return;
+        const IconClip clip(clipBox);
         RenderItem3D(x, y, w, h, type, level, excellent, ancient, false);
     }
 
@@ -632,7 +636,7 @@ namespace
         s_hoverItem = nullptr;
         for (const Cell& cell : s_cells)
         {
-            if (!Draw::MouseInRect(cell.rect))
+            if (!Draw::MouseInRect(cell.rect) || (!IsSetsTab() && MouseY >= CatalogArea().y + CatalogArea().h))
                 continue;
 
             s_hoverItem = cell.item;
@@ -1323,7 +1327,11 @@ void Render(CNewUIInventoryCtrl* store)
     if (IsSetsTab())
         RenderSetsBack();
     else if (IsGridTab())
-        RenderGridBack(gold);
+        {
+            const IconClip catalogClip(CatalogArea());
+            RenderGridBack(gold);
+            EndRenderColor();
+        }
     RenderDetailBack(DetailItem(), gold);
     EndRenderColor();
 
@@ -1348,6 +1356,7 @@ void Render(CNewUIInventoryCtrl* store)
     }
     else
     {
+        const IconClip catalogClip(CatalogArea());
         for (const Cell& cell : s_cells)
             RenderCellText(body, bold, cell, gold, false);
         RenderSectionTitles(bold);
@@ -1377,7 +1386,7 @@ void Render3D(CNewUIInventoryCtrl* store)
     RenderStepIcons();
     for (const Cell& cell : s_cells)
     {
-        RenderIcon(cell.item->Type, cell.item->Level, cell.item->ExcellentFlags, cell.item->AncientDiscriminator, IconBoxOf(cell), IconShiftOf(cell));
+        RenderIcon(cell.item->Type, cell.item->Level, cell.item->ExcellentFlags, cell.item->AncientDiscriminator, IconBoxOf(cell), IconShiftOf(cell), IsSetsTab() ? REFERENCE_HEIGHT : CatalogArea().y + CatalogArea().h);
     }
 
     if (const ITEM* item = DetailItem(); item != nullptr)
