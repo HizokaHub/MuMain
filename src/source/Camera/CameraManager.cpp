@@ -218,6 +218,13 @@ void CameraManager::CycleToNextMode()
         return;
 
     CameraMode nextMode = GetNextCameraMode(m_CurrentMode);
+
+    // In a MOBA match the orbital camera is skipped: a stray F9 + wheel left the view in a state players could not get out of. F9 only
+    // switches between the follow camera and the MOBA camera there (F11 resets the active view).
+    extern int g_MobaLevel;
+    if (g_MobaLevel > 0 && nextMode == CameraMode::Orbital)
+        nextMode = GetNextCameraMode(nextMode);
+
     SetCameraMode(nextMode);
 }
 
