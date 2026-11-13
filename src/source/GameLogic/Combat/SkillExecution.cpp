@@ -308,8 +308,40 @@ static void MobaCastSkill(CHARACTER* c, int Skill)
 {
     OBJECT* o = &c->Object;
 
-    CheckTarget(c);
+    const bool aimed = CheckTarget(c);
     const bool hasTarget = CheckAttack() && SelectedCharacter >= 0 && SelectedCharacter < MAX_CHARACTERS_CLIENT;
+
+    // The Teleport of the Soul Master / Grand Master is not a skill packet: the classic client asks
+    // the server for "gate 0" with the tile to jump to (the server shortens a far jump to the range
+    // of the skill and always answers), and hides the hero in the teleport animation meanwhile.
+    if (Skill == AT_SKILL_TELEPORT)
+    {
+        c->SkillSuccess = false;
+        if (!aimed || g_isCharacterBuff(o, eDeBuff_Stun) || g_isCharacterBuff(o, eDeBuff_Sleep))
+        {
+            return;
+        }
+
+        const bool busy = (o->Type == MODEL_PLAYER) ? (o->CurrentAction == PLAYER_SKILL_TELEPORT) : (o->CurrentAction == MONSTER01_SHOCK);
+        if (busy || o->Teleport == TELEPORT_BEGIN || o->Teleport == TELEPORT || o->Alpha < 0.7f)
+        {
+            return;
+        }
+
+        int wall = TerrainWall[TERRAIN_INDEX_REPEAT(TargetX, TargetY)];
+        if ((wall & TW_ACTION) == TW_ACTION) wall -= TW_ACTION;
+        if ((wall & TW_HEIGHT) == TW_HEIGHT) wall -= TW_HEIGHT;
+        if (wall != 0)
+        {
+            return;
+        }
+
+        o->Angle[2] = CreateAngle2D(o->Position, c->TargetPosition);
+        SocketClient->ToGameServer()->SendEnterGateRequest(0, TargetX, TargetY);
+        SetPlayerTeleport(c);
+        c->SkillSuccess = true;
+        return;
+    }
     const WORD targetKey = hasTarget ? (WORD)getTargetCharacterKey(c, SelectedCharacter) : (WORD)HeroKey;
 
     g_MovementSkill.m_bMagic = TRUE;
