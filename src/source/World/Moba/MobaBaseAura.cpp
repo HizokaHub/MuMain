@@ -26,13 +26,45 @@ namespace
     struct Centre { int x; int y; };
 
     constexpr Centre CENTRES[] = { { 118, 13 }, { 118, 244 } };  // the blue and the red vendor
-    constexpr float RADIUS_TILES = 7.f;                          // same as MobaBaseAura.RadiusTiles on the server
+    constexpr float RADIUS_TILES = 4.f;                          // same as MobaBaseAura.RadiusTiles on the server (the base of the dome)
     constexpr float VISIBLE_TILES = 45.f;                        // nothing is spawned when the hero is farther away than this from the aura
-    constexpr float FILL_PER_FRAME = 0.9f;                     // glows inside the radius per frame at the reference frame rate (scaled by the frame time)
-    constexpr float RING_PER_FRAME = 1.8f;                       // glows on the edge of the radius
+    constexpr float FILL_PER_FRAME = 0.45f;                    // glows inside the radius per frame at the reference frame rate (scaled by the frame time)
+    constexpr float RING_PER_FRAME = 0.4f;                       // glows on the edge of the radius
     constexpr float FILL_SCALE = 1.8f;
     constexpr float RING_SCALE = 1.7f;
     constexpr float TWO_PI = 6.2831853f;
+
+    // The bunker: a translucent half sphere of light (the SD sphere model, sunk into the ground so only its top half shows) over the vendor.
+    constexpr float DOME_SCALE = 2.1f;       // model scale: the dome base is about RADIUS_TILES wide at DOME_SINK
+    constexpr float DOME_SINK = 233.f;       // how far the sphere centre sits below the ground (world units)
+    OBJECT* s_dome[2] = { nullptr, nullptr };
+
+    bool IsDome(const OBJECT* o)
+    {
+        return o != nullptr && o->Live && o->Type == MODEL_SHIELD_CRASH2 && o->SubType == DOME_SUBTYPE;
+    }
+
+    // The dome is a persistent effect without owner (see Move_MODEL_SHIELD_CRASH2, sub type DOME_SUBTYPE): made once and found again by its position.
+    void EnsureDome(int index, float cx, float cy)
+    {
+        if (IsDome(s_dome[index]))
+            return;
+        s_dome[index] = nullptr;
+        for (int i = 0; i < MAX_EFFECTS; ++i)
+        {
+            OBJECT* o = &Effects[i];
+            if (IsDome(o) && fabsf(o->Position[0] - cx) < 1.f && fabsf(o->Position[1] - cy) < 1.f)
+            {
+                s_dome[index] = o;
+                return;
+            }
+        }
+        vec3_t position, angles, light;
+        Vector(cx, cy, RequestTerrainHeight(cx, cy) - DOME_SINK, position);
+        Vector(0.f, 0.f, 0.f, angles);
+        Vector(0.f, 0.f, 0.f, light);
+        CreateEffect(MODEL_SHIELD_CRASH2, position, angles, light, DOME_SUBTYPE, nullptr);
+    }
 
     // How many particles to make this frame for a rate per frame (the whole part always, the rest by chance).
     int CountFor(float perFrame)
@@ -60,8 +92,9 @@ void Update()
     if (gMapManager.WorldActive != WD_200_MOBA_ARENA)
         return;
 
-    for (const Centre& centre : CENTRES)
+    for (int index = 0; index < 2; ++index)
     {
+        const Centre& centre = CENTRES[index];
         const float cx = (static_cast<float>(centre.x) + 0.5f) * TERRAIN_SCALE;
         const float cy = (static_cast<float>(centre.y) + 0.5f) * TERRAIN_SCALE;
 
@@ -75,19 +108,45 @@ void Update()
                 continue;
         }
 
+        EnsureDome(index, cx, cy);
+
         for (int i = CountFor(FILL_PER_FRAME); i > 0; --i)
         {
             const float angle = static_cast<float>(rand() % 3600) * 0.1f * 3.14159265f / 180.f;
-            const float distance = RADIUS_TILES * TERRAIN_SCALE * sqrtf(static_cast<float>(rand() % 1000) / 1000.f);
+            const float distance = RADIUS_TILES * 0.75f * TERRAIN_SCALE * sqrtf(static_cast<float>(rand() % 1000) / 1000.f);
             Glow(cx + cosf(angle) * distance, cy + sinf(angle) * distance, FILL_SCALE);
         }
 
         for (int i = CountFor(RING_PER_FRAME); i > 0; --i)
         {
             const float angle = static_cast<float>(rand() % 3600) / 3600.f * TWO_PI;
-            Glow(cx + cosf(angle) * RADIUS_TILES * TERRAIN_SCALE, cy + sinf(angle) * RADIUS_TILES * TERRAIN_SCALE, RING_SCALE);
+            Glow(cx + cosf(angle) * RADIUS_TILES * 0.8f * TERRAIN_SCALE, cy + sinf(angle) * RADIUS_TILES * 0.8f * TERRAIN_SCALE, RING_SCALE);
         }
     }
+}
+
+void SnapDome(OBJECT* o)
+{
+    const Centre* best = &CENTRES[0];
+    float bestDistance = 1e30f;
+    for (const Centre& centre : CENTRES)
+    {
+        const float dx = o->Position[0] - (static_cast<float>(centre.x) + 0.5f) * TERRAIN_SCALE;
+        const float dy = o->Position[1] - (static_cast<float>(centre.y) + 0.5f) * TERRAIN_SCALE;
+        if (dx * dx + dy * dy < bestDistance)
+        {
+            bestDistance = dx * dx + dy * dy;
+            best = &centre;
+        }
+    }
+    const float cx = (static_cast<float>(best->x) + 0.5f) * TERRAIN_SCALE;
+    const float cy = (static_cast<float>(best->y) + 0.5f) * TERRAIN_SCALE;
+    Vector(cx, cy, RequestTerrainHeight(cx, cy) - DOME_SINK, o->Position);
+}
+
+float DomeScale()
+{
+    return DOME_SCALE;
 }
 
 void ApplyToTerrainLight()

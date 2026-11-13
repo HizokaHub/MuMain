@@ -47,12 +47,20 @@ namespace
     HFONT s_tooltipBody = nullptr;
     HFONT s_tooltipBold = nullptr;
     int s_builtForHeight = NOT_BUILT;
+    int s_builtForSize = NOT_BUILT;
+
+    // The user's text size (Options): small, normal, large, huge.
+    float UserScale()
+    {
+        constexpr float SCALES[4] = { 0.88f, 1.0f, 1.18f, 1.36f };
+        return SCALES[GameConfig::GetInstance().GetMobaFontSize()];
+    }
 
     HFONT MakeFont(float scale, int weight)
     {
         const std::wstring selected = GameConfig::GetInstance().GetFontSelection();
         const wchar_t* face = selected.empty() ? L"Tahoma" : selected.c_str();
-        const int size = static_cast<int>((FontHeight - 1) * scale);
+        const int size = static_cast<int>((FontHeight - 1) * scale * UserScale());
         return CreateFont(size, 0, 0, 0, weight, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH | FF_DONTCARE, face);
     }
@@ -72,7 +80,7 @@ namespace
     // Builds the fonts the first time and whenever the size of the UI fonts changed (a new window resolution).
     void EnsureFonts()
     {
-        if (s_body != nullptr && s_builtForHeight == FontHeight)
+        if (s_body != nullptr && s_builtForHeight == FontHeight && s_builtForSize == GameConfig::GetInstance().GetMobaFontSize())
             return;
 
         ForgetFonts();
@@ -84,13 +92,14 @@ namespace
         s_tooltipBody = MakeFont(TOOLTIP_SCALE, FW_NORMAL);
         s_tooltipBold = MakeFont(TOOLTIP_SCALE, FW_SEMIBOLD);
         s_builtForHeight = FontHeight;
+        s_builtForSize = GameConfig::GetInstance().GetMobaFontSize();
     }
 }
 
 int BodyLineHeight()
 {
     constexpr float LINE_TO_FONT = 1.2f;   // the line of a font is a bit taller than its size
-    const float px = (FontHeight - 1) * BODY_SCALE * LINE_TO_FONT;
+    const float px = (FontHeight - 1) * BODY_SCALE * UserScale() * LINE_TO_FONT;
     return (g_fScreenRate_y > 0.f) ? static_cast<int>(px / g_fScreenRate_y + 0.5f) : static_cast<int>(px);
 }
 

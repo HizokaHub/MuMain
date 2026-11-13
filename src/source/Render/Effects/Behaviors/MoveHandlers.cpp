@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "World/Moba/MobaBaseAura.h"
 #include "Render/Textures/ZzzOpenglUtil.h"
 #include "Render/Models/ZzzBMD.h"
 #include "Engine/Object/ZzzInfomation.h"
@@ -282,6 +283,25 @@ namespace Render::Effects::Behaviors
     bool Move_MODEL_SHIELD_CRASH2(OBJECT* o, int index, float Luminosity)
     {
     {
+        if (o->SubType == World::Moba::BaseAura::DOME_SUBTYPE)
+        {
+            // MOBA base bunker: a translucent green half sphere of light over the vendor (the sphere is sunk into the ground), without owner.
+            if (gMapManager.WorldActive != WD_200_MOBA_ARENA) { o->Live = false; return true; }
+            if (o->LifeTime < 10) o->LifeTime = 999999;
+            o->Timer += FPS_ANIMATION_FACTOR;
+            o->Angle[2] = fmodf(o->Angle[2] + 0.5f * FPS_ANIMATION_FACTOR, 360.f);
+            const float pulse = 0.85f + 0.15f * sinf(o->Timer * 0.05f);
+            Vector(0.25f * pulse, 1.0f * pulse, 0.45f * pulse, o->Light);
+            o->Alpha = 0.45f;
+            o->Scale = World::Moba::BaseAura::DomeScale();
+            // The break animation moves the model (it travels with the frames): hold one frame and put it back where it was made.
+            o->AnimationFrame = 4.f;
+            o->PriorAnimationFrame = 4.f;
+            Models[o->Type].PlayAnimation(&o->AnimationFrame, &o->PriorAnimationFrame, &o->PriorAction, 0.f, o->Position, o->Angle);
+            World::Moba::BaseAura::SnapDome(o);
+            return true;
+        }
+
         if (o->SubType == 7)
         {
             // MOBA broken-SD sphere, inner layer: the intact rotating sphere, looping.

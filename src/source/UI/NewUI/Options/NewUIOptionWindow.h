@@ -103,6 +103,7 @@ namespace SEASON3B
         bool m_bWindowedMode;
         int m_iLanguageIndex;
         int m_iFontIndex;
+        int m_iFontSizeIndex;
 
         // Set when a combo consumes a click; swallows the rest of that mouse-hold
         // so the release can't fall through to the Close button (see UpdateMouseEvent).
@@ -111,6 +112,7 @@ namespace SEASON3B
         CNewUIComboBox m_ResolutionCombo;
         CNewUIComboBox m_LanguageCombo;
         CNewUIComboBox m_FontCombo;
+        CNewUIComboBox m_FontSizeCombo;   // MOBA text size, next to the font family
 
         void ApplyResolution();
         int FindCurrentResolutionIndex();
@@ -125,6 +127,9 @@ namespace SEASON3B
         void ApplyFont();
         int FindCurrentFontIndex();
         void InitFontCombo();
+
+        void ApplyFontSize();
+        void InitFontSizeCombo();
     };
 }
 

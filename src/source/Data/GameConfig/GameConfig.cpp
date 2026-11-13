@@ -76,6 +76,7 @@ void GameConfig::Load()
 
     m_uiLocale = ReadString(CfgSectionUI, CfgKeyUILocale, CfgDefaultUILocale);
     m_fontSelection = ReadString(CfgSectionUI, CfgKeyFont, CfgDefaultFont);
+    SetMobaFontSize(ReadInt(CfgSectionUI, L"MobaFontSize", 1));
 
     m_zoom = ReadInt(CfgSectionCamera, CfgKeyZoom, CfgDefaultZoom);
 
@@ -127,6 +128,7 @@ void GameConfig::Save()
 
     WriteString(CfgSectionUI, CfgKeyUILocale, m_uiLocale);
     WriteString(CfgSectionUI, CfgKeyFont, m_fontSelection);
+    WriteInt(CfgSectionUI, L"MobaFontSize", m_mobaFontSize);
 
     WriteInt(CfgSectionCamera, CfgKeyZoom, m_zoom);
 

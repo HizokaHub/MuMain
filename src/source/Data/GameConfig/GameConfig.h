@@ -67,6 +67,9 @@ public:
     // UI font family name (GDI face name). Empty = platform default.
     std::wstring GetFontSelection() const { return m_fontSelection; }
     void SetFontSelection(const std::wstring& font);
+    // MOBA text size (0 small, 1 normal, 2 large, 3 huge); scales the MOBA panels' fonts (World/Moba, UI::Moba::Draw).
+    int  GetMobaFontSize() const { return m_mobaFontSize; }
+    void SetMobaFontSize(int size) { m_mobaFontSize = (size < 0) ? 0 : (size > 3 ? 3 : size); }
 
     // Chat commands - the favourites and the named templates of the command
     // window. They belong to the installation, not to a character.
@@ -133,6 +136,7 @@ private:
 
     std::wstring m_uiLocale;
     std::wstring m_fontSelection;
+    int m_mobaFontSize = 1;
 
     int m_zoom;
 

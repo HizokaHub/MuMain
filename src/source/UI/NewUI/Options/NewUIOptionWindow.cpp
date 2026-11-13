@@ -169,7 +169,9 @@ namespace
     constexpr int FONT_LABEL_Y_LOCAL = 244;
     constexpr int FONT_COMBO_X_LOCAL = 22;
     constexpr int FONT_COMBO_Y_LOCAL = 257;
-    constexpr int FONT_COMBO_WIDTH   = 148;
+    constexpr int FONT_COMBO_WIDTH   = 84;   // narrower than the others: the text-size combo sits to its right
+    constexpr int FONT_SIZE_COMBO_X_LOCAL = 110;
+    constexpr int FONT_SIZE_COMBO_WIDTH   = 60;
     constexpr int FONT_COMBO_HEIGHT  = 16;
     constexpr int FONT_COMBO_MAX_VISIBLE = 5;
 }
@@ -195,6 +197,7 @@ SEASON3B::CNewUIOptionWindow::CNewUIOptionWindow()
     m_bWindowedMode = (g_bUseWindowMode == TRUE);
     m_iLanguageIndex = FindCurrentLanguageIndex();
     m_iFontIndex = FindCurrentFontIndex();
+    m_iFontSizeIndex = GameConfig::GetInstance().GetMobaFontSize();
 }
 
 SEASON3B::CNewUIOptionWindow::~CNewUIOptionWindow()
@@ -215,6 +218,7 @@ bool SEASON3B::CNewUIOptionWindow::Create(CNewUIManager* pNewUIMng, int x, int y
     InitResolutionCombo();
     InitLanguageCombo();
     InitFontCombo();
+    InitFontSizeCombo();
     Show(false);
     return true;
 }
@@ -258,6 +262,20 @@ void SEASON3B::CNewUIOptionWindow::InitFontCombo()
         FONT_COMBO_MAX_VISIBLE);
 }
 
+void SEASON3B::CNewUIOptionWindow::InitFontSizeCombo()
+{
+    static const wchar_t* const labels[] = { L"Chica", L"Normal", L"Grande", L"Enorme" };
+    m_FontSizeCombo.Setup(
+        m_Pos.x + FONT_SIZE_COMBO_X_LOCAL,
+        m_Pos.y + FONT_COMBO_Y_LOCAL,
+        FONT_SIZE_COMBO_WIDTH,
+        FONT_COMBO_HEIGHT,
+        labels,
+        4,
+        m_iFontSizeIndex,
+        4);
+}
+
 void SEASON3B::CNewUIOptionWindow::SetButtonInfo()
 {
     m_BtnClose.ChangeTextBackColor(RGBA(255, 255, 255, 0));
@@ -285,6 +303,7 @@ void SEASON3B::CNewUIOptionWindow::SetPos(int x, int y)
     m_ResolutionCombo.SetPos(m_Pos.x + RES_COMBO_X_LOCAL, m_Pos.y + RES_COMBO_Y_LOCAL);
     m_LanguageCombo.SetPos(m_Pos.x + LANG_COMBO_X_LOCAL, m_Pos.y + LANG_COMBO_Y_LOCAL);
     m_FontCombo.SetPos(m_Pos.x + FONT_COMBO_X_LOCAL, m_Pos.y + FONT_COMBO_Y_LOCAL);
+    m_FontSizeCombo.SetPos(m_Pos.x + FONT_SIZE_COMBO_X_LOCAL, m_Pos.y + FONT_COMBO_Y_LOCAL);
 }
 
 bool SEASON3B::CNewUIOptionWindow::UpdateMouseEvent()
@@ -320,6 +339,7 @@ bool SEASON3B::CNewUIOptionWindow::UpdateMouseEvent()
         { &m_ResolutionCombo, &m_iResolutionIndex, &CNewUIOptionWindow::ApplyResolution },
         { &m_LanguageCombo,   &m_iLanguageIndex,   &CNewUIOptionWindow::ApplyLanguage   },
         { &m_FontCombo,       &m_iFontIndex,       &CNewUIOptionWindow::ApplyFont        },
+        { &m_FontSizeCombo,   &m_iFontSizeIndex,   &CNewUIOptionWindow::ApplyFontSize    },
     };
     for (int pass = 0; pass < 2; ++pass)   // pass 0 = open combo (on top), pass 1 = closed
     {
@@ -532,6 +552,9 @@ void SEASON3B::CNewUIOptionWindow::OpenningProcess()
     m_iFontIndex = FindCurrentFontIndex();
     m_FontCombo.SetSelectedIndex(m_iFontIndex);
     m_FontCombo.Close();
+    m_iFontSizeIndex = GameConfig::GetInstance().GetMobaFontSize();
+    m_FontSizeCombo.SetSelectedIndex(m_iFontSizeIndex);
+    m_FontSizeCombo.Close();
     m_bWindowedMode = (g_bUseWindowMode == TRUE);
 }
 
@@ -540,6 +563,7 @@ void SEASON3B::CNewUIOptionWindow::ClosingProcess()
     m_ResolutionCombo.Close();
     m_LanguageCombo.Close();
     m_FontCombo.Close();
+    m_FontSizeCombo.Close();
 }
 
 void SEASON3B::CNewUIOptionWindow::LoadImages()
@@ -744,7 +768,7 @@ void SEASON3B::CNewUIOptionWindow::RenderButtons()
     // physically below an open one would draw its closed field on top of
     // that open dropdown's list (since they overlap in screen space when
     // the upper one expands downward).
-    CNewUIComboBox* combos[] = { &m_ResolutionCombo, &m_LanguageCombo, &m_FontCombo };
+    CNewUIComboBox* combos[] = { &m_ResolutionCombo, &m_LanguageCombo, &m_FontCombo, &m_FontSizeCombo };
     for (auto* c : combos) if (!c->IsOpen()) c->Render();
     for (auto* c : combos) if (c->IsOpen())  c->Render();
 }
@@ -864,6 +888,16 @@ void SEASON3B::CNewUIOptionWindow::ApplyFont()
     GameConfig::GetInstance().SetFontSelection(s_Fonts[m_iFontIndex].name);
     // Recreate the GDI fonts from config so the change takes effect live.
     ReinitializeFonts();
+    GameConfig::GetInstance().Save();
+}
+
+void SEASON3B::CNewUIOptionWindow::ApplyFontSize()
+{
+    if (GameConfig::GetInstance().GetMobaFontSize() == m_iFontSizeIndex)
+        return;
+
+    // The MOBA panels rebuild their fonts the next time they draw (UI::Moba::Draw).
+    GameConfig::GetInstance().SetMobaFontSize(m_iFontSizeIndex);
     GameConfig::GetInstance().Save();
 }
 
