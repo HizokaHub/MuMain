@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "World/Moba/MobaMusic.h"
+#include "World/Moba/MobaStressMeter.h"
 #include "Core/Input/KeyState.h"
 #include <vector>
 #include <algorithm>
@@ -794,6 +795,39 @@ static void RenderFpsCounter()
     EndBitmap();
 }
 
+static constexpr int STRESS_TEXT_X = 4;     // top-left corner: the minimap, party list and commander bar sit elsewhere
+static constexpr int STRESS_TEXT_Y = 4;
+
+/**
+ * @brief MOBA stress meter line: values of the last closed 5 s window, shown only while the arena has many characters.
+ */
+static void RenderStressMeter()
+{
+    const World::Moba::StressMeter::OverlayInfo& info = World::Moba::StressMeter::Overlay();
+    if (!info.visible)
+        return;
+
+    BeginBitmap();
+
+    wchar_t szLine[96];
+    g_pRenderText->SetFont(g_hFontBold);
+    g_pRenderText->SetBgColor(0, 0, 0, 100);
+    if (info.workP95Ms < THRESHOLD_60FPS_MS)
+        g_pRenderText->SetTextColor(255, 255, 255, 200);
+    else if (info.workP95Ms < THRESHOLD_40FPS_MS)
+        g_pRenderText->SetTextColor(255, 190, 60, 230);
+    else
+        g_pRenderText->SetTextColor(255, 80, 80, 230);
+
+    // Short on purpose: the font has a fixed pixel size and the commander bar starts at x=170 of the 640x480 reference.
+    mu_swprintf(szLine, L"FPS %.0f | %d u | %.1f ms (p95 %.1f)",
+        info.fps, info.units, info.workAvgMs, info.workP95Ms);
+    g_pRenderText->RenderText(STRESS_TEXT_X, STRESS_TEXT_Y, szLine);
+
+    g_pRenderText->SetFont(g_hFont);
+    EndBitmap();
+}
+
 /**
  * @brief Checks and handles server connection loss.
  */
@@ -1206,12 +1240,14 @@ void MainScene(HDC hDC)
             RenderDebugInfo();
             RenderGLStats();
             RenderFpsCounter();
+            RenderStressMeter();
             UI::Reconnect::RenderDialog();
 
             // Once per frame, unconditionally -- see the comment at the end of RenderDebugInfo()
             // for why this can't live inside either overlay function. AdvanceGpuTimers() must run
             // after this frame's Terrain/Objects/Characters/Items/Effects/UI passes have all
             // issued their GpuTimerBegin/End calls, which RenderCurrentScene() above guarantees.
+            World::Moba::StressMeter::CapturePasses();   // must read the pass accumulators before they are zeroed
             FrameProfiler::ResetFrame();
             FrameProfiler::ResetCounters();
             FrameProfiler::AdvanceGpuTimers();
@@ -1267,8 +1303,10 @@ void MainScene(HDC hDC)
 
 void RenderScene(HDC hDC)
 {
+    World::Moba::StressMeter::BeginFrame();
     CalcFPS();
     UpdateSceneState();
+    World::Moba::StressMeter::MarkUpdateDone();
 
     // Drive auto-reconnect after the scene loops have advanced this frame. It
     // runs across all scenes because reconnect passes through the login,
@@ -1298,6 +1336,7 @@ void RenderScene(HDC hDC)
             MainScene(hDC);
             break;
         }
+        World::Moba::StressMeter::EndFrame();
 
         if (g_iNoMouseTime > 31)
         {

@@ -52,12 +52,14 @@ namespace FrameProfiler
         Overlay,   // $details/$glstats/FPS-counter self-cost. These render text as roughly one IR
                    // quad per glyph and used to be tagged Other, contaminating the exact bucket
                    // under investigation -- an observer effect large enough to mislead.
+        MoveChars, // MoveCharactersClient() in UpdateGameEntities() -- Move/update phase, not render
+                   // (read by World::Moba::StressMeter; emits no GL calls)
         Count_
     };
 
     inline constexpr const char* kPassNames[(int)Pass::Count_] = {
         "Terrain", "Objects", "Chars", "Items", "Effects", "Other", "CharWait", "MoveFx", "MovePart",
-        "Skinning", "UI", "Present", "Sprites", "Particles", "Joints", "Overlay"
+        "Skinning", "UI", "Present", "Sprites", "Particles", "Joints", "Overlay", "MoveChars"
     };
 
     inline float& AccumulatorMs(Pass p)

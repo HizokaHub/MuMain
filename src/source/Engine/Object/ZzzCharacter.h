@@ -29,6 +29,10 @@ void RenderCharactersClient();
 void BuildCharacterScenePickOBB(const OBJECT* o, OBB_t& outOBB);
 void MoveCharacterClient(CHARACTER* cc);
 void MoveCharactersClient();
+// MOBA stress meter counters (World::Moba::StressMeter): characters moved / drawn in the last frame, and creations lost because all slots were taken.
+extern int g_LastLiveCharacterCount;
+extern int g_LastRenderedCharacterCount;
+extern int g_CharacterSlotOverflowCount;
 void UpdateCharactersAnimationParallel(std::span<CHARACTER> characters);
 void WaitCharactersAnimation();
 

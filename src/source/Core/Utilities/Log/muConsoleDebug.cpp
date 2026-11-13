@@ -20,6 +20,7 @@
 #include "Scenes/SceneManager.h"
 #include "Scenes/MainScene.h"
 #include "UI/NewUI/NewUISystem.h"
+#include "World/Moba/MobaStressMeter.h"
 
 #ifdef _EDITOR
 #include "../MuEditor/UI/Console/MuEditorConsoleUI.h"
@@ -113,6 +114,16 @@ bool CmuConsoleDebug::CheckCommand(const std::wstring& strCommand)
     else if (strCommand.compare(L"$glstats off") == 0)
     {
         SetShowGLStats(false);
+        return true;
+    }
+    else if (strCommand.compare(L"$stress on") == 0)
+    {
+        World::Moba::StressMeter::SetEnabled(true);
+        return true;
+    }
+    else if (strCommand.compare(L"$stress off") == 0)
+    {
+        World::Moba::StressMeter::SetEnabled(false);
         return true;
     }
     else if (strCommand.compare(0, 4, L"$fps") == 0)

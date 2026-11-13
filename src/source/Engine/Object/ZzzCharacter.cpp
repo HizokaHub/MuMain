@@ -6644,6 +6644,10 @@ void MoveCharacterClient(CHARACTER* cc)
     }
 }
 
+int g_LastLiveCharacterCount = 0;
+int g_LastRenderedCharacterCount = 0;
+int g_CharacterSlotOverflowCount = 0;
+
 void MoveCharactersClient()
 {
     for (int i = 0; i < TERRAIN_SIZE * TERRAIN_SIZE; i++)
@@ -6651,6 +6655,7 @@ void MoveCharactersClient()
         if ((TerrainWall[i] & TW_CHARACTER) == TW_CHARACTER) TerrainWall[i] -= TW_CHARACTER;
     }
 
+    g_LastLiveCharacterCount = 0;
     for (int i = 0; i < MAX_CHARACTERS_CLIENT; i++)
     {
         CHARACTER* tc = &CharactersClient[i];
@@ -6659,6 +6664,7 @@ void MoveCharactersClient()
         {
             int Index = TERRAIN_INDEX_REPEAT((tc->PositionX), (tc->PositionY));
             TerrainWall[Index] |= TW_CHARACTER;
+            ++g_LastLiveCharacterCount;
         }
 
         to->Visible = TestFrustrum2D(to->Position[0] * 0.01f, to->Position[1] * 0.01f, -20.f);
@@ -11586,6 +11592,7 @@ void RenderCharactersClient()
 
     WaitCharactersAnimation();
 
+    g_LastRenderedCharacterCount = 0;
     for (int i = 0; i < MAX_CHARACTERS_CLIENT; ++i)
     {
         CHARACTER* c = &CharactersClient[i];
@@ -11654,6 +11661,7 @@ void RenderCharactersClient()
         {
             if (o->Visible)
             {
+                ++g_LastRenderedCharacterCount;
                 if (i != SelectedCharacter && i != SelectedNpc)
                     RenderCharacter(c, o);
                 else
@@ -12290,6 +12298,7 @@ CHARACTER* CreateCharacter(int Key, int Type, unsigned char PositionX, unsigned 
         }
     }
 
+    ++g_CharacterSlotOverflowCount;
     return &CharactersClient[MAX_CHARACTERS_CLIENT];
 }
 

@@ -286,7 +286,7 @@ static void UpdateGameEntities()
     UI::Chat::MoveChat();
     UpdatePersonalShopTitleImp();
     MoveHero();
-    MoveCharactersClient();
+    { FRAME_PROFILE_CPU_ONLY(MoveChars); MoveCharactersClient(); }
     MoveMounts();
     ThePetProcess().UpdatePets();
     MovePoints();
