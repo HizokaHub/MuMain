@@ -704,7 +704,13 @@ void DirectSoundManager::EnsureCoInitialized()
 {
     if (!comInitialized_.exchange(true))
     {
-        CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        // MU MOBA: si el hilo ya tenia COM en otro modo (SDL/audio lo inicializa antes), esto falla con
+        // RPC_E_CHANGED_MODE y NO se debe llamar luego a CoUninitialize (quedaba desbalanceado y
+        // cerraba COM antes de tiempo: 0xc0000005 en combase.dll).
+        if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED)))
+        {
+            comInitialized_.store(false);
+        }
     }
 }
 

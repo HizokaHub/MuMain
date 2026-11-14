@@ -329,9 +329,15 @@ INT_PTR CALLBACK DSoundEnumCallback(GUID* pGUID, LPWSTR strDesc, LPWSTR strDrvNa
 {
     if (pGUID) {
         auto* pSoundDeviceEnumInfo = (ER_SOUNDDEVICEENUMINFO*)pContext;
-        wcscpy(pSoundDeviceEnumInfo->GetNextDevice().szDeviceName, strDesc);
-        wcscpy(pSoundDeviceEnumInfo->GetNextDevice().szDriverName, strDrvName);
-        pSoundDeviceEnumInfo->nDeivceCount++;
+        // MU MOBA: antes wcscpy sin limite sobre buffers de 128 caracteres y sin tope de dispositivos.
+        if (pSoundDeviceEnumInfo->nDeivceCount < ER_SOUNDDEVICEENUMINFO::MAX_DEVICENUM) {
+            ER_SOUNDDEVICEINFO& dev = pSoundDeviceEnumInfo->GetNextDevice();
+            dev.szDeviceName[0] = L'\0';
+            dev.szDriverName[0] = L'\0';
+            if (strDesc) wcsncpy_s(dev.szDeviceName, _countof(dev.szDeviceName), strDesc, _TRUNCATE);
+            if (strDrvName) wcsncpy_s(dev.szDriverName, _countof(dev.szDriverName), strDrvName, _TRUNCATE);
+            pSoundDeviceEnumInfo->nDeivceCount++;
+        }
     }
     return TRUE;
 }
@@ -359,9 +365,9 @@ void CErrorReport::WriteSoundCardInfo(void)
 
         wchar_t lpszBuffer[MAX_PATH];
         GetSystemDirectory(lpszBuffer, MAX_PATH);
-        wcscat(lpszBuffer, L"\\drivers\\");
-        wcscat(lpszBuffer, sdi.infoSoundDevice[i].szDriverName);
-        WORD wVersion[4];
+        wcscat_s(lpszBuffer, MAX_PATH, L"\\drivers\\");
+        wcscat_s(lpszBuffer, MAX_PATH, sdi.infoSoundDevice[i].szDriverName);
+        WORD wVersion[4] = { 0, 0, 0, 0 };
         GetFileVersion(lpszBuffer, wVersion);
 
         Write(L"Sound Card Driver\t: %ls (%d.%d.%d.%d)\r\n", sdi.infoSoundDevice[i].szDriverName, wVersion[0], wVersion[1], wVersion[2], wVersion[3]);
@@ -509,6 +515,15 @@ typedef HRESULT(WINAPI* DIRECTDRAWCREATEEX)(GUID*, VOID**, REFIID, IUnknown*);
 typedef HRESULT(WINAPI* DIRECTINPUTCREATE)(HINSTANCE, DWORD, LPDIRECTINPUT*,
     IUnknown*);
 
+// MU MOBA: la deteccion antigua (DirectDraw + DirectMusic con CoInitialize/CoUninitialize desbalanceados y FreeLibrary con objetos vivos)
+// corrompia memoria / el estado de COM en equipos con drivers AMD viejos (0xc0000374 y 0xc0000005 en combase.dll).
+// Solo servia para una linea del log; Windows 10/11 siempre trae DirectX 9 o superior.
+DWORD GetDXVersion()
+{
+    return 0x900;
+}
+
+#if 0 // sondeo antiguo, conservado solo como referencia
 DWORD GetDXVersion()
 {
     DIRECTDRAWCREATE     DirectDrawCreate = NULL;
@@ -752,6 +767,7 @@ DWORD GetDXVersion()
 
     return dwDXVersion;
 }
+#endif
 
 void GetSystemInfo(ER_SystemInfo* si)
 {

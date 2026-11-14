@@ -1577,12 +1577,73 @@ static void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLen
 #endif // _DEBUG
 
 #ifdef _WIN32
+// MU MOBA: si el cliente se cae, deja en MuError.log el codigo, el modulo+desplazamiento y la pila,
+// y escribe MuCrash.dmp junto al Main.exe (para diagnosticar equipos ajenos sin depurador).
+#include <dbghelp.h>
+static LONG WINAPI MuCrashFilter(EXCEPTION_POINTERS* ep)
+{
+    static volatile LONG busy = 0;
+    if (InterlockedExchange(&busy, 1) != 0 || ep == nullptr || ep->ExceptionRecord == nullptr)
+        return EXCEPTION_CONTINUE_SEARCH;
+
+    auto describe = [](void* addr, wchar_t* out, size_t outCount) {
+        HMODULE mod = nullptr;
+        wchar_t path[MAX_PATH] = L"?";
+        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               (LPCWSTR)addr, &mod) && mod)
+        {
+            GetModuleFileNameW(mod, path, MAX_PATH);
+        }
+        const wchar_t* name = wcsrchr(path, L'\\');
+        swprintf(out, outCount, L"%ls+0x%llX", name ? name + 1 : path,
+                 (unsigned long long)((uintptr_t)addr - (uintptr_t)mod));
+    };
+
+    wchar_t where[MAX_PATH + 32];
+    describe(ep->ExceptionRecord->ExceptionAddress, where, _countof(where));
+    g_ErrorReport.Write(L"!!! CRASH codigo 0x%08X en %ls\r\n", (unsigned)ep->ExceptionRecord->ExceptionCode, where);
+
+    void* frames[24] = {};
+    const USHORT n = RtlCaptureStackBackTrace(0, 24, frames, nullptr);
+    for (USHORT i = 0; i < n; ++i)
+    {
+        describe(frames[i], where, _countof(where));
+        g_ErrorReport.Write(L"    #%u %ls\r\n", (unsigned)i, where);
+    }
+
+    wchar_t dumpPath[MAX_PATH];
+    if (GetModuleFileNameW(nullptr, dumpPath, MAX_PATH))
+    {
+        wchar_t* slash = wcsrchr(dumpPath, L'\\');
+        if (slash) *(slash + 1) = L'\0';
+        wcscat_s(dumpPath, MAX_PATH, L"MuCrash.dmp");
+        if (HMODULE dbg = LoadLibraryW(L"dbghelp.dll"))
+        {
+            typedef BOOL(WINAPI* PFN_DUMP)(HANDLE, DWORD, HANDLE, MINIDUMP_TYPE, PMINIDUMP_EXCEPTION_INFORMATION,
+                                           PMINIDUMP_USER_STREAM_INFORMATION, PMINIDUMP_CALLBACK_INFORMATION);
+            PFN_DUMP dump = (PFN_DUMP)GetProcAddress(dbg, "MiniDumpWriteDump");
+            HANDLE file = CreateFileW(dumpPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (dump && file != INVALID_HANDLE_VALUE)
+            {
+                MINIDUMP_EXCEPTION_INFORMATION mei = { GetCurrentThreadId(), ep, FALSE };
+                dump(GetCurrentProcess(), GetCurrentProcessId(), file, MiniDumpWithIndirectlyReferencedMemory, &mei, nullptr, nullptr);
+                g_ErrorReport.Write(L"    minidump: %ls\r\n", dumpPath);
+            }
+            if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        }
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int nCmdShow)
 #else
 // Off Windows the Linux entry point (main.cpp) calls this directly.
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int nCmdShow)
 #endif
 {
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(MuCrashFilter);
+#endif
     wchar_t lpszExeVersion[256] = L"unknown";
 
     wchar_t* lpszCommandLine = GetCommandLine();
