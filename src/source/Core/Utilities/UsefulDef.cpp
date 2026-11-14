@@ -43,16 +43,19 @@ int DivideStringByPixel(wchar_t* alpszDst, int nDstRow, int nDstColumn, const wc
     wchar_t* context = nullptr;
     wchar_t* pszToken = wcstok_s(&szWorkSrc[0], &szNewlineChar, &context);
 
-    while (pszToken != nullptr)
+    // MU MOBA: antes cada trozo recibia nDstRow como maximo de lineas, sin descontar las ya usadas.
+    // Si un trozo se partia en mas lineas (segun la tipografia/DPI del equipo) se escribia fuera del
+    // arreglo de destino: corrupcion de heap (0xc0000374), hallada con ASan en CNewUIGensRanking::SetTitleName.
+    while (pszToken != nullptr && nLine < nDstRow)
     {
         if (bSpaceInsert)
         {
             mu_swprintf(szWorkToken, L" %ls", pszToken);
-            nLine += CutText3(szWorkToken, alpszDst + nLine * nDstColumn, nPixelPerLine, nDstRow, nDstColumn);
+            nLine += CutText3(szWorkToken, alpszDst + nLine * nDstColumn, nPixelPerLine, nDstRow - nLine, nDstColumn);
         }
         else
         {
-            nLine += CutText3(pszToken, alpszDst + nLine * nDstColumn, nPixelPerLine, nDstRow, nDstColumn);
+            nLine += CutText3(pszToken, alpszDst + nLine * nDstColumn, nPixelPerLine, nDstRow - nLine, nDstColumn);
         }
 
         pszToken = wcstok_s(nullptr, &szNewlineChar, &context);

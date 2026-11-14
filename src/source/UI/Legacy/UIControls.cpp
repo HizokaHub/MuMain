@@ -79,6 +79,8 @@ int CutStr(const wchar_t* pszSrcText, wchar_t* pTextOut, const int iTargetPixelW
         {
             // we can copy that to the destination
             tempString.copy(pTextOut, tempString.length(), 0);
+            // length() <= iOutStrLength - 2 aqui, asi que el terminador cabe en la fila.
+            pTextOut[tempString.length()] = L'\0';
             iLineIndex++;
             processedSourceCharacters += tempString.length();
 
