@@ -8,7 +8,9 @@ namespace Core::Time
 {
     FrameTimerScheduler& FrameTimerScheduler::Instance()
     {
-        static FrameTimerScheduler instance;
+        // MU MOBA: se deja vivo a proposito: otros singletons estaticos (CNewUISystem) llaman Kill() al destruirse,
+        // y si este ya estaba destruido leian un puntero nulo al cerrar el juego.
+        static FrameTimerScheduler& instance = *new FrameTimerScheduler();
         return instance;
     }
 
