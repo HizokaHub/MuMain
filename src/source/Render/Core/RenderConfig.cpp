@@ -11,6 +11,9 @@ bool g_CoreProfile = false;
 int g_MaxGLVersionMajor = 0;
 int g_MaxGLVersionMinor = 0;
 
+// See RenderConfig.h -- -1 = auto.
+int g_SafeModeSetting = -1;
+
 // -1.0f = alpha test disabled; matches AlphaTestEnable's initial false state in ZzzOpenglUtil.cpp.
 float g_AlphaRef = -1.0f;
 // Matches BeginOpengl()'s default glAlphaFunc(GL_GREATER, 0.25f).
@@ -58,7 +61,9 @@ void InitRenderConfig()
         g_MaxGLVersionMinor = maxMinor;
     }
 
-    int sortParticleDraws = GetPrivateProfileIntW(CfgSections::CfgSectionRender, CfgKeys::CfgKeySortParticleDraws,
+    g_SafeModeSetting = GetPrivateProfileIntW(CfgSections::CfgSectionRender, L"SafeMode", -1, configPath);
+
+    int sortParticleDraws =GetPrivateProfileIntW(CfgSections::CfgSectionRender, CfgKeys::CfgKeySortParticleDraws,
         CfgDefaults::CfgDefaultSortParticleDraws ? 1 : 0, configPath);
     g_SortParticleDraws = (sortParticleDraws != 0);
 }

@@ -14,6 +14,12 @@ extern bool g_CoreProfile;
 extern int g_MaxGLVersionMajor;
 extern int g_MaxGLVersionMinor;
 
+// Modo seguro de render para drivers viejos (MU MOBA): config.ini [Render] SafeMode.
+// -1 = automatico (default: se activa solo con drivers AMD Catalyst/Crimson de 2015-2017),
+//  0 = nunca, 1 = siempre. En modo seguro se apagan las rutas modernas (buffer persistente
+// para los UBO, etc.) y se usan las de reserva, mas lentas pero que no dependen de drivers con errores.
+extern int g_SafeModeSetting;
+
 // Fixed-function alpha test (GL_ALPHA_TEST/glAlphaFunc) state, mirrored for shader-side
 // `discard` (DXP-01). g_AlphaRef is what shaders should test against: -1.0f means alpha
 // test is currently disabled (no discard), otherwise it's the active GL_GREATER threshold.

@@ -13,6 +13,7 @@
 #include "Render/Core/ImmediateRenderer.h" // GLP-19 -- IR::Flush() before texture content changes          // BindVAO() / InvalidateVAOCache()
 #include "Core/Utilities/FrameProfiler.h"
 #include "Core/Utilities/Log/ErrorReport.h"
+#include "Render/Core/RenderConfig.h"
 #include <SDL3/SDL.h>
 #include <unordered_map>
 #include <vector>
@@ -110,6 +111,31 @@ namespace {
         GLint maxBlockSize = 0;
         glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxBlockSize);
         if (maxBlockSize > 0) g_Caps.maxUniformBlockSize = maxBlockSize;
+
+        // Modo seguro (MU MOBA): drivers AMD Catalyst/Crimson (2015-2017) anuncian GL 4.5 pero
+        // corrompen el heap (0xc0000374) con las rutas modernas; se usan las de reserva.
+        bool safeMode = (g_SafeModeSetting == 1);
+        const char* why = "config.ini SafeMode=1";
+        if (g_SafeModeSetting < 0)
+        {
+            const char* renderer = (const char*)glGetString(GL_RENDERER);
+            const char* ctx = versionStr ? strstr(versionStr, "Context ") : nullptr;
+            const bool amd = renderer && (strstr(renderer, "AMD") || strstr(renderer, "ATI") || strstr(renderer, "Radeon"));
+            const int driverMajor = ctx ? atoi(ctx + 8) : 0;
+            if (amd && driverMajor >= 1 && driverMajor <= 17)
+            {
+                safeMode = true;
+                why = "driver AMD antiguo detectado";
+            }
+        }
+        if (safeMode)
+        {
+            g_Caps.bufferStorage = false;
+            g_Caps.vertexAttribBinding = false;
+            g_Caps.programBinary = false;
+            g_Caps.timerQuery = false;
+            g_ErrorReport.Write(L"[RHI_GL Caps] MODO SEGURO activado (%hs): sin buffer persistente ni funciones GL 4.x opcionales.\r\n", why);
+        }
     }
 }
 
