@@ -3250,6 +3250,21 @@ bool BMD::Open2(const wchar_t* DirName, const wchar_t* ModelFileName, bool bReAl
         memcpy(m.Normals, data + ptr, m.NumNormals * sizeof(Normal_t));   ptr += m.NumNormals * sizeof(Normal_t);
         memcpy(m.TexCoords, data + ptr, m.NumTexCoords * sizeof(TexCoord_t)); ptr += m.NumTexCoords * sizeof(TexCoord_t);
 
+        // MU MOBA: algunos modelos traen vertices/normales con un indice de hueso fuera de rango
+        // (p. ej. CW_Bow_Skill.bmd). Se usaba para indexar arreglos globales de MAX_BONES y se escribia
+        // fuera de ellos (corrupcion de memoria, 0xc0000374 en equipos donde el diseno de memoria no lo toleraba).
+        {
+            const int maxNode = NumBones > 0 ? NumBones - 1 : 0;
+            for (int j = 0; j < m.NumVertices; ++j)
+            {
+                if (m.Vertices[j].Node < 0 || m.Vertices[j].Node > maxNode) m.Vertices[j].Node = 0;
+            }
+            for (int j = 0; j < m.NumNormals; ++j)
+            {
+                if (m.Normals[j].Node < 0 || m.Normals[j].Node > maxNode) m.Normals[j].Node = 0;
+            }
+        }
+
         for (int j = 0; j < m.NumTriangles; ++j)
         {
             memcpy(&m.Triangles[j], data + ptr, sizeof(Triangle_t));
