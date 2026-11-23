@@ -403,7 +403,7 @@ typedef struct
     int  SkillDelay[MAX_SKILLS];
     BYTE SkillLevel[MAX_SKILLS]; // Do we even need this array when we have the map of CSkillTreeInfo?
 
-    CSkillTreeInfo MasterSkillInfo[AT_SKILL_MASTER_END + 1]; // Index = ActionSkillType
+    CSkillTreeInfo MasterSkillInfo[MAX_SKILLS]; // Index = ActionSkillType (MAX_SKILLS: the MOBA Rush node, 638, lies beyond AT_SKILL_MASTER_END)
     
 } CHARACTER_ATTRIBUTE;
 
