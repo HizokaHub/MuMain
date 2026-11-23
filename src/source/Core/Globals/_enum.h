@@ -629,6 +629,7 @@ enum ActionSkillType
     AT_SKILL_IncreaseMinimumAttackPower = 607,
     AT_SKILL_RecoverManaMonsterKills = 608,
     AT_SKILL_MASTER_END = 608,
+    AT_SKILL_RUSH_MOBA = 638,   // MOBA: the Blade Knight closing jump (S21 skill 813); AT_SKILL_RUSH (44) is the Castle Siege one, see World/Moba/MobaRushFx.h
 };
 
 const std::map<ActionSkillType, ActionSkillType> SKILL_REPLACEMENTS = {

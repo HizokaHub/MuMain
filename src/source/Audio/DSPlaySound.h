@@ -1010,6 +1010,8 @@ enum ESound
     SOUND_MOBA_GOD_FLAME,
     SOUND_MOBA_GOD_HIT,
     SOUND_MOBA_GOD_MOVE,
+    SOUND_MOBA_RUSH_ATTACK,								// MobaRush\RushAttack_skill.wav (S21), see World/Moba/MobaRushFx.cpp
+    SOUND_MOBA_RUSH_HIT,								// MobaRush\RushAttackHit_skill.wav (S21)
 
     SOUND_MOBA_ANN_FIRST,								// MobaAnn\*.wav: the voice lines of the MOBA announcer (World/Moba/MobaAnnouncer.cpp), in its order
     SOUND_MOBA_ANN_LAST = SOUND_MOBA_ANN_FIRST + 31,

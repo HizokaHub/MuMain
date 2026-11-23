@@ -86,6 +86,7 @@
 #include "MUHelper/MuHelper.h"
 #include "World/Moba/MobaBarrier.h"
 #include "World/Moba/MobaBanner.h"
+#include "World/Moba/MobaRushFx.h"
 #include "World/Moba/MobaReadyCheck.h"
 #include "World/Moba/MobaCommander.h"
 #include "World/Moba/MobaQueueStatus.h"
@@ -4513,6 +4514,10 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
             g_CharacterRegisterBuff(to, eDeBuff_Harden);
         }
         sc->AttackTime = 1;
+        break;
+
+    case AT_SKILL_RUSH_MOBA:
+        World::Moba::RushFx::OnCast(sc);
         break;
 
     case AT_SKILL_RUSH:

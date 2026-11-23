@@ -115,6 +115,7 @@ namespace
 #include "GameLogic/Pets/w_PetProcess.h"
 #include "Character/CSParts.h"
 #include "World/Moba/MobaFog.h"
+#include "World/Moba/MobaRushFx.h"
 #include "World/Moba/MobaCommander.h"   // RtsView (the commander's hero is not drawn)
 #include "World/Moba/MobaSummon.h"
 #include "World/Moba/MobaExtraPets.h"
@@ -3071,6 +3072,13 @@ bool AttackStage(CHARACTER* c, OBJECT* o)
         c->AttackTime = 1;
     }
     break;
+    case AT_SKILL_RUSH_MOBA:
+        if (IsAttackImpactFrame(o))
+        {
+            World::Moba::RushFx::OnImpact();
+            c->AttackTime = 15;
+        }
+        break;
     case AT_SKILL_CHAIN_DRIVE:
     case AT_SKILL_CHAIN_DRIVE_STR:
     case AT_SKILL_BEAST_UPPERCUT:
