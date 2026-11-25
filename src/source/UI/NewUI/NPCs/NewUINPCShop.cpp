@@ -233,6 +233,11 @@ bool SEASON3B::CNewUINPCShop::UpdateKeyEvent()
         return true;
     }
 
+    if (UI::Moba::ShopPanel::Active() && UI::Moba::ShopPanel::UpdateKeys())
+    {
+        return false;
+    }
+
     if (SEASON3B::IsRepeat(VK_SHIFT) && SEASON3B::IsPress('L'))
     {
         SocketClient->ToGameServer()->SendRepairItemRequest(0xFF, 0);

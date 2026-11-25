@@ -14458,6 +14458,16 @@ void SendMobaShopPreview(unsigned char shopSlot)
     SocketClient->Send(buf, 5);
 }
 
+// MOBA shop: buys that many units of the consumable in a slot of the shop (C1 07 D5 3D slot qtyLo qtyHi).
+void SendMobaShopBuyQuantity(unsigned char shopSlot, unsigned short quantity)
+{
+    if (SocketClient == nullptr || !SocketClient->IsConnected())
+        return;
+
+    BYTE buf[7] = { 0xC1, 7, 0xD5, 0x3D, shopSlot, static_cast<BYTE>(quantity & 0xFF), static_cast<BYTE>(quantity >> 8) };
+    SocketClient->Send(buf, 7);
+}
+
 // MOBA shop: undoes the last purchase (C1 04 D5 3C).
 void SendMobaShopUndo()
 {

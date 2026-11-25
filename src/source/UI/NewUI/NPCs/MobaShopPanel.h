@@ -42,6 +42,12 @@ namespace UI::Moba::ShopPanel
     // (a set is bought one piece at a time).
     MouseResult UpdateMouse(SEASON3B::CNewUIInventoryCtrl* store, bool clicksEnabled, bool canBuy);
 
+    // The keyboard while the "how many" box is open (digits, backspace, enter, escape); true = the box is open and the keys are its own.
+    bool UpdateKeys();
+
+    // Whether the player is typing a quantity (the number keys must not pick a skill meanwhile).
+    bool TypingQuantity();
+
     // The frame, the tabs and the cells (2D).
     void Render(SEASON3B::CNewUIInventoryCtrl* store);
 

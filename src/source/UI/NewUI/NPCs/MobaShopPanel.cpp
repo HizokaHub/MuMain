@@ -799,13 +799,199 @@ namespace
         SendMobaShopPreview(static_cast<BYTE>(s_previewSlotAsked));
     }
 
-    // A right click on an item buys it at once (without the button of the detail strip) when the champion can pay it.
-    void HandleRightClick(UI::Moba::ShopPanel::MouseResult& result)
+    // ---------------------------------------------------------------- how many to buy (potions and the other consumables)
+
+    constexpr int QTY_W = 230;
+    constexpr int QTY_H = 136;
+    constexpr int QTY_BUTTON_H = 20;
+    constexpr size_t QTY_MAX_DIGITS = 4;
+    constexpr int QTY_PRESETS[] = { 10, 20, 30 };
+
+    int s_qtySlot = -1;            // grid index of the offer being bought, -1 = the box is closed
+    std::wstring s_qtyName;
+    std::wstring s_qtyText;        // the number being typed
+    bool s_qtyReplace = true;      // the next digit replaces the preset number
+    uint32_t s_qtyOfferPrice = 0;  // price of the offer as the grid shows it
+    int s_qtyOfferUnits = 1;       // units that price buys
+
+    bool IsSoldByQuantity(const ITEM& item) { return Group(item) == 14 && Number(item) != 10; }   // potions and consumables, not the teleport scroll
+
+    bool QuantityOpen() { return s_qtySlot >= 0; }
+
+    void CloseQuantity() { s_qtySlot = -1; }
+
+    int QuantityValue() { return s_qtyText.empty() ? 0 : std::stoi(s_qtyText); }
+
+    uint32_t QuantityTotal(int quantity)
+    {
+        return std::max<uint32_t>(1u, static_cast<uint32_t>((static_cast<unsigned long long>(s_qtyOfferPrice) * quantity + s_qtyOfferUnits / 2) / s_qtyOfferUnits));
+    }
+
+    Rect QuantityBox() { return { PANEL_X + (PANEL_W - QTY_W) / 2, PANEL_Y + (PANEL_H - QTY_H) / 2, QTY_W, QTY_H }; }
+
+    Rect QuantityPresetButton(int index)
+    {
+        const Rect box = QuantityBox();
+        return { box.x + 10 + index * 72, box.y + 36, 66, QTY_BUTTON_H };
+    }
+
+    Rect QuantityField()
+    {
+        const Rect box = QuantityBox();
+        return { box.x + 10, box.y + 62, QTY_W - 20, QTY_BUTTON_H };
+    }
+
+    Rect QuantityBuyButton()
+    {
+        const Rect box = QuantityBox();
+        return { box.x + 10, box.y + QTY_H - QTY_BUTTON_H - 8, 102, QTY_BUTTON_H };
+    }
+
+    Rect QuantityCancelButton()
+    {
+        const Rect box = QuantityBox();
+        return { box.x + QTY_W - 112, box.y + QTY_H - QTY_BUTTON_H - 8, 102, QTY_BUTTON_H };
+    }
+
+    void OpenQuantity(CNewUIInventoryCtrl* store, const ITEM& item)
+    {
+        if (store == nullptr)
+            return;
+
+        s_qtySlot = (item.y * store->GetNumberOfColumn()) + item.x;
+        s_qtyName = Shorten(ItemAttribute[item.Type].Name, 30);
+        s_qtyOfferPrice = PriceOf(item);
+        s_qtyOfferUnits = std::max(1, static_cast<int>(item.Durability));
+        s_qtyText = L"10";
+        s_qtyReplace = true;
+        s_buyQueue.clear();
+        PlayBuffer(SOUND_CLICK01);
+    }
+
+    void ConfirmQuantity()
+    {
+        const int quantity = QuantityValue();
+        if (quantity <= 0 || QuantityTotal(quantity) > static_cast<uint32_t>(CharacterMachine->Gold))
+            return;
+
+        SendMobaShopBuyQuantity(static_cast<BYTE>(s_qtySlot), static_cast<unsigned short>(quantity));
+        PlayBuffer(SOUND_CLICK01);
+        CloseQuantity();
+    }
+
+    void ClickQuantity()
+    {
+        for (int i = 0; i < static_cast<int>(std::size(QTY_PRESETS)); ++i)
+        {
+            if (Draw::MouseInRect(QuantityPresetButton(i)))
+            {
+                s_qtyText = std::to_wstring(QTY_PRESETS[i]);
+                s_qtyReplace = true;
+                PlayBuffer(SOUND_CLICK01);
+                return;
+            }
+        }
+
+        if (Draw::MouseInRect(QuantityField()))
+        {
+            s_qtyText.clear();
+            s_qtyReplace = false;
+        }
+        else if (Draw::MouseInRect(QuantityBuyButton()))
+        {
+            ConfirmQuantity();
+        }
+        else if (Draw::MouseInRect(QuantityCancelButton()))
+        {
+            CloseQuantity();
+            PlayBuffer(SOUND_CLICK01);
+        }
+    }
+
+    void TypeQuantity()
+    {
+        for (int digit = 0; digit <= 9; ++digit)
+        {
+            if (!SEASON3B::IsPress('0' + digit) && !SEASON3B::IsPress(VK_NUMPAD0 + digit))
+                continue;
+
+            if (s_qtyReplace)
+                s_qtyText.clear();
+            s_qtyReplace = false;
+            if (s_qtyText.size() < QTY_MAX_DIGITS && !(s_qtyText.empty() && digit == 0))
+                s_qtyText += static_cast<wchar_t>(L'0' + digit);
+        }
+
+        if (SEASON3B::IsPress(VK_BACK) && !s_qtyText.empty())
+        {
+            s_qtyText.pop_back();
+            s_qtyReplace = false;
+        }
+        if (SEASON3B::IsPress(VK_RETURN))
+            ConfirmQuantity();
+        else if (SEASON3B::IsPress(VK_ESCAPE))
+            CloseQuantity();
+    }
+
+    void RenderQuantity(HFONT body, HFONT bold, unsigned int gold)
+    {
+        const Rect box = QuantityBox();
+        const int quantity = QuantityValue();
+        const uint32_t total = quantity > 0 ? QuantityTotal(quantity) : 0;
+        const bool canBuy = quantity > 0 && total <= gold;
+
+        Draw::FillRect({ box.x - 2, box.y - 2, box.w + 4, box.h + 4 }, 0.78f, 0.64f, 0.29f, 1.f);
+        Draw::FillRect(box, 0.06f, 0.07f, 0.11f, 1.f);
+        for (int i = 0; i < static_cast<int>(std::size(QTY_PRESETS)); ++i)
+        {
+            const bool chosen = quantity == QTY_PRESETS[i];
+            Draw::FillRect(QuantityPresetButton(i), chosen ? 0.35f : 0.17f, chosen ? 0.29f : 0.19f, chosen ? 0.12f : 0.27f, 1.f);
+        }
+        Draw::FillRect(QuantityField(), 0.f, 0.f, 0.f, 1.f);
+        Draw::FillRect(QuantityBuyButton(), canBuy ? 0.12f : 0.14f, canBuy ? 0.38f : 0.14f, canBuy ? 0.17f : 0.15f, 1.f);
+        Draw::FillRect(QuantityCancelButton(), 0.38f, 0.14f, 0.14f, 1.f);
+        EndRenderColor();
+
+        wchar_t line[96] = {};
+        Draw::PutTextCentered(bold, box.x, box.y + 6, box.w, s_qtyName.c_str(), 255, 226, 150);
+        swprintf(line, std::size(line), L"\u00bfCu\u00e1ntas quieres?   Precio por unidad: %u", QuantityTotal(1));
+        Draw::PutTextCentered(body, box.x, box.y + 21, box.w, line, 190, 195, 205);
+        for (int i = 0; i < static_cast<int>(std::size(QTY_PRESETS)); ++i)
+        {
+            const Rect button = QuantityPresetButton(i);
+            swprintf(line, std::size(line), L"x%d", QTY_PRESETS[i]);
+            Draw::PutTextCentered(bold, button.x, button.y + 5, button.w, line, 240, 240, 240);
+        }
+        const Rect field = QuantityField();
+        swprintf(line, std::size(line), L"Cantidad: %ls_", s_qtyText.c_str());
+        Draw::PutTextCentered(bold, field.x, field.y + 5, field.w, line, 255, 255, 255);
+        swprintf(line, std::size(line), L"Total: %u    (tienes %u)", total, gold);
+        Draw::PutTextCentered(bold, box.x, box.y + 88, box.w, line, canBuy ? 140 : 255, canBuy ? 235 : 110, canBuy ? 140 : 110);
+        const Rect buy = QuantityBuyButton();
+        const Rect cancel = QuantityCancelButton();
+        Draw::PutTextCentered(bold, buy.x, buy.y + 5, buy.w, L"COMPRAR", canBuy ? 240 : 120, canBuy ? 240 : 120, canBuy ? 240 : 125);
+        Draw::PutTextCentered(bold, cancel.x, cancel.y + 5, cancel.w, L"Cancelar", 240, 240, 240);
+    }
+
+    // Whether a rectangle is under the quantity box (its item icons are drawn in a later pass and would show through).
+    bool HiddenByQuantity(const Rect& r)
+    {
+        const Rect box = QuantityBox();
+        return QuantityOpen() && r.x < box.x + box.w && r.x + r.w > box.x && r.y < box.y + box.h && r.y + r.h > box.y;
+    }
+
+    // A right click on an item buys it at once (without the button of the detail strip) when the champion can pay it; a consumable asks how many.
+    void HandleRightClick(CNewUIInventoryCtrl* store, UI::Moba::ShopPanel::MouseResult& result)
     {
         if (s_hoverItem == nullptr)
             return;
 
         s_selected = s_hoverItem;
+        if (IsSoldByQuantity(*s_hoverItem))
+        {
+            OpenQuantity(store, *s_hoverItem);
+            return;
+        }
         if (PriceOf(*s_hoverItem) <= static_cast<uint32_t>(CharacterMachine->Gold))
             result.buyItem = s_hoverItem;
         PlayBuffer(SOUND_CLICK01);
@@ -869,8 +1055,13 @@ namespace
             return;
         }
 
-        if (s_selected != nullptr && Draw::MouseInRect(DetailBuyButton()) && store != nullptr && PriceOf(*s_selected) <= static_cast<uint32_t>(CharacterMachine->Gold))
-            result.buyItem = s_selected;
+        if (s_selected != nullptr && Draw::MouseInRect(DetailBuyButton()) && store != nullptr)
+        {
+            if (IsSoldByQuantity(*s_selected))
+                OpenQuantity(store, *s_selected);
+            else if (PriceOf(*s_selected) <= static_cast<uint32_t>(CharacterMachine->Gold))
+                result.buyItem = s_selected;
+        }
     }
 
     void SetBuyIndex(CNewUIInventoryCtrl* store, UI::Moba::ShopPanel::MouseResult& result)
@@ -1371,6 +1562,21 @@ void Reset()
     s_selected = nullptr;
     s_previewAskedFor = nullptr;
     s_buyQueue.clear();
+    CloseQuantity();
+}
+
+bool TypingQuantity()
+{
+    return Active() && QuantityOpen();
+}
+
+bool UpdateKeys()
+{
+    if (!QuantityOpen())
+        return false;
+
+    TypeQuantity();
+    return true;   // the box is modal: the number keys are not skill shortcuts while it is open
 }
 
 void SetPageTitle(const std::wstring& title)
@@ -1400,6 +1606,13 @@ MouseResult UpdateMouse(CNewUIInventoryCtrl* store, bool clicksEnabled, bool can
     if (!result.used)
         return result;
 
+    if (QuantityOpen())
+    {
+        if (clicksEnabled && SEASON3B::IsRelease(VK_LBUTTON))
+            ClickQuantity();
+        return result;
+    }
+
     std::vector<ITEM*> items = StoreItems(store);
     Layout(store);
     if (MouseWheel != 0 && IsGridTab())
@@ -1415,7 +1628,7 @@ MouseResult UpdateMouse(CNewUIInventoryCtrl* store, bool clicksEnabled, bool can
         Layout(store);
     }
     if (clicksEnabled && SEASON3B::IsRelease(VK_RBUTTON))
-        HandleRightClick(result);
+        HandleRightClick(store, result);
     RequestPreview(store);
 
     if (canBuy)
@@ -1476,6 +1689,11 @@ void Render(CNewUIInventoryCtrl* store)
     }
 
     RenderDetailText(body, bold, DetailItem(), gold);
+    if (QuantityOpen())
+    {
+        RenderQuantity(body, bold, gold);
+        return;
+    }
     Draw::PutTextLeft(body, panel.x + PAD, panel.y + panel.h - 16, panel.w - 2 * PAD,
         L"Clic: ver detalle.  Clic derecho: comprar.  La joya de perfecci\u00f3n se arrastra sobre un \u00edtem de tu inventario.", 170, 175, 190);
 
@@ -1498,6 +1716,8 @@ void Render3D(CNewUIInventoryCtrl* store)
     RenderStepIcons();
     for (const Cell& cell : s_cells)
     {
+        if (HiddenByQuantity(cell.rect))
+            continue;
         RenderIcon(cell.item->Type, cell.item->Level, cell.item->ExcellentFlags, cell.item->AncientDiscriminator, IconBoxOf(cell), IconShiftOf(cell), IsSetsTab() ? REFERENCE_HEIGHT : CatalogArea().y + CatalogArea().h);
     }
 

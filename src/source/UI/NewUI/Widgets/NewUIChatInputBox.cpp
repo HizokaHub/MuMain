@@ -1,5 +1,6 @@
 ﻿#include "stdafx.h"
 #include "UI/Chat/ChatInput.h"
+#include "UI/NewUI/NPCs/MobaShopPanel.h"
 #include "UI/NewUI/Widgets/NewUIChatInputBox.h"
 #include "I18N/All.h"
 
@@ -468,7 +469,8 @@ bool SEASON3B::CNewUIChatInputBox::UpdateKeyEvent()
         }
     }
 
-    if (false == IsVisible() && SEASON3B::IsPress(VK_RETURN))
+    // MOBA shop: while a quantity is being typed, Enter confirms the purchase instead of opening the chat.
+    if (false == IsVisible() && SEASON3B::IsPress(VK_RETURN) && !UI::Moba::ShopPanel::TypingQuantity())
     {
 #ifdef _EDITOR
         // Don't open chat if editor has keyboard focus

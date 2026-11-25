@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "UI/NewUI/NPCs/MobaShopPanel.h"
 #include <algorithm>
 #include "I18N/All.h"
 
@@ -2273,7 +2274,9 @@ bool SEASON3B::CNewUISkillList::UpdateKeyEvent()
         return false;
     }
 
-    for (int i = 0; i < 9; ++i)
+    // MOBA shop: while a quantity is being typed the number keys are digits, not skill slots.
+    const bool typingQuantity = UI::Moba::ShopPanel::TypingQuantity();
+    for (int i = 0; i < 9 && !typingQuantity; ++i)
     {
         if (SEASON3B::IsPress('1' + i))
         {
@@ -2281,7 +2284,7 @@ bool SEASON3B::CNewUISkillList::UpdateKeyEvent()
         }
     }
 
-    if (SEASON3B::IsPress('0'))
+    if (!typingQuantity && SEASON3B::IsPress('0'))
     {
         UseHotKey(0);
     }
