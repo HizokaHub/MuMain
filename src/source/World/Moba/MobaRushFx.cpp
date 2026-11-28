@@ -6,6 +6,7 @@
 #include "Engine/AI/ZzzAI.h"
 #include "Render/Effects/ZzzEffect.h"
 #include "Audio/DSPlaySound.h"
+#include "Audio/SoundOriginScope.h"
 #include "MobaRushFx.h"
 
 namespace World::Moba::RushFx
@@ -54,6 +55,7 @@ namespace World::Moba::RushFx
         OBJECT* o = &caster->Object;
         SetLungePose(caster, o);
         CreateFlash(o);
+        const Audio::SoundOriginScope soundOrigin(o->Position);
         PlaySound(SOUND_MOBA_RUSH_ATTACK, AttackSoundPath);
         caster->AttackTime = 1;
     }

@@ -6307,6 +6307,7 @@ void ItemAngle(OBJECT* o)
 
 void CreateItemDrop(ITEM_t* ip, ItemCreationParams params, vec3_t position, bool isFreshDrop)
 {
+    const Audio::SoundOriginScope soundOrigin(position);
     int Type = params.Group * MAX_ITEM_INDEX + params.Number;
     ITEM* n = &ip->Item;
     n->Type = Type;
@@ -6515,6 +6516,7 @@ void CreateItemDrop(ITEM_t* ip, ItemCreationParams params, vec3_t position, bool
 
 void CreateMoneyDrop(ITEM_t* ip, int amount, vec3_t position, bool isFreshDrop)
 {
+    const Audio::SoundOriginScope soundOrigin(position);
     int Type = ITEM_ZEN;
     ITEM* n = &ip->Item;
     n->Type = Type;
