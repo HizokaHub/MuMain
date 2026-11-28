@@ -403,7 +403,7 @@ void LoadWaveFile(ESound bufferId, const wchar_t* filename, int maxChannel, bool
 
 HRESULT PlayBuffer(ESound bufferId, OBJECT* object, BOOL looped)
 {
-    // MOBA arena: only what is near the hero is heard (the camera can look at any place).
+    // MOBA arena: only what the camera looks at is heard, and only where the team can see.
     if (object != nullptr && !World::Moba::Fog::IsSoundAudible(bufferId, object->Position))
         return S_OK;
 

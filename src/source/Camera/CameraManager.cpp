@@ -335,6 +335,17 @@ extern "C" void GetActiveCameraConfig(float* outFOV, float* outNearPlane, float*
     }
 }
 
+void CameraManager::GetViewOffsetFromHero(vec3_t out) const
+{
+    if (m_CurrentMode != CameraMode::Moba || !m_pMobaCamera)
+    {
+        Vector(0.f, 0.f, 0.f, out);
+        return;
+    }
+
+    static_cast<const MobaCamera*>(m_pMobaCamera.get())->GetFocusOffset(out);
+}
+
 void CameraManager::FocusMobaCameraOn(float worldX, float worldY)
 {
     // Any other camera is locked to the hero: a minimap right-click switches to the free MOBA camera first.

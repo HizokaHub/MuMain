@@ -35,6 +35,11 @@ lets the view leave the character:
 - **Tap `Y`** to snap the view straight back onto your character; **hold `Y`**
   to keep it pinned there (follow). Release to free-pan again.
 - **F11** snaps straight back to the character and resets the zoom rung.
+- **In a MOBA match, sound follows the view.** You hear what happens within
+  14 tiles of where the camera looks, as long as your team can see that
+  spot: panning into the fog gives nothing away. The sounds made by your own
+  champion are always heard, but other sounds next to them are not while you
+  look elsewhere. Tap `Y` to listen around your champion again.
 - The view is capped at a large fixed distance from the character for now
   (about two thirds of a full map); a per-arena boundary will replace that
   cap later. Terrain and objects are still only drawn within the normal

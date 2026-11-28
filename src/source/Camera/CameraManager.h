@@ -76,6 +76,12 @@ public:
      */
     void FocusMobaCameraOn(float worldX, float worldY);
 
+    /**
+     * @brief How far the view has been moved away from the Hero on the ground plane, in world units.
+     * Zero for every camera but the MOBA one.
+     */
+    void GetViewOffsetFromHero(vec3_t out) const;
+
     void ResetActiveView()
     {
         if (m_pActiveCamera && !m_RtsForced)

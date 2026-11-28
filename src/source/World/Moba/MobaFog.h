@@ -47,9 +47,10 @@ namespace World::Moba::Fog
     // character's tile, team its MobaTeam (0 neutral, 1 blue, 2 red). False while the fog is off.
     bool HidesCharacter(int team, int tileX, int tileY);
 
-    // MOBA sound rule: the sound of an object other than the hero is only heard within HearingTiles of the HERO (not of the camera,
-    // which the minimap lets look at any place) and a given sound is not repeated more often than SoundIntervalMs (a lane full of worms
-    // or spiders would otherwise be a wall of noise). Always true outside a match. position is the object's terrain position.
+    // MOBA sound rule: the sound of an object other than the hero is only heard within HearingTiles of what the CAMERA looks at
+    // (the hero, unless the MOBA camera was moved away), only from a tile the team can see, and a given sound is not repeated more
+    // often than SoundIntervalMs (a lane full of worms or spiders would otherwise be a wall of noise). The hero's own sounds are
+    // always heard. Always true outside a match. position is the object's terrain position.
     inline constexpr float HearingTiles = 14.f;
     inline constexpr double SoundIntervalMs = 600.0;
     bool IsSoundAudible(int bufferId, const float* position);

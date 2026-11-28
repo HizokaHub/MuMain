@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "World/Moba/MobaFog.h"
 
+#include "Camera/CameraManager.h"           // where the view is, for hearing
 #include "Engine/Object/ZzzCharacter.h"     // Hero, CharactersClient
 #include "Network/Server/WSclient.h"        // minimap feed, g_MyMobaTeam, g_MobaLevel
 #include "Audio/DSPlaySound.h"             // MAX_BUFFER
@@ -332,6 +333,19 @@ namespace
         light[1] += (luminance * FOG_TINT_G - light[1]) * amount;
         light[2] += (luminance * FOG_TINT_B - light[2]) * amount;
     }
+
+    // The player listens from what the camera looks at: the hero, unless the MOBA camera was moved away.
+    bool IsWithinHearing(const float* position)
+    {
+        vec3_t viewOffset;
+        CameraManager::Instance().GetViewOffsetFromHero(viewOffset);
+
+        const float listenerX = Hero->Object.Position[0] + viewOffset[0];
+        const float listenerY = Hero->Object.Position[1] + viewOffset[1];
+        const float dx = (position[0] - listenerX) / TERRAIN_SCALE;
+        const float dy = (position[1] - listenerY) / TERRAIN_SCALE;
+        return dx * dx + dy * dy <= HearingTiles * HearingTiles;
+    }
 }
 
 void Update()
@@ -449,9 +463,11 @@ bool IsSoundAudible(int bufferId, const float* position)
     if (position == Hero->Object.Position)
         return true;
 
-    const float dx = (position[0] - Hero->Object.Position[0]) / TERRAIN_SCALE;
-    const float dy = (position[1] - Hero->Object.Position[1]) / TERRAIN_SCALE;
-    if (dx * dx + dy * dy > HearingTiles * HearingTiles)
+    if (!IsWithinHearing(position))
+        return false;
+
+    // Moving the camera into the fog must not give away what the team cannot see.
+    if (IsTileHidden((int)(position[0] / TERRAIN_SCALE), (int)(position[1] / TERRAIN_SCALE)))
         return false;
 
     static double s_lastPlayed[MAX_BUFFER] = {};
