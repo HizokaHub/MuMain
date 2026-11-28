@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "Audio/SoundOriginScope.h"
 #include "UI/Chat/Chat.h"
 #include <memory>
 #include "UI/Legacy/UIManager.h"
@@ -2793,6 +2794,7 @@ void ReceiveCreateTransformViewport(std::span<const BYTE> ReceiveBuffer)
 void AppearMonster(CHARACTER* c)
 {
     OBJECT* o = &c->Object;
+    const Audio::SoundOriginScope soundOrigin(o->Position);
     switch (c->MonsterIndex)
     {
     case MONSTER_GOLDEN_DRAGON:
@@ -3162,6 +3164,7 @@ void ReceiveDamage(const BYTE* ReceiveBuffer)
 
 void ReceiveAttackDamageCastle(CHARACTER* c, OBJECT* o, const bool success, const int key, const int damage, const int shieldDamage, const int damageType, const bool bRepeatedly, const bool bEndRepeatedly, const bool bDoubleEnable, const bool bComboEnable)
 {
+    const Audio::SoundOriginScope soundOrigin(o->Position);
     vec3_t Light;
     int accumDamage = shieldDamage + damage;
     int	rstDamage = -1;
@@ -3267,6 +3270,7 @@ void ReceiveAttackDamageCastle(CHARACTER* c, OBJECT* o, const bool success, cons
 
 void ReceiveAttackDamage(CHARACTER* c, OBJECT* o, const bool success, const int key, const int damage, const int shieldDamage, const int damageType, const bool bRepeatedly, const bool bEndRepeatedly, const bool bDoubleEnable, const bool bComboEnable)
 {
+    const Audio::SoundOriginScope soundOrigin(o->Position);
     vec3_t Light;
     if (success)
     {
@@ -3513,6 +3517,7 @@ void ReceiveAction(const BYTE* ReceiveBuffer, int Size)
     int Index = FindCharacterIndex(Key);
     CHARACTER* c = &CharactersClient[Index];
     OBJECT* o = &c->Object;
+    const Audio::SoundOriginScope soundOrigin(o->Position);
 
     int iTargetKey, iTargetIndex;
 
@@ -3823,6 +3828,7 @@ void ReceiveMagicFinish(const BYTE* ReceiveBuffer)
     auto Data = (LPPHEADER_DEFAULT_VALUE_KEY)ReceiveBuffer;
     int Key = ((int)(Data->KeyH) << 8) + Data->KeyL;
     OBJECT* o = &CharactersClient[FindCharacterIndex(Key)].Object;
+    const Audio::SoundOriginScope soundOrigin(o->Position);
 
     switch ((ActionSkillType)Data->Value) // todo: is this correct? Data->Value is a byte, but ActionSkillType is an int
     {
@@ -4104,6 +4110,7 @@ BOOL ReceiveMagic(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     CHARACTER* tc = &CharactersClient[TargetIndex];
     OBJECT* so = &sc->Object;
     OBJECT* to = &tc->Object;
+    const Audio::SoundOriginScope soundOrigin(so->Position);
 
     if (MagicNumber != AT_SKILL_COMBO)
     {
@@ -5197,6 +5204,7 @@ BOOL ReceiveMagicContinue(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
 
     CHARACTER* sc = &CharactersClient[FindCharacterIndex(Key)];
     OBJECT* so = &sc->Object;
+    const Audio::SoundOriginScope soundOrigin(so->Position);
 
     sc->Skill = MagicNumber;
 
@@ -5616,6 +5624,7 @@ void ReceiveChainMagic(const BYTE* ReceiveBuffer)
 
     CHARACTER* pSourceChar = &CharactersClient[FindCharacterIndex(pPacketData->wUserIndex)];
     OBJECT* pSourceObject = &pSourceChar->Object;
+    const Audio::SoundOriginScope soundOrigin(pSourceObject->Position);
     OBJECT* pTempObject = nullptr;
 
     //SetAction(pSourceObject, PLAYER_SKILL_CHAIN_LIGHTNING);
@@ -5674,6 +5683,7 @@ void ReceiveMagicPosition(const BYTE* ReceiveBuffer, int Size)
 
     CHARACTER* c = &CharactersClient[Index];
     OBJECT* o = &c->Object;
+    const Audio::SoundOriginScope soundOrigin(o->Position);
     CreateMagicShiny(c);
     PlayBuffer(SOUND_MAGIC);
     SetAction(o, PLAYER_SKILL_HELL);
@@ -5712,6 +5722,7 @@ void ReceiveSkillCount(const BYTE* ReceiveBuffer)
     int TargetKey = ((int)(Data->KeyH) << 8) + Data->KeyL;
     CHARACTER* tc = &CharactersClient[FindCharacterIndex(TargetKey)];
     OBJECT* to = &tc->Object;
+    const Audio::SoundOriginScope soundOrigin(to->Position);
 
     switch (Data->m_byType)
     {
@@ -5905,6 +5916,7 @@ BOOL ReceiveDieExpLarge(const BYTE* ReceiveBuffer, BOOL bEncrypted)
 
 void FallingStartCharacter(CHARACTER* c, OBJECT* o)
 {
+    const Audio::SoundOriginScope soundOrigin(o->Position);
     auto positionX = (BYTE)(o->Position[0] / TERRAIN_SCALE);
     auto positionY = (BYTE)(o->Position[1] / TERRAIN_SCALE);
     int WallIndex = TERRAIN_INDEX_REPEAT(positionX, positionY);
@@ -9504,6 +9516,7 @@ void ReceiveDisplayEffectViewport(const BYTE* ReceiveBuffer)
     if (index >= 0 && index < MAX_CHARACTERS_CLIENT) {
         CHARACTER* pPlayer = &CharactersClient[index];
         OBJECT* o = &pPlayer->Object;
+        const Audio::SoundOriginScope soundOrigin(o->Position);
         if (o->Kind == KIND_PLAYER) {
             switch (Header->byType) {
             case 0x01:	//. HP up
@@ -13233,6 +13246,7 @@ BOOL ReceiveStraightAttack(const BYTE* ReceiveBuffer, int Size, BOOL bEncrypted)
     CHARACTER* tc = &CharactersClient[TargetIndex];
     OBJECT* so = &sc->Object;
     OBJECT* to = &tc->Object;
+    const Audio::SoundOriginScope soundOrigin(so->Position);
 
     if (sc != Hero && to->Visible)
         so->Angle[2] = CreateAngle2D(so->Position, to->Position);
@@ -16749,6 +16763,7 @@ void ClearBuffLogicalEffect(eBuffState buff, OBJECT* o)
 
 void InsertBuffPhysicalEffect(eBuffState buff, OBJECT* o)
 {
+    const Audio::SoundOriginScope soundOrigin(o != nullptr ? o->Position : nullptr);
     switch (buff)
     {
     case eBuff_CursedTempleProdection:

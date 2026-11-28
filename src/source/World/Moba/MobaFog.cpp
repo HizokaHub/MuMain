@@ -334,18 +334,6 @@ namespace
         light[2] += (luminance * FOG_TINT_B - light[2]) * amount;
     }
 
-    // The player listens from what the camera looks at: the hero, unless the MOBA camera was moved away.
-    bool IsWithinHearing(const float* position)
-    {
-        vec3_t viewOffset;
-        CameraManager::Instance().GetViewOffsetFromHero(viewOffset);
-
-        const float listenerX = Hero->Object.Position[0] + viewOffset[0];
-        const float listenerY = Hero->Object.Position[1] + viewOffset[1];
-        const float dx = (position[0] - listenerX) / TERRAIN_SCALE;
-        const float dy = (position[1] - listenerY) / TERRAIN_SCALE;
-        return dx * dx + dy * dy <= HearingTiles * HearingTiles;
-    }
 }
 
 void Update()
@@ -454,6 +442,17 @@ bool IsTileHidden(int tileX, int tileY)
     return s_fog[tileY * GridSize + tileX] > 0.85f;
 }
 
+float TilesFromListener(const float* position)
+{
+    // The player listens from what the camera looks at: the hero, unless the MOBA camera was moved away.
+    vec3_t viewOffset;
+    CameraManager::Instance().GetViewOffsetFromHero(viewOffset);
+
+    const float listenerX = Hero->Object.Position[0] + viewOffset[0];
+    const float listenerY = Hero->Object.Position[1] + viewOffset[1];
+    return std::hypot(position[0] - listenerX, position[1] - listenerY) / TERRAIN_SCALE;
+}
+
 bool IsSoundAudible(int bufferId, const float* position)
 {
     if (!s_active || Hero == nullptr || position == nullptr || bufferId < 0 || bufferId >= MAX_BUFFER)
@@ -463,7 +462,7 @@ bool IsSoundAudible(int bufferId, const float* position)
     if (position == Hero->Object.Position)
         return true;
 
-    if (!IsWithinHearing(position))
+    if (TilesFromListener(position) > HearingTiles)
         return false;
 
     // Moving the camera into the fog must not give away what the team cannot see.

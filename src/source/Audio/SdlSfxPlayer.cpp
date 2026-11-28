@@ -25,7 +25,7 @@
 #include "Audio/AudioPlayer.h"
 #include "Engine/Object/ZzzCharacter.h"  // OBJECT, used in the DSPlaySound.h API
 #include "Audio/DSPlaySound.h"
-#include "World/Moba/MobaFog.h"
+#include "World/Moba/MobaSoundFilter.h"
 #include "Core/Platform/PathResolve.h"
 #include "Core/Platform/WinNls.h"
 
@@ -404,7 +404,7 @@ void LoadWaveFile(ESound bufferId, const wchar_t* filename, int maxChannel, bool
 HRESULT PlayBuffer(ESound bufferId, OBJECT* object, BOOL looped)
 {
     // MOBA arena: only what the camera looks at is heard, and only where the team can see.
-    if (object != nullptr && !World::Moba::Fog::IsSoundAudible(bufferId, object->Position))
+    if (!World::Moba::SoundFilter::Allows(bufferId, object != nullptr ? object->Position : nullptr))
         return S_OK;
 
     return Manager().PlayBuffer(bufferId, looped != FALSE);

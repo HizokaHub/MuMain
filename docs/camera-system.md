@@ -39,7 +39,11 @@ lets the view leave the character:
   14 tiles of where the camera looks, as long as your team can see that
   spot: panning into the fog gives nothing away. The sounds made by your own
   champion are always heard, but other sounds next to them are not while you
-  look elsewhere. Tap `Y` to listen around your champion again.
+  look elsewhere. Tap `Y` to listen around your champion again. The rule covers
+  skills, hits, deaths and effects anywhere in the arena; interface sounds and
+  the announcer are always heard. For troubleshooting, start the client with the
+  environment variable `MOBA_SOUND_LOG` set to a file path to record every
+  sound of a match.
 - The view is capped at a large fixed distance from the character for now
   (about two thirds of a full map); a per-arena boundary will replace that
   cap later. Terrain and objects are still only drawn within the normal

@@ -55,6 +55,9 @@ namespace World::Moba::Fog
     inline constexpr double SoundIntervalMs = 600.0;
     bool IsSoundAudible(int bufferId, const float* position);
 
+    // Distance on the ground, in tiles, from what the player listens to (see above). Only valid while the fog is on.
+    float TilesFromListener(const float* position);
+
     // Eased fog of every cell, 0 (seen) .. 1 (hidden); GridSize * GridSize cells.
     const float* Cells();
 

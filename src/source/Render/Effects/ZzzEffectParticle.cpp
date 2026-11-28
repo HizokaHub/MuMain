@@ -2,6 +2,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "Audio/SoundOriginScope.h"
 #include "Render/Models/BoneManager.h"
 #include "Render/Textures/ZzzOpenglUtil.h"
 #include "Engine/Object/ZzzInfomation.h"
@@ -3863,6 +3864,7 @@ void MoveParticles()
     for (int i = 0; i < MAX_PARTICLES; i++)
     {
         PARTICLE* o = &Particles[i];
+        const Audio::SoundOriginScope soundOrigin(o->Position);
 
         if (o->Live)
         {

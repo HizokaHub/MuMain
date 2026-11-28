@@ -32,7 +32,7 @@
 #include "Audio/DSWaveIO.h"
 #include "Engine/Object/ZzzCharacter.h"
 #include "Audio/DSPlaySound.h"
-#include "World/Moba/MobaFog.h"
+#include "World/Moba/MobaSoundFilter.h"
 
 #ifdef _WIN32  // ---- Windows: the DirectSound implementation ----------------
 
@@ -760,7 +760,7 @@ HRESULT RestoreBuffers(int bufferId, int channel)
 HRESULT PlayBuffer(ESound bufferId, OBJECT* object, BOOL looped)
 {
     // MOBA arena: only what the camera looks at is heard, and only where the team can see.
-    if (object != nullptr && !World::Moba::Fog::IsSoundAudible(bufferId, object->Position))
+    if (!World::Moba::SoundFilter::Allows(bufferId, object != nullptr ? object->Position : nullptr))
         return S_OK;
 
     return Manager().PlayBuffer(bufferId, object, looped != FALSE);

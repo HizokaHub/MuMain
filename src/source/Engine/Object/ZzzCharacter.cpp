@@ -6,6 +6,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "Audio/SoundOriginScope.h"
 #include <execution>
 #include <algorithm>
 #include <span>
@@ -1075,6 +1076,7 @@ void SetPlayerHighBowAttack(CHARACTER* c)
 void SetPlayerAttack(CHARACTER* c)
 {
     OBJECT* o = &c->Object;
+    const Audio::SoundOriginScope soundOrigin(c->Object.Position);
     if (o->Type == MODEL_PLAYER)
     {
         SetAttackSpeed();
@@ -1359,6 +1361,7 @@ void SetPlayerAttack(CHARACTER* c)
 void SetPlayerMagic(CHARACTER* c)
 {
     OBJECT* o = &c->Object;
+    const Audio::SoundOriginScope soundOrigin(c->Object.Position);
     if (o->Type == MODEL_PLAYER)
     {
         SetAttackSpeed();
@@ -1403,6 +1406,7 @@ void SetPlayerTeleport(CHARACTER* c)
 
 void SetPlayerShock(CHARACTER* c, int Hit)
 {
+    const Audio::SoundOriginScope soundOrigin(c->Object.Position);
     if (c->Dead > 0) return;
     if (c->Helper.Type == MODEL_HORN_OF_UNIRIA || c->Helper.Type == MODEL_HORN_OF_DINORANT) return;
     if (c->Helper.Type == MODEL_DARK_HORSE_ITEM) return;
@@ -1493,6 +1497,7 @@ void SetPlayerShock(CHARACTER* c, int Hit)
 void SetPlayerDie(CHARACTER* c)
 {
     OBJECT* o = &c->Object;
+    const Audio::SoundOriginScope soundOrigin(c->Object.Position);
 
     if (c == Hero)
     {
@@ -6639,6 +6644,7 @@ void MoveMonsterClient(CHARACTER* c, OBJECT* o)
 void MoveCharacterClient(CHARACTER* cc)
 {
     OBJECT* co = &cc->Object;
+    const Audio::SoundOriginScope soundOrigin(co->Position);
     if (co->Live)
     {
         co->Visible = TestFrustrum2D(co->Position[0] * 0.01f, co->Position[1] * 0.01f, -20.f);
@@ -8667,6 +8673,7 @@ void RenderEye(OBJECT* o, int Left, int Right, float fSize = 1.0f)
 
 void RenderCharacter(CHARACTER* c, OBJECT* o, int Select)
 {
+    const Audio::SoundOriginScope soundOrigin(o->Position);
     if (g_isCharacterBuff(o, eBuff_CrywolfNPCHide))
     {
         return;

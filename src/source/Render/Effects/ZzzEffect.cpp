@@ -2,6 +2,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "Audio/SoundOriginScope.h"
 #include "Render/Textures/ZzzOpenglUtil.h"
 #include "Render/Models/ZzzBMD.h"
 #include "Engine/Object/ZzzInfomation.h"
@@ -333,6 +334,7 @@ void CreateEffectFpsChecked(int Type, vec3_t Position, vec3_t Angle, vec3_t Ligh
 
 void CreateEffect(int Type, vec3_t Position, vec3_t Angle, vec3_t Light, int SubType, OBJECT* Owner, short PKKey, WORD SkillIndex, WORD Skill, WORD SkillSerialNum, float Scale, short int sTargetIndex)
 {
+    const Audio::SoundOriginScope soundOrigin(Position, true);
     for (int icntEffect = 0; icntEffect < MAX_EFFECTS; icntEffect++)
     {
         OBJECT* o = &Effects[icntEffect];
@@ -8607,6 +8609,7 @@ void MoveEffects()
         OBJECT* o = &Effects[i];
         if (o->Live)
         {
+            const Audio::SoundOriginScope soundOrigin(o->Position);
             MoveEffect(o, i);
         }
     }

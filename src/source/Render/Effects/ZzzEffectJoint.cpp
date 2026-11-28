@@ -2,6 +2,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "Audio/SoundOriginScope.h"
 #include <cstring>
 #include <SDL3/SDL.h>
 #include "Core/Utilities/Log/ErrorReport.h"
@@ -6965,6 +6966,7 @@ void MoveJoints()
         JOINT* o = &Joints[i];
         if (o->Live)
         {
+            const Audio::SoundOriginScope soundOrigin(o->Position);
             MoveJoint(o, i);
         }
     }

@@ -1,6 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "Audio/SoundOriginScope.h"
 #include "Camera/CameraMove.h"
 #include "Render/Textures/ZzzOpenglUtil.h"
 #include "Render/Models/ZzzBMD.h"
@@ -3820,6 +3821,7 @@ void CreateFireColored(OBJECT* o, float z, float r, float g, float b);
 
 void MoveObject(OBJECT* o)
 {
+    const Audio::SoundOriginScope soundOrigin(o->Position);
     if (o->Type == 110 && o->SubType == 77)
     {
         MoveMobaSdFx(o);
